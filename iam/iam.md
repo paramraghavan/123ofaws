@@ -69,7 +69,7 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   - Select type of trusted entity **"AWS Service"**
   - Select EC2
   - Attach the above S3 permission policy file you just created
-  - Now on EC2 startup the service role will make sure 
+  - Now on EC2 startup this service role will make sure  it gets the token and key and stores it in the EC2 instance. So any applications running in the Ec2 instance can use these tokens to access S3
 - Delegated Role
 - Service linked Role
 - 
