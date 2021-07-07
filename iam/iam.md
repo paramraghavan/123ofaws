@@ -29,7 +29,7 @@ Users and Applications cannot directly access AWS, they have to access via IAM S
 - *Role*, used by AWS service or to grant external access to your account, is an identity
 - *Policies* by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 - AWS Account fully trusts the Account Root user and the IAM service
-- AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create other separate accoutns  with admin permissions to create, manage identities etc.
+- AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create other separate accounts  with admin permissions to create, manage identities etc.
 
 - What is the difference between an IAM role and an IAM user?
 An IAM user has permanent long-term credentials and is used to directly interact with AWS services. An IAM role does not have any credentials and cannot make direct requests to AWS services. IAM roles are meant to be assumed by authorized entities, such as IAM users, applications, or an AWS service such as EC2.
@@ -38,6 +38,20 @@ An IAM user has permanent long-term credentials and is used to directly interact
 ref: https://aws.amazon.com/iam/faqs/
 
 ## Policy
+A policy is an object in AWS that, when associated with an entity or resource example S3,lambda,ec2 etc.., defines their permissions. AWS evaluates these policies when a principal, such as a user, makes a request. Permissions in the policies determine whether the request to a resource is allowed or denied. Most policies are stored in AWS as JSON documents.
 - Trust policy
-- Permission policy
+- Permission policy,  Permissions in the policies determine whether the request to a resource is allowed or denied.
+Example: The following example policy grants the s3:GetObject permission to any public anonymous users
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Sid":"PublicRead",
+      "Effect":"Allow",
+      "Principal": "*",
+      "Action":["s3:GetObject","s3:GetObjectVersion"],
+      "Resource":["arn:aws:s3:::DOC-EXAMPLE-BUCKET/*"]
+    }
+  ]
+}
 
