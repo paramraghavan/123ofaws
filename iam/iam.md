@@ -73,7 +73,7 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   
   
 - **Delegated Role**, cross account access.
-![image](https://user-images.githubusercontent.com/52529498/124733796-87f6b680-dee2-11eb-9dc4-e0f487633e9d.png)
+- ![image](https://user-images.githubusercontent.com/52529498/124733796-87f6b680-dee2-11eb-9dc4-e0f487633e9d.png)
 
 - **Service linked Role**
 - 
