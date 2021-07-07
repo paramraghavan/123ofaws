@@ -54,9 +54,10 @@ grants the s3:GetObject permission to any public anonymous users
       "Effect":"Allow",
       "Principal": "*",
       "Action":["s3:GetObject","s3:GetObjectVersion"],
-      "Resource":["arn:aws:s3:::DOC-EXAMPLE-BUCKET/*"]
+      "Resource":["arn:aws:s3:::my-bucket/*"]
     }
   ]
 }
+specifying Principal: * in your policy above, the danger here is that you’ve  authorized Any AWS Customer to access your bucket.
 </pre>
 
