@@ -42,6 +42,7 @@ A policy is an object in AWS that, when associated with an entity or resource ex
 - Trust policy
 - Permission policy,  Permissions in the policies determine whether the request to a resource is allowed or denied.
 Example: The following example policy grants the s3:GetObject permission to any public anonymous users
+<pre>
 {
   "Version":"2012-10-17",
   "Statement":[
@@ -54,4 +55,5 @@ Example: The following example policy grants the s3:GetObject permission to any 
     }
   ]
 }
+</pre>
 
