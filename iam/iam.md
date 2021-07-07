@@ -37,4 +37,7 @@ An IAM user has permanent long-term credentials and is used to directly interact
 An IAM user has permanent long-term credentials and is used to directly interact with AWS services. An IAM group is primarily a management convenience to manage the same set of permissions for a set of IAM users. An IAM role is an AWS Identity and Access Management (IAM) entity with permissions to make AWS service requests. IAM roles cannot make direct requests to AWS services; they are meant to be assumed by authorized entities, such as IAM users, applications, or AWS services such as EC2. Use IAM roles to delegate access within or between AWS accounts.
 ref: https://aws.amazon.com/iam/faqs/
 
+## Policy
+- Trust policy
+- Permission policy
 
