@@ -24,10 +24,10 @@ IAM allows identities to be created within an AWS account. IAM identities start 
 ![image](https://user-images.githubusercontent.com/52529498/124683534-3a0a9000-de9b-11eb-868d-933a1babadf1.png)
 
 Users and Applications cannot directly access AWS, they have to access via IAM Service.
-- Users, Here represnets humans or applications that need to access AWS account, is an identity
-- Groups, collections of related users example chemistry department, hr department etc.
-- Role, used by AWS service or to grant external access to your account, is an identity
-- Policies by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
+- *Users*, Here represnets humans or applications that need to access AWS account, is an identity
+- *Groups*, collections of related users example chemistry department, hr department etc.
+- *Role*, used by AWS service or to grant external access to your account, is an identity
+- *Policies* by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 - AWS Account fully trusts the Account Root user and the IAM service
 - AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create other separate accoutns  with admin permissions to create, manage identities etc.
 
