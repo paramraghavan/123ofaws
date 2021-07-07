@@ -14,9 +14,12 @@ there no cost for this service
 
 ![image](https://user-images.githubusercontent.com/52529498/124613465-4104b480-de41-11eb-9df6-8033cdfb3fa6.png)
 
-IAM - has 3 parts to it 
+IAM - has 3 parts to it:
 - IDP, identity provider, create, modify or delete identities such as users and roles. 
-- Authentciate, authenticates the identity, prove you are who you claim to be-
+- Authentciate, authenticates the identity, prove you are who you claim to be.
 - Authorize,  allow or deny access to resources. Policies by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 
 IAM is  allows identities to be created within an AWS account. IAM identities start with no permissions on an AWS Account, but can be granted permissions up to that held by the Account Root User.
+
+![image](https://user-images.githubusercontent.com/52529498/124683534-3a0a9000-de9b-11eb-868d-933a1babadf1.png)
+
