@@ -61,3 +61,8 @@ grants the s3:GetObject permission to any public anonymous users
 specifying Principal: * in your policy above, the danger here is that you’ve  authorized Any AWS Customer to access your bucket.
 </pre>
 
+## Roles
+- Service Role
+- Delegated Role
+- Service linked Role
+- 
