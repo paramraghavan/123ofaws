@@ -40,8 +40,8 @@ ref: https://aws.amazon.com/iam/faqs/
 ## Policy
 A policy is an object in AWS that, when associated with an entity or resource example S3,lambda,ec2 etc.., defines their permissions. AWS evaluates these policies when a principal, such as a user, makes a request. Permissions in the policies determine whether the request to a resource is allowed or denied. Most policies are stored in AWS as JSON documents.
 - Trust policy
-- Permission policy,  Permissions in the policies determine whether the request to a resource is allowed or denied.
-Example: The following example policy grants the s3:GetObject permission to any public anonymous users
+- Permission policy,  Permissions in the policies determine whether the request to a resource is allowed or denied. The following example policy 
+grants the s3:GetObject permission to any public anonymous users
 <pre>
 {
   "Version":"2012-10-17",
