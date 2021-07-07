@@ -62,7 +62,14 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 </pre>
 
 ## Roles
-- Service Role
+- Service Role, within the same aws account. Example EC2 accessing S3 bucket, all applications running on EC2 will be able to access tis S3 bucket
+  - Create a  policy permission file for S3  access
+  - Select S3 service, choose appropriate settings
+  - next create a Role
+  - Select type of trusted entity "AWS Service"
+  - Select EC2
+  - Attach the above S3 permission policy file you just created
+  - Now on EC2 startup the service role will make sure 
 - Delegated Role
 - Service linked Role
 - 
