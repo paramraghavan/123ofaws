@@ -19,7 +19,7 @@ IAM - has 3 parts to it:
 - Authentciate, authenticates the identity, prove you are who you claim to be.
 - Authorize,  allow or deny access to resources. Policies by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 
-IAM is  allows identities to be created within an AWS account. IAM identities start with no permissions on an AWS Account, but can be granted permissions up to that held by the Account Root User.
+IAM allows identities to be created within an AWS account. IAM identities start with no permissions on an AWS Account, but can be granted permissions up to that held by the Account Root User.
 
 ![image](https://user-images.githubusercontent.com/52529498/124683534-3a0a9000-de9b-11eb-868d-933a1babadf1.png)
 
@@ -30,4 +30,11 @@ Users and Applications cannot directly access AWS, they have to access via IAM S
 - Policies by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 - AWS Account fully trusts the Account Root user and the IAM service
 - AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create other separate accoutns  with admin permissions to create, manage identities etc.
+
+- What is the difference between an IAM role and an IAM user?
+An IAM user has permanent long-term credentials and is used to directly interact with AWS services. An IAM role does not have any credentials and cannot make direct requests to AWS services. IAM roles are meant to be assumed by authorized entities, such as IAM users, applications, or an AWS service such as EC2.
+- When should I use an IAM user, IAM group, or IAM role?
+An IAM user has permanent long-term credentials and is used to directly interact with AWS services. An IAM group is primarily a management convenience to manage the same set of permissions for a set of IAM users. An IAM role is an AWS Identity and Access Management (IAM) entity with permissions to make AWS service requests. IAM roles cannot make direct requests to AWS services; they are meant to be assumed by authorized entities, such as IAM users, applications, or AWS services such as EC2. Use IAM roles to delegate access within or between AWS accounts.
+ref: https://aws.amazon.com/iam/faqs/
+
 
