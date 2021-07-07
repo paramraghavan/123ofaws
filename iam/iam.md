@@ -29,7 +29,7 @@ Users and Applications cannot directly access AWS, they have to access via IAM S
 - *Role*, used by AWS service or to grant external access to your account, is an identity
 - *Policies* by themselves do nothing, they simply allow or deny when attached to an identity. To access resources – allow or deny based on the policy associated with the identity.
 - AWS Account fully trusts the Account Root user and the IAM service
-- AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create other separate accounts  with admin permissions to create, manage identities etc.
+- AWS root user is the user we first create when we create an AWS account, this should never be used. You shoulc create separate accounts with admin permissions to create, manage identities etc.
 
 - What is the difference between an IAM role and an IAM user?
 An IAM user has permanent long-term credentials and is used to directly interact with AWS services. An IAM role does not have any credentials and cannot make direct requests to AWS services. IAM roles are meant to be assumed by authorized entities, such as IAM users, applications, or an AWS service such as EC2.
