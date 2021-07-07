@@ -70,6 +70,8 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   - Select EC2
   - Attach the above S3 permission policy file you just created
   - Now on EC2 startup this service role will make sure  it gets the token and key and stores it in the EC2 instance. So any applications running in the Ec2 instance can use these tokens to access S3
-- Delegated Role
+- Delegated Role, cross account access.
+![image](https://user-images.githubusercontent.com/52529498/124733796-87f6b680-dee2-11eb-9dc4-e0f487633e9d.png)
+
 - Service linked Role
 - 
