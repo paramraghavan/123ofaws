@@ -90,5 +90,10 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
     - addabove Assume-S3-ReadOnly policy to User A  
     - 
 
+- **Federated Role**,  truat relationship between AWS account(trusting account) and Trusted Account - on-premise identity provide like Active Directory or Web Identity provider like Google, Facebook, AWS Cognito, etc...
+
+![image](https://user-images.githubusercontent.com/52529498/124744426-bd080680-deec-11eb-87d0-b6b15dfad2aa.png)
+
+
 - **Service linked Role**
-- 
+-
