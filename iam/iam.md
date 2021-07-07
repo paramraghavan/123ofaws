@@ -95,5 +95,5 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 ![image](https://user-images.githubusercontent.com/52529498/124744426-bd080680-deec-11eb-87d0-b6b15dfad2aa.png)
 
 
-- **Service linked Role**
--
+- **Service linked Role**, this role lasts for very short time. It provides all the different permissions that that service will need while it's performing the job. One example is CloudFormation,  it needs to do certain things, but only when we tell it to do the job.  When you run CloudFormation, this role would basically grant access to S3, EC2, or maybe even the database services, and would use the service-linked role with the temporary credentials in order to accomplish the deployment of those instances and buckets.
+
