@@ -73,7 +73,7 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   
   
 - **Delegated Role**, cross account access.
-  - ![image](https://user-images.githubusercontent.com/52529498/124733796-87f6b680-dee2-11eb-9dc4-e0f487633e9d.png)
+  - ![Uploading image.png…]()
   - In the above figure we have 2 AWS accounts Act#1 and Act#3. Aws accont#1 has UserA and account#3 has UserC.Acct#1 is the truested account  and Acct#3 is the trusting account. WE create a permission policy for S3 on account#3 and trust policy for Acct#1
   - On Account #3
     - Create Role
