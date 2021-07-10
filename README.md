@@ -31,6 +31,9 @@ AWS Elastic Cloud  Compute Service or EC2 is IaaS(Infrastructure as a Service). 
 Ref: https://www.quora.com/Is-Amazon-EC2-IaaS-or-PaaS
 
 **Availability Zones**
+AWS data centers are organized into Availability Zones (AZ). Each Availability Zone comprises one or more data centers, with some Availability Zones having as many as six data centers. However, no data center can be part of two Availability Zones. Each region will have at least 2 AZ’s
+
+Each Availability Zone is designed as an independent failure zone. This means that Availability Zones are physically separated within a typical metropolitan region and are located in lower-risk flood plains (specific flood-zone categorization varies by region). In addition to having discrete uninterruptable power supply and onsite backup generation facilities, they are each fed via different grids from independent utilities to further reduce single points of failure. Availability Zones are all redundantly connected to multiple tier-1 transit providers.
 
 ![image](https://user-images.githubusercontent.com/52529498/125154052-fbd4d100-e125-11eb-87a6-f3a5ce43a9dc.png)
 
