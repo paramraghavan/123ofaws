@@ -74,6 +74,33 @@ Amazon RDS offers a managed relational database solution on AWS. With Amazon RDS
 
 
 
+**Shared Resposibility**
+
+![image](https://user-images.githubusercontent.com/52529498/125154429-03957500-e128-11eb-8918-56fa2c0c439e.png)
+
+
+**AWS Resposibility: Security of the Cloud**
+
+![image](https://user-images.githubusercontent.com/52529498/125154462-2889e800-e128-11eb-9b86-529686b96812.png)
+
+
+AWS handles the security of the cloud; specifically, the physical infrastructures that host your resources.
+• Data centers: Non descript facilities, 24/7 security guards, two-factor authentication, access logging and review, video surveillance, and disk degaussing and destruction.
+•Hardware infrastructure: Servers, storage devices, and other appliances that AWS services rely on.
+•Software infrastructure: Host operating systems, service applications, and virtualization software.
+•Network infrastructure: Routers, switches, load balancers, firewalls, cabling, etc. (including continuous network monitoring at external boundaries, secure access points, and redundant infrastructure).
+
+
+**Your Resposibility: Security in the Cloud**
+
+![image](https://user-images.githubusercontent.com/52529498/125154526-5a02b380-e128-11eb-86c0-bdae81ac2929.png)
+
+
+
+
+
+
+
 
 
 
