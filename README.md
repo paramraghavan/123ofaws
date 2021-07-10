@@ -124,5 +124,10 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 
 
 **Used following sources and tools*
-- (AWS Documnentation)[https://docs.aws.amazon.com/index.html?nc2=h_ql_doc]
+- [AWS Documnentation](https://docs.aws.amazon.com/index.html?nc2=h_ql_doc)
+- [Picture editor](https://www.photopea.com/)
+- pluralsight
+- [learn cantrill](https://learn.cantrill.io/)
+- linux academy
+- AWS trainings
 
