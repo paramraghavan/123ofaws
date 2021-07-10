@@ -7,7 +7,7 @@ needed
 
 Behind the scenes is a massive network infrastructure. Within each availability zone and between availability zones in the same region is a private AWS network. This is highly over-provisioned, highly scalable, and very high throughput. Availability zones are connected and designed for extremely low latency, as if you were in the same data center. At the edge of the private network, AWS utilizes several different public internet providers to ensure high availability, high throughput, and low latency of all network traffic. Amazon also has their own global network backbone which provides region-to-region connection. This ensures privacy, speed, and reliability.
 
-When you create/deploy an EC2 instance through the aws  console, you can use the available defualt VPC and subnet. You can create and assign a secutiry group and Nacl. The subnet could be a public subnet, meaning EC2 instance can access internet. 
+When you create/deploy an EC2 instance through the aws  console, you can use the available defualt VPC and subnet. You can create and assign a secutiry group and Nacl. The subnet could be a public subnet, meaning EC2 instance can access internet, provided SG and NACL allow. SG, Security Group, are used to set inbount and outbound rules at instance level. NACL, Network Access Control List, is applied at subnet level, nacl requires separate inbound and outbound rules
 
 
 **Notes**
