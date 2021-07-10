@@ -1,5 +1,5 @@
 # 123ofaws
-Many of my friends who are on IT are not working on AWS or only getting to AWS now, so thought of putting something that helps them. Probably be useful for aws beginners and intermediates
+For lot many of us in IT who have not still started  working on AWS or only getting to AWS now, so thought of putting something that helps them. Probably be useful for aws beginners and intermediates
 
 - iam
 - s3
