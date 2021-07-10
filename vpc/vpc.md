@@ -1,1 +1,2 @@
-You can think of a VPC as a logically isolated piece of the AWS cloud. It's like your own private data center.
+You can think of a VPC as a logically isolated piece of the AWS cloud. It's like your own private data center. Whna an AWS account is creates a default VPC is created once per region.There can only be one default VPC per region, and they can be deleted and recreated from the console UI .They always have the same IP range and same '1 subnet per AZ's (Availability Zones) architecture. Northern virginia has 6 AZ's.
+
