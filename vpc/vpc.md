@@ -13,18 +13,18 @@ All instances that are to be accessed via the internet you will need to create a
 
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
-*Typical N/w diagram*
+***Typical N/w diagram***
 
 ![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
 
- ** VPC with public subnet **
+ **VPC with public subnet**
  Following is an internet accessible VPC, a VPC with both public and private subnets.
  For the internet-accessible VPC, you'll start out with a VPC that has a public subnet,
  meaning the `instances in that subnet have public IP addresses. All instances are accessed via the internet, so you'll need to create and attach an internet gateway to your VPC. 
  
  This will allow communication from your VPC to the outside internet. You will also define routes to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups were set up properly so that you don't expose your instances to unnecessary risk. You can also configure allow and deny rules in a network access control list, and attach that to the subnet.
 
- ** VPC with public and private subnet **
+ **VPC with public and private subnet**
  Typically you need to define a VPC with both public and private subnets, and usually multiple. Your public subnet instances have full access to the internet via the router and internet gateway. Instances in the private subnet, on the other hand, do not have a public IP address. They are only assigned an internal IP address based on the CIDR block of the private subnet. In order to access these instances, you'll need to set up a Bastion or a jumpbox/jumphost in your public subnet. 
  Bastion host is a server that you would log into from the internet to then jump to the instances in your private subnet to be able to work on those. This is accomplished by setting up a route that allows traffic from the public subnet to enter the private subnet. You would still employ security groups and network access control lists, but now the instances in your private subnet have another layer of protection in that there is no direct route from the internet to access those instances because they have no public IP address.
 
