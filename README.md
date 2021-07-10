@@ -27,4 +27,13 @@ ref: https://aws.amazon.com/what-is-cloud-computing/
 AWS Elastic Cloud  Compute Service or EC2 is IaaS(Infrastructure as a Service). This is because Amazon takes the responsibility of networking, storage, server and virtualization and the user is responsible for managing the Operating System, middleware, runtime, data and application. In PaaS aka Platform as a Service the user only needs to take care of data and application, the management of rest of the layers lies in hands of the service provider. AWS Elastic BeanStalk is PaaS
 
 ![image](https://user-images.githubusercontent.com/52529498/125153939-296d4a80-e125-11eb-9a7a-b6ab9bb4222f.png)
+
 Ref: https://www.quora.com/Is-Amazon-EC2-IaaS-or-PaaS
+
+**Availability Zones**
+
+![image](https://user-images.githubusercontent.com/52529498/125154052-fbd4d100-e125-11eb-87a6-f3a5ce43a9dc.png)
+
+
+
+
