@@ -10,6 +10,13 @@ Behind the scenes is a massive network infrastructure. Within each availability 
 When you create/deploy an EC2 instance through the aws  console, you can use the available defualt VPC and subnet. You can create and assign a securitry group and Nacl. The subnet could be a public subnet, meaning EC2 instance can access internet, provided SG and NACL allow. SG, Security Group, are made up of set inbount and outbound rules at instance level within an AZ within a VPC. NACL, Network Access Control List, is applied at subnet level, nacl requires separate inbound and outbound rules. Traffic to your VPC will come from either an internet gateway or a VPN gateway then it goes to the router. The route table is the next step to determine what to do with that traffic followed by the network access control list, or NACL. Finally, after it's passed through all of these steps, the traffic will go to the security group and specifically the inbound rule of this security group. If the traffic is allowed by the inbound rule, then, and only then, will it go to the instance. 
 
 All instances that are to be accessed via the internet you will need to create and attach an internet gateway to your VPC. This will allow communication from your VPC to the outside internet. You will also define routes to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your EC2 instances via their public IP addresses. 
+**VPC with public subnet**
+ 
+ Following is an internet accessible VPC, a VPC with both public and private subnets.
+ For the internet-accessible VPC, you'll start out with a VPC that has a public subnet,
+ meaning the `instances in that subnet have public IP addresses. All instances are accessed via the internet, so you'll need to create and attach an internet gateway to your VPC. 
+ 
+ This will allow communication from your VPC to the outside internet. You will also define routes to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups were set up properly so that you don't expose your instances to unnecessary risk. You can also configure allow and deny rules in a network access control list, and attach that to the subnet.
 
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
@@ -17,14 +24,8 @@ All instances that are to be accessed via the internet you will need to create a
 
 ![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
 
- **VPC with public subnet**
- Following is an internet accessible VPC, a VPC with both public and private subnets.
- For the internet-accessible VPC, you'll start out with a VPC that has a public subnet,
- meaning the `instances in that subnet have public IP addresses. All instances are accessed via the internet, so you'll need to create and attach an internet gateway to your VPC. 
- 
- This will allow communication from your VPC to the outside internet. You will also define routes to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups were set up properly so that you don't expose your instances to unnecessary risk. You can also configure allow and deny rules in a network access control list, and attach that to the subnet.
-
  **VPC with public and private subnet**
+ 
  Typically you need to define a VPC with both public and private subnets, and usually multiple. Your public subnet instances have full access to the internet via the router and internet gateway. Instances in the private subnet, on the other hand, do not have a public IP address. They are only assigned an internal IP address based on the CIDR block of the private subnet. In order to access these instances, you'll need to set up a Bastion or a jumpbox/jumphost in your public subnet. 
  Bastion host is a server that you would log into from the internet to then jump to the instances in your private subnet to be able to work on those. This is accomplished by setting up a route that allows traffic from the public subnet to enter the private subnet. You would still employ security groups and network access control lists, but now the instances in your private subnet have another layer of protection in that there is no direct route from the internet to access those instances because they have no public IP address.
 
