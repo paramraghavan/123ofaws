@@ -13,11 +13,26 @@ All instances that are to be accessed via the internet you will need to create a
 
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
-**Typical N/w diagram**
+*Typical N/w diagram*
 
 ![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
 
+ ** VPC with public subnet **
+ Following is an internet accessible VPC, a VPC with both public and private subnets.
+ For the internet-accessible VPC, you'll start out with a VPC that has a public subnet,
+ meaning the `instances in that subnet have public IP addresses. All instances are accessed via the internet, so you'll need to create and attach an internet gateway to your VPC. 
+ 
+ This will allow communication from your VPC to the outside internet. You will also define routes to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups were set up properly so that you don't expose your instances to unnecessary risk. You can also configure allow and deny rules in a network access control list, and attach that to the subnet.
 
+ ** VPC with public and private subnet **
+ Typically you need to define a VPC with both public and private subnets, and usually multiple. Your public subnet instances have full access to the internet via the router and internet gateway. Instances in the private subnet, on the other hand, do not have a public IP address. They are only assigned an internal IP address based on the CIDR block of the private subnet. In order to access these instances, you'll need to set up a Bastion or a jumpbox/jumphost in your public subnet. 
+ Bastion host is a server that you would log into from the internet to then jump to the instances in your private subnet to be able to work on those. This is accomplished by setting up a route that allows traffic from the public subnet to enter the private subnet. You would still employ security groups and network access control lists, but now the instances in your private subnet have another layer of protection in that there is no direct route from the internet to access those instances because they have no public IP address.
+
+ If you need to access the external public internet from your private subnet to perform patches or maintenance, you'll need to create a NAT(Network Address Translation) gateway and attach it to your subnet. A NAT gateway allows requests to be initiated from instances in your private subnet to go out to the internet and receive a response. It does not, however, allow requests from the outside internet to be initiated and reach your instances inside of your private subnet. This is a very common architecture for applications that have multiple instances that serve different roles. For example, backend database or application servers that do not need to receive traffic from the public internet can be in your private subnet. This allows these to be managed differently and to be more secure than if they were in the public subnet. 
+ 
+ We can also add additional access to the private subnet via a VPN connection. You would use this if you wanted to have your on-premises network have an easier way to access your private subnet without having to go through the public internet, through a Bastion host, and into your private subnet. 
+ 
+ To create a VPN connection, you would set up a customer gateway in your on-premises network, and a VPN gateway in your VPC. These two gateways could then be connected via a VPN connection. This allows you to communicate from your on-premises network to instances in your private subnet using the internal IP address of those instances. In many cases, this is more convenient than setting up and maintaining a Bastion host and allows private subnets to essentially become an extension of your on-premises data center. 
 
 
 
