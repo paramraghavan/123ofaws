@@ -13,9 +13,10 @@ All instances that are to be accessed via the internet you will need to create a
 
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
+**Typical N/w diagram**
 
+![image](https://user-images.githubusercontent.com/52529498/125170254-1174e580-e17c-11eb-898c-ce6d6597dba5.png)
 
-![image](https://user-images.githubusercontent.com/52529498/125170224-e8eceb80-e17b-11eb-8088-70bf76d6ba9f.png)
 
 
 
