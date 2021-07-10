@@ -15,7 +15,7 @@ All instances that are to be accessed via the internet you will need to create a
 
 **Typical N/w diagram**
 
-![image](https://user-images.githubusercontent.com/52529498/125170254-1174e580-e17c-11eb-898c-ce6d6597dba5.png)
+![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
 
 
 
