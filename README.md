@@ -12,9 +12,12 @@ Many of my friends who are on IT are not working on AWS or only getting to AWS n
 - AWS Fargate
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
+
 Cloud Computing 
+
  ![image](https://user-images.githubusercontent.com/52529498/125153907-fcb93300-e124-11eb-8d50-9cfbda1cd436.png)
-https://aws.amazon.com/what-is-cloud-computing/
+ 
+ref: https://aws.amazon.com/what-is-cloud-computing/
 
 ![image](https://user-images.githubusercontent.com/52529498/125153922-12c6f380-e125-11eb-864c-f74a574e3d9f.png)
 
