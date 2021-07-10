@@ -21,7 +21,7 @@ ref: https://aws.amazon.com/what-is-cloud-computing/
 
 ![image](https://user-images.githubusercontent.com/52529498/125153922-12c6f380-e125-11eb-864c-f74a574e3d9f.png)
 
-3 models of Cloud computing
+**3 models of Cloud computing**
 ![image](https://user-images.githubusercontent.com/52529498/125153936-21150f80-e125-11eb-8b0c-78b8683bbc6c.png)
  
 AWS Elastic Cloud  Compute Service or EC2 is IaaS(Infrastructure as a Service). This is because Amazon takes the responsibility of networking, storage, server and virtualization and the user is responsible for managing the Operating System, middleware, runtime, data and application. In PaaS aka Platform as a Service the user only needs to take care of data and application, the management of rest of the layers lies in hands of the service provider. AWS Elastic BeanStalk is PaaS
