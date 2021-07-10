@@ -14,6 +14,12 @@ All instances that are to be accessed via the internet you will need to create a
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
 
+
+![image](https://user-images.githubusercontent.com/52529498/125170224-e8eceb80-e17b-11eb-8088-70bf76d6ba9f.png)
+
+
+
+
 **Notes**
 https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
 https://aws.amazon.com/vpc/faqs/
