@@ -96,6 +96,29 @@ AWS handles the security of the cloud; specifically, the physical infrastructure
 
 
 
+**Converting a simple OnPremise network AWS**
+
+***On Premise***
+
+![image](https://user-images.githubusercontent.com/52529498/125156517-d51d9700-e133-11eb-8797-72c98fe35004.png)
+
+***AWS Cloud version of onPremise above***
+
+![image](https://user-images.githubusercontent.com/52529498/125156869-cafc9800-e135-11eb-9461-7985d8cc7c24.png)
+
+
+What happens when you turn this on premsie data center infrastructure into an AWS infrastructure?
+Servers, such as these web servers and app servers, are replaced with Amazon EC2 instances that run all of the same software. Because Amazon EC2 instances can run a variety of Windows Server, Red Hat, SUSE, Ubuntu, or our own Amazon Linux operating systems, virtually all server applications can be run on Amazon EC2 instances.
+
+The LDAP server is replaced with AWS Directory Service, which supports LDAP authentication and allows you to easily set up and run Microsoft Active Directory in the cloud or connect your AWS resources with existing on-premises Microsoft Active Directory.
+Software-based load balancers are replaced with Elastic Load Balancing load balancers. Elastic Load Balancing is a fully managed load balancing solution that scales automatically as needed and can perform health checks on attached resources, thus redistributing load away from unhealthy resources as necessary.
+
+Databases can be replaced with Amazon Relational Database Service (RDS), which lets you run Amazon Aurora, PostgreSQL, MySQL, MariaDB, Oracle, and Microsoft SQL Server on a managed AWS-based platform. Amazon RDS offers master, read replica, and standby instances.
+Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus replacing the need for on-premises database backup hardware.
+
+
+
+
 
 
 
