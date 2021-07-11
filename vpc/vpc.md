@@ -46,6 +46,8 @@ All instances that are to be accessed via the internet you will need to create a
 - https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
 - https://aws.amazon.com/vpc/faqs/
 - http://cidr.xyz
+- https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones
+- https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html
 
 
 
