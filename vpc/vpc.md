@@ -27,9 +27,9 @@ All instances that are to be accessed via the internet you will need to create a
 
 ***Typical N/w diagram***
 
-![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
+ **VPC with public and private subnet, see following picture**
 
- **VPC with public and private subnet, see above diagram**
+![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
  
  Typically you need to define a VPC with both public and private subnets. Your public subnet instances have full access to the internet via the router and internet gateway. Instances in the private subnet, on the other hand, do not have a public IP address. They are only assigned an internal IP address based on the CIDR block of the private subnet. In order to access these instances, you will need to set up a Bastion or a jumpbox or jumphost in your public subnet. 
  Bastion host is a server that you would log into from the internet to then jump to the instances in your private subnet to be able to work on those. This instance could be you EMR master node or EB server. This is accomplished by setting up a route that allows traffic from the public subnet to enter the private subnet. You would still employ security groups and network access control lists, but now the instances in your private subnet have another layer of protection in that t**here is no direct route from the internet to access those instances because they have no public IP address**.
