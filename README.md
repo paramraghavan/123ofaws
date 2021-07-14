@@ -6,7 +6,7 @@ For lot many of us in IT who have not still started  working on cloud or only ge
 - lambda
 - api gateway
 - serverless framework, see serverless.com
-- vpc
+- [vpc](https://github.com/paramraghavan/123ofaws/blob/main/vpc/vpc.md)
 - ec2
 - step functions/state machine
 - AWS Fargate
