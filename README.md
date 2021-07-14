@@ -1,7 +1,7 @@
 # 123ofaws
 For lot many of us in IT who have not still started  working on cloud or only getting to cloud service like AWS, Google Cloud, Azure, Oracle Cloud etc.. now, thought of putting something that helps them. Probably be useful for aws beginners and intermediates
 
-- iam
+- [iam](https://github.com/paramraghavan/123ofaws/blob/main/iam/iam.md)
 - s3
 - lambda
 - api gateway
