@@ -63,6 +63,8 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 
 ## Roles
 - **Service Role**, is applicable within the same aws account. Example EC2 accessing S3 bucket, all applications running on EC2 will be able to access this S3 bucket
+  - Login into AWS Console
+  - Select IAM service
   - **Create** a  policy permission file for S3  access
   - Select S3 service, choose appropriate settings
   - **Next** create a Role
