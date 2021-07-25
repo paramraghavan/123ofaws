@@ -10,7 +10,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [serverless framework](https://www.serverless.com/), serverless is a very easy to use and powerful framework to use aws services. I have build many project using this framework, see [sample alexa project](https://github.com/paramraghavan/sls-py-alexa-color-picker)
 - ec2
 - step functions/state machine
-- AWS Fargate
+- [AWS Fargate](https://github.com/paramraghavan/123ofaws/blob/main/aws-fargate/aws_fargate.md)
 - Kubernetes(k8s) & Docker
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
