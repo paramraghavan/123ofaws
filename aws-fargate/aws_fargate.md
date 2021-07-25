@@ -1,3 +1,6 @@
+AWS FARGATE
+----------------
+
 With the execution time limits of the AWS Lambda platform, there are a lot of use cases involving long-running processes that
 are hard to implement.
 
@@ -16,6 +19,5 @@ and IAM policies, and launch the application. You can define an ECS Task and cal
 
 
 
-Notes:
-----------
+## Notes:
 https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
