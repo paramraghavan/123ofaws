@@ -1,15 +1,17 @@
 # 123ofaws
-For lot many of us in IT who have not still started  working on cloud or only getting to cloud service like AWS, Google Cloud, Azure, Oracle Cloud etc.. now, thought of putting something that helps them. Probably be useful for aws beginners and intermediates
+For lot many of us in IT who have not still started  working on cloud or only now getting to cloud service like AWS, Google Cloud, Azure, Oracle Cloud etc.., thought of putting something that helps. Probably be useful for aws beginners and intermediates
 
-- iam
-- s3
+ I think services - IAM, VPC and S3 form the foundation of AWS, once you have a good understanding of these services rest of the services will be easy to follow.
+- [iam](https://github.com/paramraghavan/123ofaws/blob/main/iam/iam.md)
+- [vpc](https://github.com/paramraghavan/123ofaws/blob/main/vpc/vpc.md)
+- [s3](https://github.com/paramraghavan/123ofaws/blob/main/s3/s3.md)
 - lambda
 - api gateway
-- serverless framework, see serverless.com
-- vpc
+- [serverless framework](https://www.serverless.com/), serverless is a very easy to use and powerful framework to use aws services. I have build many project using this framework, see [sample alexa project](https://github.com/paramraghavan/sls-py-alexa-color-picker)
 - ec2
 - step functions/state machine
 - AWS Fargate
+- Kubernetes(k8s) & Docker
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 

@@ -63,6 +63,8 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 
 ## Roles
 - **Service Role**, is applicable within the same aws account. Example EC2 accessing S3 bucket, all applications running on EC2 will be able to access this S3 bucket
+  - Login into AWS Console
+  - Select IAM service
   - **Create** a  policy permission file for S3  access
   - Select S3 service, choose appropriate settings
   - **Next** create a Role
@@ -73,14 +75,15 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   
   
 - **Delegated Role**, cross account access.
-  - ![image](https://user-images.githubusercontent.com/52529498/124752166-81be0580-def5-11eb-8ed4-f9302c7b1e64.png)
-  - In the above figure we have 2 AWS accounts Act#1 and Act#3. Aws accont#1 has UserA and account#3 has UserC.Acct#1 is the truested account  and Acct#3 is the trusting account. WE create a permission policy for S3 on account#3 and trust policy for Acct#1
+  - ![Delegated Role](https://user-images.githubusercontent.com/52529498/126061958-d728115f-b453-423c-92c7-50531db038de.png)
+  - In the above figure we have 2 AWS accounts Act#1 and Act#3. Aws account#1 has UserA and account#3 has UserC. Acct#1 is the trusted account  and Acct#3 is the trusting account. We create a permission policy for S3 on account#3 and trust policy for Acct#1
   - On Account #3
+    - Assuming that youa re logged into the AWS console, IAM Service  
     - Create Role
     - Select another AWS account
     - Add Account #1
     - Attach s3 readonly permission policy, name and save it
-    - get the Role ARN and mote it down.
+    - get the Role ARN and note it down.
   - On Account #1
     - create policy, name it Assume-S3-Read-Only
     - Choose service **STS**
