@@ -33,6 +33,12 @@
         }
     ]
 }
+
+
+References:
+- https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html#create-task-execution-role  ** -- create role for Fargate to be use aws services
+- https://aws.amazon.com/premiumsupport/knowledge-center/ecs-fargate-access-aws-services/ ** - fargate access s3 bucket
+
 </pre>
 
 ### Trust Relationship
