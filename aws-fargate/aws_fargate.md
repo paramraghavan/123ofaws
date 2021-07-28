@@ -18,6 +18,9 @@ With Fargate, all you have to do is package your application in containers, spec
 and IAM policies, and launch the application. You can define an ECS Task and call it from your Lambda function.
 
 
+Project (docker-copyfile)[], has steps to create docker image to be used by AWS ECS Fargate container.
+This image runs a shell script which copies file from S3 Input bucket into to  working directory and copies the file from working directory back to S3 Output bucket.
+
 
 ## References:
 https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
