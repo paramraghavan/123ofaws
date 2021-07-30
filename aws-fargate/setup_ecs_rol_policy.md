@@ -2,6 +2,8 @@
 
 ##  ecsTaskExecutionRole
 
+This role is used by the task defination to  excute the AWS services used by the container
+
 ### Create Role ecsTaskExecutionRole
 - IAM, Create role.
 - Select type of trusted entity section
