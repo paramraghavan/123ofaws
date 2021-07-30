@@ -7,8 +7,8 @@ This role will be used by the task defination to  excute the AWS services used b
 ### Create Role ecsTaskExecutionRole
 - IAM, Create role.
 - Select type of trusted entity section
-- Select AWS service EC2, Lambda and others choose AWS service
-- Select a service,  choose AWS service, Elastic Container Service.
+- Select AWS service - EC2, Lambda or others
+- select a service to view its use cases, Select  *Elastic Container Service*.
 - Select use case, choose Elastic Container Service Task
 - Attach permissions policy section, search for AmazonECSTaskExecutionRolePolicy
 - For Role name, type ecsTaskExecutionRole and choose Create role.
