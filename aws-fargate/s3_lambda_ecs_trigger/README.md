@@ -28,7 +28,6 @@ https://www.serverless.com/examples/aws-python-scheduled-cron/
 
 Yeoman generator template.
 -------------------------
-
  This generator makes it much easier to create a narrow IAM policy template that will cover many Serverless use cases
  - npm install -g yo generator-serverless-policy
  - yo serverless-policy --> running this command in the serverless project folder, slsflaskapp. This created file slsflaskapp-dev-us-east-1-policy.json, used the content of above file to create poliy 

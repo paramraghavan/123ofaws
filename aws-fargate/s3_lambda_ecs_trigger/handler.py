@@ -78,14 +78,6 @@ def process(event, context):
                             'name': 'INPUT_FILE_NAME',
                             'value': INPUT_FILE_NAME
                         },
-                        # {
-                        #     'name': 'AWS_ACCESS_KEY_ID_VAL',
-                        #     'value': 'AKIAZ77QOIYEYKF52H6W'
-                        # },
-                        # {
-                        #     'name': 'AWS_SECRET_ACCESS_KEY_VAL',
-                        #     'value': 'WUI7xa3WGQLtYmfg+aAX8UxCEvDLg/c4J+gxZvjo'
-                        # },
                     ],
                 },
             ],
