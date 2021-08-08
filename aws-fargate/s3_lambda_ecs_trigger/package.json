@@ -1,0 +1,17 @@
+{
+  "name": "s3_lambda_trigger",
+  "version": "1.0.0",
+  "description": "https://www.serverless.com/framework/docs/providers/aws/events/s3/ https://www.serverless.com/examples/",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "serverless-fargate-plugin": "^2.0.0",
+    "serverless-pseudo-parameters": "^2.5.0"
+  }
+}

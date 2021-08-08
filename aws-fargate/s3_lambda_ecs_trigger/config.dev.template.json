@@ -1,0 +1,12 @@
+{
+  "region": "us-east-1",
+  "bucket": "bucket",
+  "in_folder": "in",
+  "out_folder": "out",
+  "ecsTaskVpcSubnet1": "subnet-1234eeeee",
+  "ecsTaskVpcSubnet2": "subnet-234eeeeee",
+  "clusterName": "aws-fargate-ecs",
+  "containerName": "docket-copyfile-container",
+  "docker-copy-image": "222222222.dkr.ecr.us-east-1.amazonaws.com/docker-copy-file:latest",
+  "taskName": "docker-copyfile"
+}
