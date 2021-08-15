@@ -49,16 +49,27 @@ A Kubernetes cluster can be deployed on either physical or virtual machines. To 
 - https://github.com/kubernetes/minikube
 - [mimi cube install](https://minikube.sigs.k8s.io/docs/start/)  
 - [Install aand start minikube](https://minikube.sigs.k8s.io/docs/start/
+- https://www.oreilly.com/library/view/kubernetes-for-serverless/9781788620376/a24ee8be-d8b0-45cb-8b2d-a12a26e29db7.xhtml
 <pre>
 start docker application
 run --> minikube start --driver=docker
 minikube kubectl -- get po -A
 minikube status
+output:
     type: Control Plane
     host: Running
     kubelet: Running -> runs on the worker node
     apiserver: Running
     kubeconfig: Configured
+ref: https://minikube.sigs.k8s.io/docs/handbook/dashboard/
+
+kubectl proxy --port=8080
+http://localhost:8080/ui
+
+minikube dashboard --url
+output:
+http://127.0.0.1:55002/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/
+
 
 minikube pause
 minikube unpause
@@ -73,7 +84,15 @@ https://minikube.sigs.k8s.io/docs/drivers/docker/
 
 # coding begins deploy code on minikube
 - [serverless-and-kubernetes-via-kubeless](https://www.serverless.com/blog/serverless-and-kubernetes-via-kubeless)
-
+<pre>
+# Create a new Serverless Service/Project
+$ serverless create --template kubeless-python --path C:\Users\padma\github\123ofaws\kubernetes\k8s_serverless
+# Change into the newly created directory
+$ cd new-project
+# Install npm dependencies
+$ npm install
+https://github.com/kubernetes/minikube
+</pre>
 
 
 Notes:
