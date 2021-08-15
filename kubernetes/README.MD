@@ -15,4 +15,5 @@ Basically decouples out app from underlying cloud. k8s is kind of a *conductor* 
 
 Notes:
 - https://kubeless.io/
+- https://github.com/kubeless/kubeless/blob/master/README.md
 - https://www.serverless.com/blog/serverless-and-kubernetes-via-kubeless
