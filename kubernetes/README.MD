@@ -8,3 +8,11 @@ VM-Ware vs Docker
 
 - If your applications runs on k8s,  then it can run on cloud or for that matter any flavor of cloud or off cloud - meaning on-premise with no changes to code.
 Basically decouples out app from underlying cloud. k8s is kind of a *conductor* of a container orchestra
+
+
+
+
+
+Notes:
+- https://kubeless.io/
+- https://www.serverless.com/blog/serverless-and-kubernetes-via-kubeless
