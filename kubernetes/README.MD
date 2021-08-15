@@ -14,7 +14,7 @@ Basically decouples out app from underlying cloud. k8s is kind of a *conductor* 
 K8s
 ----------------------
 
-#Kubernetes Clusters
+# Kubernetes Clusters
 Kubernetes coordinates a highly available cluster of computers that are connected to work as a single unit. The abstractions in Kubernetes allow you to deploy containerized applications to a cluster without tying them specifically to individual machines. To make use of this new model of deployment, applications need to be packaged in a way that decouples them from individual hosts: they need to be containerized. Containerized applications are more flexible and available than in past deployment models, where applications were installed directly onto specific machines as packages deeply integrated into the host. Kubernetes automates the distribution and scheduling of application containers across a cluster in a more efficient way. Kubernetes is an open-source platform and is production-ready.
 
 A Kubernetes cluster consists of two types of resources:
@@ -27,7 +27,7 @@ Minikube
 Kubernetes is a production-grade, open-source platform that orchestrates the placement (scheduling) and execution of application containers within and across computer clusters.
 
 
-#Cluster Diagram
+# Cluster Diagram
 
 ![image](https://user-images.githubusercontent.com/52529498/129478836-6ed6c799-dfdd-4d3a-8460-72f2e93f0b63.png)
 
