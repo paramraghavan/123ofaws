@@ -102,3 +102,4 @@ Notes:
 - https://github.com/kubernetes/minikube 
 - [mimi cube install](https://minikube.sigs.k8s.io/docs/start/)  
 - https://github.com/kubeless/kubeless/blob/master/README.md
+- [online block diagram tool](https://www.diagrameditor.com/)
