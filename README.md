@@ -138,5 +138,7 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 
 **Most of the diagrams are handdrawn, used following to update such that the labels are readable**
 - microsoft paint
-- [PhotoPea editor](https://www.photopea.com/)
+- [Sequence Diagram](https://sequencediagram.org/)
+- [online photo editor](https://www.photopea.com/)
+- [online block diagram tool](https://www.diagrameditor.com/)
 
