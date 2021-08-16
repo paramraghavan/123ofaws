@@ -11,7 +11,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - ec2
 - step functions/state machine
 - [AWS Fargate](https://github.com/paramraghavan/123ofaws/blob/main/aws-fargate/aws_fargate.md)
-- Kubernetes(k8s) & Docker
+- [Kubernetes(k8s) & Docker](https://github.com/paramraghavan/123ofaws/tree/main/kubernetes)
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
@@ -138,5 +138,7 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 
 **Most of the diagrams are handdrawn, used following to update such that the labels are readable**
 - microsoft paint
-- [PhotoPea editor](https://www.photopea.com/)
+- [Sequence Diagram](https://sequencediagram.org/)
+- [online photo editor](https://www.photopea.com/)
+- [online block diagram tool](https://www.diagrameditor.com/)
 
