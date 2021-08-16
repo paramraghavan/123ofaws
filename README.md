@@ -11,7 +11,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - ec2
 - step functions/state machine
 - [AWS Fargate](https://github.com/paramraghavan/123ofaws/blob/main/aws-fargate/aws_fargate.md)
-- Kubernetes(k8s) & Docker
+- [Kubernetes(k8s) & Docker](https://github.com/paramraghavan/123ofaws/tree/main/kubernetes)
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
