@@ -6,7 +6,7 @@ VM-Ware vs Docker
 -------------------
 ![image](https://user-images.githubusercontent.com/52529498/129439177-542d37b7-75b9-4823-a276-9df80b56ccd7.png)
 
-- If your applications runs on k8s,  then it can run on cloud or for that matter any flavor of cloud or off cloud - meaning on-premise with no changes to code.
+- If your applications runs on k8s,  then it can run on cloud or for that matter any flavor of cloud or off cloud - meaning on-premise with no changes to your code.
 Basically decouples application from underlying cloud. k8s is kind of a *conductor* of a container orchestra
 - https://kubernetes.io/docs/concepts/overview/components
 
@@ -25,8 +25,8 @@ Kubernetes coordinates a highly available cluster of computers that are connecte
 ![image](https://user-images.githubusercontent.com/52529498/129478836-6ed6c799-dfdd-4d3a-8460-72f2e93f0b63.png)
 
 # Control Plane Image
-![image](https://user-images.githubusercontent.com/52529498/129479478-976b1da1-38f6-4a55-a16a-ee3bd9c30e82.png)
-
+![image](https://user-images.githubusercontent.com/52529498/129500383-8515dacf-a0e5-4ff6-8b6b-90819acfdd2f.png)
+<!--![image](https://user-images.githubusercontent.com/52529498/129479478-976b1da1-38f6-4a55-a16a-ee3bd9c30e82.png)-->
 - **The Control Plane** is responsible for managing the cluster. The Control Plane coordinates all activities in your cluster, such as scheduling applications(Scheduler), maintaining applications' desired state(Cluster store), scaling applications, and rolling out new updates (Controller) and apiserver to interface with Nodes
 
 # Node Image
@@ -42,6 +42,13 @@ Kubernetes coordinates a highly available cluster of computers that are connecte
 When you deploy applications on Kubernetes, you tell the control plane to start the application containers. The control plane schedules the containers to run on the cluster's nodes. The nodes communicate with the control plane using the Kubernetes API, which the control plane exposes. End users can also use the Kubernetes API directly to interact with the cluster.
 
 A Kubernetes cluster can be deployed on either physical or virtual machines. To get started with Kubernetes development, you can use Minikube. Minikube is a lightweight Kubernetes implementation that creates a VM on your local machine and deploys a simple cluster containing only one node. Minikube is available for Linux, macOS, and Windows systems. The Minikube CLI provides basic bootstrapping operations for working with your cluster, including start, stop, status, and delete. For this tutorial, however, you'll use a provided online terminal with Minikube pre-installed.
+
+# Amazon EKS 
+Amazon EKS is a managed service that makes it easy for you to use Kubernetes on AWS without needing to install 
+and operate your own Kubernetes control plane. Amazon EKS exposes a Kubernetes API endpoint. Your existing 
+Kubernetes tooling can connect directly to EKS managed control plane. Worker nodes run as EC2 instances in 
+your account. Ref: https://console.aws.amazon.com/eks/home?region=us-east-1#
+
 
 **ref**: https://kubernetes.io/docs/tutorials/kubernetes-basics/create-cluster/cluster-intro/
 
@@ -63,8 +70,13 @@ output:
     kubeconfig: Configured
 ref: https://minikube.sigs.k8s.io/docs/handbook/dashboard/
 
+kubectl get nodes
+kubectl cluster-info
+Start the Kubernetes Dashboard on port 8080
 kubectl proxy --port=8080
 http://localhost:8080/ui
+
+ref: https://docs.bitnami.com/tutorials/get-started-serverless-computing-kubeless/
 
 minikube dashboard --url
 output:
@@ -81,6 +93,18 @@ https://github.com/kubernetes/minikube/issues/9040
 https://minikube.sigs.k8s.io/docs/drivers/docker/
 </pre>
 
+# Install the Kubeless CLI tool
+Kubeless is an application designed to be deployed on top of a Kubernetes cluster. It accepts commands 
+to register, delete, and list functions that you would like to run. Once Kubeless is running, all of the
+hassles of setting up containers and pods, disappear.
+
+
+<!--curl -L https://github.com/kubeless/kubeless/releases/download/v1.0.8/kubeless_windows-amd64.zip > kubeless.zip -->
+wget https://github.com/kubeless/kubeless/releases/download/v1.0.8/kubeless_windows-amd64.zip  -o kubeless.zip
+<!-- unzip kubeless.zip--> used 7-zip ui to unzip
+copy .\kuberless\bundles\kubeless_windows-amd64\kubeless.exe c:\minikube
+
+ref: https://github.com/kubeless/kubeless/releases/tag/v1.0.8
 
 # coding begins deploy code on minikube
 - [serverless-and-kubernetes-via-kubeless](https://www.serverless.com/blog/serverless-and-kubernetes-via-kubeless)
