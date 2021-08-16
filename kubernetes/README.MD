@@ -22,12 +22,12 @@ Kubernetes coordinates a highly available cluster of computers that are connecte
     - Nodes/worker nodes are the workers that run applications
 
 # Cluster Diagram
-<!--![image](https://user-images.githubusercontent.com/52529498/129478836-6ed6c799-dfdd-4d3a-8460-72f2e93f0b63.png)-->
-![image](https://user-images.githubusercontent.com/52529498/129500383-8515dacf-a0e5-4ff6-8b6b-90819acfdd2f.png)
+![image](https://user-images.githubusercontent.com/52529498/129478836-6ed6c799-dfdd-4d3a-8460-72f2e93f0b63.png)
 
 
 # Control Plane Image
-![image](https://user-images.githubusercontent.com/52529498/129479478-976b1da1-38f6-4a55-a16a-ee3bd9c30e82.png)
+![image](https://user-images.githubusercontent.com/52529498/129500383-8515dacf-a0e5-4ff6-8b6b-90819acfdd2f.png)
+<!--![image](https://user-images.githubusercontent.com/52529498/129479478-976b1da1-38f6-4a55-a16a-ee3bd9c30e82.png)-->
 
 - **The Control Plane** is responsible for managing the cluster. The Control Plane coordinates all activities in your cluster, such as scheduling applications(Scheduler), maintaining applications' desired state(Cluster store), scaling applications, and rolling out new updates (Controller) and apiserver to interface with Nodes
 
