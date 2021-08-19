@@ -94,14 +94,13 @@ minikube ssh
 - Start minikube, if it is not already started
 minikube start
   
-- Steps to use the docker daemon running inside minikube to build image and deploy this image onto minikube. Important note: You have to run eval $(minikube docker-env) on each terminal you want to use, since it only sets the environment variables for the current shell session.
-- Set docker env
+- Steps to use the docker daemon running inside minikube to build image and deploy this image onto minikube. **Important note:** You have to run eval $(minikube docker-env) on each terminal you want to use, since it only sets the environment variables for the current shell session.
 <pre>
 eval $(minikube docker-env)             # unix shells
 & minikube -p minikube docker-env | Invoke-Expression # PowerShell
 docker images  
 </pre>
-- pyflask using it's default port 5000, change directory to folder having the Dockerfile
+- pyflask using it's default port 5000, change directory to folder having the Dockerfile and then build th docker inage as follows:
 
 docker build -t pyflask-docker .
 
