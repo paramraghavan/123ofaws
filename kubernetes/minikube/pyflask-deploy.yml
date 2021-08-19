@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pyflask-deploy
+  name: pyflask-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pyflask-deploy
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: pyflask-deploy
+    spec:
+      containers:
+      - image: pyflask-docker
+        name: pyflask-docker
+        resources: {}
+        imagePullPolicy: Never
