@@ -41,7 +41,7 @@ Kubernetes coordinates a highly available cluster of computers that are connecte
 
 When you deploy applications on Kubernetes, you tell the control plane to start the application containers. The control plane schedules the containers to run on the cluster's nodes. The nodes communicate with the control plane using the Kubernetes API, which the control plane exposes. End users can also use the Kubernetes API directly to interact with the cluster.
 
-A Kubernetes cluster can be deployed on either physical or virtual machines. To get started with Kubernetes development, you can use Minikube. Minikube is a lightweight Kubernetes implementation that creates a VM on your local machine and deploys a simple cluster containing only one node. Minikube is available for Linux, macOS, and Windows systems. The Minikube CLI provides basic bootstrapping operations for working with your cluster, including start, stop, status, and delete. For this tutorial, however, you'll use a provided online terminal with Minikube pre-installed.
+A Kubernetes cluster can be deployed on either physical or virtual machines. To get started with Kubernetes development, you can use Minikube. 
 
 # Amazon EKS 
 Amazon EKS is a managed service that makes it easy for you to use Kubernetes on AWS without needing to install 
@@ -51,11 +51,9 @@ your account.
 - https://console.aws.amazon.com/eks/home?region=us-east-1#
 - https://kubernetes.io/docs/tutorials/kubernetes-basics/create-cluster/cluster-intro/
 
-# What is minikube vs kubernetes
+# minikube vs kubernetes
 
-Minikube is a utility you can use to run Kubernetes (k8s) on your local machine. It creates a 
-single node cluster contained in a virtual machine (VM). This cluster lets you demo Kubernetes 
-operations without requiring the time and resource-consuming installation of full-blown K8s.
+Minikube is a lightweight Kubernetes implementation that creates a VM on your local machine and deploys a simple cluster containing only one node. Minikube is available for Linux, macOS, and Windows systems. The Minikube CLI provides basic bootstrapping operations for working with your cluster, including start, stop, status, and delete.
 
 ## Steps to install Minikube, deploy and execute apps
 - Install docker desktop
