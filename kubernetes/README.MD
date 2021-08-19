@@ -160,7 +160,5 @@ hassles of setting up containers and pods, disappear.
 
 
 Notes:
-- https://kubeless.io/
-- https://github.com/kubernetes/minikube 
-- [mini cube install](https://minikube.sigs.k8s.io/docs/start/)  
+- https://kubeless.io/ 
 - https://github.com/kubeless/kubeless/blob/master/README.md
