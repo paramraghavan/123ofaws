@@ -41,7 +41,7 @@ Kubernetes coordinates a highly available cluster of computers that are connecte
 
 When you deploy applications on Kubernetes, you tell the control plane to start the application containers. The control plane schedules the containers to run on the cluster's nodes. The nodes communicate with the control plane using the Kubernetes API, which the control plane exposes. End users can also use the Kubernetes API directly to interact with the cluster.
 
-A Kubernetes cluster can be deployed on either physical or virtual machines. To get started with Kubernetes development, you can use Minikube. 
+A Kubernetes cluster can be deployed on either physical or virtual machines. To get started with Kubernetes development, you can use [Minikube](https://github.com/paramraghavan/123ofaws/blob/main/kubernetes/README.MD#steps-to-install-minikube-deploy-and-execute-apps) 
 
 # Amazon EKS 
 Amazon EKS is a managed service that makes it easy for you to use Kubernetes on AWS without needing to install 
