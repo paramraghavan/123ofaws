@@ -107,6 +107,7 @@ docker build -t pyflask-docker .
 docker images <-- u should now see pyflask-docker
 
 - Check pods running
+
 kubectl get pods
   
 kubectl get services pyflask
