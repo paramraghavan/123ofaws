@@ -56,9 +56,9 @@ your account.
 Minikube is a lightweight Kubernetes implementation that creates a VM on your local machine and deploys a simple cluster containing only one node. Minikube is available for Linux, macOS, and Windows systems. The Minikube CLI provides basic bootstrapping operations for working with your cluster, including start, stop, status, and delete.
 
 ## Steps to install Minikube, deploy and execute apps
-- Install docker desktop
+- [Install docker desktop](https://desktop.docker.com/win/stable/amd64/Docker%20Desktop%20Installer.exe)
 - Start docker desktop
-- Install minikube 
+- [Install minikube](https://minikube.sigs.k8s.io/docs/start/)  
 Run the following with docker option especially for Windows 10 Home edition
 minikube start --driver=docker
 minikube kubectl -- get po -A
