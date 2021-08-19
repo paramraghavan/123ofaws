@@ -110,7 +110,7 @@ docker images <-- u should now see pyflask-docker
 
 kubectl get pods
 
-- The yaml file you create can then be deployed with the following command, uses the image in docker daemon
+- The [pyflask-deploy.yaml](https://github.com/paramraghavan/123ofaws/blob/main/kubernetes/minikube/pyflask-deploy.yml) file you create can then be deployed with the following command, uses the image deployed in the docker daemon
 
 kubectl apply -f pyflask-deploy.yml
 
