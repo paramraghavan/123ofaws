@@ -59,9 +59,13 @@ Minikube is a lightweight Kubernetes implementation that creates a VM on your lo
 - [Install docker desktop](https://desktop.docker.com/win/stable/amd64/Docker%20Desktop%20Installer.exe)
 - Start docker desktop
 - [Install minikube](https://minikube.sigs.k8s.io/docs/start/)  
+
 Run the following with docker option especially for Windows 10 Home edition
+
 minikube start --driver=docker
+
 minikube kubectl -- get po -A
+
 minikube status
 >output:
 > 
