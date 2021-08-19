@@ -109,14 +109,14 @@ docker images <-- u should now see pyflask-docker
 - Check pods running
 
 kubectl get pods
-  
-kubectl get services pyflask
 
 - The yaml file you create can then be deployed with the following command, uses the image in docker daemon
 
 kubectl apply -f pyflask-deploy.yml
 
 kubectl get deployments
+
+- port exposure via load balancer, this way the pyflask web is accessible via http://localhost:5000/
 
 kubectl expose deployment pyflask-deploy --type=LoadBalancer --port=5000
 
@@ -125,6 +125,8 @@ kubectl expose deployment pyflask-deploy --type=LoadBalancer --port=5000
 minikube start --extra-config=apiserver.service-node-port-range=1-65535
 
 minikube tunnel
+
+kubectl get services pyflask-deploy
 
 kubectl get svc
 <pre>
