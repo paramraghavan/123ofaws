@@ -53,4 +53,4 @@ docker rm -f <container-name>
 ref: https://stackoverflow.com/questions/46176584/docker-bind-for-0-0-0-04000-failed-port-is-already-allocated
 </pre>
 
-- deploy app to minikube
+- [deploy app to minikube](https://github.com/paramraghavan/123ofaws/tree/main/kubernetes#steps-to-install-minikube-deploy-and-execute-apps)
