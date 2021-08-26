@@ -1,5 +1,5 @@
 # 123ofaws
-For lot many of us in IT who have not still started  working on cloud or only now getting to cloud service like AWS, Google Cloud, Azure, Oracle Cloud etc.., my attempt to put together something that helps. Useful for AWS beginners.
+For lot many of us in IT who have not still started  working on cloud or only now getting to cloud service like AWS, Google Cloud, Azure, Oracle Cloud etc.., my attempt to put together something that helps. Useful for AWS beginners and intermediates.
 
  I think services - IAM, VPC and S3 form the foundation of AWS, once you have a good understanding of these services rest of the services will be easy to follow.
 - [iam](https://github.com/paramraghavan/123ofaws/blob/main/iam/iam.md)
