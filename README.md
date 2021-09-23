@@ -12,6 +12,9 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - step functions/state machine
 - [AWS Fargate](https://github.com/paramraghavan/123ofaws/blob/main/aws-fargate/aws_fargate.md)
 - [Kubernetes(k8s) & Docker](https://github.com/paramraghavan/123ofaws/tree/main/kubernetes)
+- [AWS CloudFormation Designer (Designer)](https://console.aws.amazon.com/cloudformation/designer/home?region=us-east-1),  is a graphic tool for creating, viewing, and modifying AWS CloudFormation templates. With Designer, you can diagram your template resources using a drag-and-drop interface, and then edit their details using the integrated JSON and YAML editor. Whether you are a new or an experienced AWS CloudFormation user, AWS CloudFormation Designer can help you quickly see the interrelationship between a template's resources and easily modify templates.
+
+
 
 Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
