@@ -16,7 +16,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 
 
 
-Usually at work we have single AWS account per emvironment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
+Usually at work we have single AWS account per environment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
 Cloud Computing 
 
