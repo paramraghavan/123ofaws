@@ -10,7 +10,7 @@ that are hard to ignore. AWS recently announced AWS Fargate to bridge that gap.
 >AWS Fargate is a technology that allows you to use containers as a fundamental compute primitive without having to manage the 
 underlying compute instances.
 
-Fargate technology works on Amazon ECS - Elastic Compute Service & Amazon EKS - Elastic Kubernetes Service, and allows users to run containers without having to manage servers or clusters.
+Fargate technology works on Amazon ECS - Elastic Container Service & Amazon EKS - Elastic Kubernetes Service, and allows users to run containers without having to manage servers or clusters.
 
 Amazon ECS and Amazon EKS have two modes or launch types: Fargate and EC2.
 
