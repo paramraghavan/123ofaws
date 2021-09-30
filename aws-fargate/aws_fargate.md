@@ -26,12 +26,14 @@ AWS provides a First Run Wizard that is an excellent resource to start playing w
 
 ![Uploading Screen Shot 2021-09-30 at 1.18.49 PM.png…]()
 
-- Step1
-First, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
-awslogs-group - /ecs/ffmpeg-thumb-task-definition
-awslogs-region - us-east-1
-awslogs-stream-prefix - ecs
+- Step1, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
+-- awslogs-group - /ecs/ffmpeg-thumb-task-definition
+-- awslogs-region - us-east-1
+-- awslogs-stream-prefix - ecs
 
+- step2 update task defination 
+-- compatibilites --> Fatrgate
+-- TAsk size - appro
 
 ## References:
 https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
