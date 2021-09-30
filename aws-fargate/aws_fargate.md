@@ -21,6 +21,17 @@ and IAM policies, and launch the application. You can define an ECS Task and cal
 Project [docker-copyfile](https://github.com/paramraghavan/123ofaws/tree/main/aws-fargate/docker-copyfile), has steps to create docker image to be used by AWS ECS Fargate container.
 This image runs a shell script which copies file from S3 Input bucket into to  working directory and copies the file from working directory back to S3 Output bucket.
 
+**High level up AWS Fargate**
+AWS provides a First Run Wizard that is an excellent resource to start playing with ECS using Fargate. 
+
+![Uploading Screen Shot 2021-09-30 at 1.18.49 PM.png…]()
+
+- Step1
+First, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
+awslogs-group - /ecs/ffmpeg-thumb-task-definition
+awslogs-region - us-east-1
+awslogs-stream-prefix - ecs
+
 
 ## References:
 https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
