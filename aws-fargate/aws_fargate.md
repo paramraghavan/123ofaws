@@ -23,17 +23,23 @@ This image runs a shell script which copies file from S3 Input bucket into to  w
 
 **High level up AWS Fargate**
 AWS provides a First Run Wizard that is an excellent resource to start playing with ECS using Fargate. 
-
+sample screen capture:
 ![Uploading Screen Shot 2021-09-30 at 1.18.49 PM.png…]()
 
 - Step1, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
--- awslogs-group - /ecs/ffmpeg-thumb-task-definition
--- awslogs-region - us-east-1
--- awslogs-stream-prefix - ecs
+    - awslogs-group - /ecs/ffmpeg-thumb-task-definition
+    - awslogs-region - us-east-1
+    - awslogs-stream-prefix - ecs
 
 - step2 update task defination 
--- compatibilites --> Fatrgate
--- TAsk size - appro
+    - compatibilites --> Fatrgate
+    - task size - appropriate memory and cpu
+- step3 Service Definition
+For now we really don't need a 'service', but during the service definition creation step, AWS automatically creates a 'security group'. This is useful. So accept all the default values and click the 'Next' button:
+
+- step4, last step Configuring the Cluster. Accept the default values of 'Cluster name' as default, and note that AWS will automatically create a VPC and subnets as needed. 
+- sample screen capture
+- Review the changes and create to create the container definition, task definition, service and the cluster.
 
 ## References:
 https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
