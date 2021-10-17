@@ -46,7 +46,7 @@ All instances that are to be accessed via the internet you will need to create a
 - Default VPC, CIDR block assigned to default VPC is **172.31.0.0/16**
 ![image](https://user-images.githubusercontent.com/52529498/137606958-956256de-0ccc-410b-82d7-e3ec6ae49b3b.png)
 
-- Default VPC goes across all the AZ's, default subnet as well created
+- Default VPC goes across all the AZ's, default subnet as well created. VPC and route table id are same. There 6 different subnet id's
 ![image](https://user-images.githubusercontent.com/52529498/137607039-4ec285b8-0ef7-4841-8241-3c8e6f73418a.png)
 
 
