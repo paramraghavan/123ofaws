@@ -42,6 +42,12 @@ All instances that are to be accessed via the internet you will need to create a
  
  To create a VPN connection, you would set up a customer gateway in your on-premises network, and a VPN gateway in your VPC. These two gateways could then be connected via a VPN connection. This allows you to communicate from your on-premises network to instances in your private subnet using the internal IP address of those instances. In many cases, this is more convenient than setting up and maintaining a Bastion host and allows private subnets to essentially become an extension of your on-premises data center. 
 
+**See Pictures Below**
+- Default VPC, CIDR block assigned to default VPC is **172.31.0.0/16**
+![image](https://user-images.githubusercontent.com/52529498/137606958-956256de-0ccc-410b-82d7-e3ec6ae49b3b.png)
+
+- Default VPC goes across all the AZ's, default subnet as well created
+![image](https://user-images.githubusercontent.com/52529498/137607039-4ec285b8-0ef7-4841-8241-3c8e6f73418a.png)
 
 
 **Notes**
