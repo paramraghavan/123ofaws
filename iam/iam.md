@@ -78,7 +78,7 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   - ![Delegated Role](https://user-images.githubusercontent.com/52529498/126061958-d728115f-b453-423c-92c7-50531db038de.png)
   - In the above figure we have 2 AWS accounts Act#1 and Act#3. Aws account#1 has UserA and account#3 has UserC. Acct#1 is the trusted account  and Acct#3 is the trusting account. We create a permission policy for S3 on account#3 and trust policy for Acct#1
   - On Account #3
-    - Assuming that youa re logged into the AWS console, IAM Service  
+    - Assuming that youa re logged into the AWS console, IAM Service and you already have a S3 permission policy created.
     - Create Role
     - Select another AWS account
     - Add Account #1
