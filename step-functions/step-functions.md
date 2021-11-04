@@ -3,7 +3,7 @@
 **States Types**
 Pix1
 
-The first is a task state, and a task state determines what kind of work do you want to do. And we have two different types of tasks. We have lambda task, which you defer to a lambda function to process. Or you can have activity tasks, which defer to some EC2 instance running your application.
+The first is a task state, and a task state determines what kind of work do you want to do, for example lambda task, which you defer to a lambda function to process, Or you can have activity tasks submit job, which defer to some EC2 instance running your application or call another step function.
 
 The next is we have choice states. Choice states are like branching states where depending on the output of a previous state determines what you're going to do next.
 
