@@ -7,8 +7,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [s3](https://github.com/paramraghavan/123ofaws/blob/main/s3/s3.md)
 - lambda
 - api gateway
-- Step Functions
-- AWS Batch
+- aws batch
 - [serverless framework](https://www.serverless.com/), serverless is a very easy to use and powerful framework to use aws services. I have build many project using this framework, see [sample alexa project](https://github.com/paramraghavan/sls-py-alexa-color-picker)
 - ec2
 - step functions/state machine
@@ -16,7 +15,6 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [Kubernetes(k8s) & Docker](https://github.com/paramraghavan/123ofaws/tree/main/kubernetes)
 - [AWS CloudFormation Designer (Designer)](https://console.aws.amazon.com/cloudformation/designer/home?region=us-east-1),  is a graphic tool for creating, viewing, and modifying AWS CloudFormation templates. With Designer, you can diagram your template resources using a drag-and-drop interface, and then edit their details using the integrated JSON and YAML editor. Whether you are a new or an experienced AWS CloudFormation user, AWS CloudFormation Designer can help you quickly see the interrelationship between a template's resources and easily modify templates.
 - [cfn-nag](https://stelligent.com/2018/03/23/validating-aws-cloudformation-templates-with-cfn_nag-and-mu/), Stelligent cfn_nag is an open source command-line tool that performs static analysis of AWS CloudFormation templates
-
 
 
 Usually at work we have single AWS account per environment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
