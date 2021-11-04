@@ -1,6 +1,6 @@
 ## Step functions
 
-*States Types*
+**States Types**
 Pix1
 
 The first is a task state, and a task state determines what kind of work do you want to do. And we have two different types of tasks. We have lambda task, which you defer to a lambda function to process. Or you can have activity tasks, which defer to some EC2 instance running your application.
