@@ -1,5 +1,5 @@
 # Data Lake 
-- datalake provides a central repository for all your data and analytics.
+#### A data lake is a centralized repository that allows you to store structured, semistructured, and unstructured data at any scale.
 
 Amazon S3 is an amazing object container. Like any bucket, you can put content in it in a neat and orderly fashion, or you can just dump it in. But no matter 
 how the data gets there, once it’s there, you need a way to organize it in a meaningful way so you can find it when you need it.  *A data lake is an architectural
@@ -21,11 +21,20 @@ may need to be presented in a useful state.
 
 **A single source of truth** - When we talk about truth in relation to data, we mean the trustworthiness of the data. Is it what it should be? Has it
 been altered? Can we validate the chain of custody? When creating a single source of truth, we’re creating a dataset, in this case the data lake, which can be used for
-all processing and analytics. The bonus is that we know it to be consistent and reliable. It’s trustworthy.
+all processing and analytics. The bonus is that we know it to be consistent and reliable. It’s trustworthy. Be careful not to let your data lake become a swamp. Enforce proper organization and structure for all data entering the lake.
 
-**To sum up what we have discussed so far** - we know that businesses need to easily access and analyze data in a variety of ways, using the tools and frameworks of their choice. 
-Moving data between storage and processing is costly. Amazon S3 data lakes provide a single storage backbone for a solution meeting these requirements and tools for analyzing
+**Store any type of data, regardless of structure** - Be careful to ensure that data within the data lake is relevant and does not go unused. Train users on how to access the data, and set retention policies to ensure the data stays refreshed.
+
+**Multiple ways to analyse the data** - Be careful to learn how to use data in new ways. Don't limit analytics to typical data warehouse-style analytics. AI and machine learning offer significant insights.
+
+**To sum up what we have discussed so far** - we know that businesses need to easily access and analyze data in a variety of ways, using the tools and frameworks of their choice. Moving data between storage and processing is costly. Amazon S3 data lakes provide a single storage backbone for a solution meeting these requirements and tools for analyzing
 the data without requiring movement.
+
+## A data lake is a centralized repository that allows you to store structured, semistructured, and unstructured data at any scale.
+
+![image](https://user-images.githubusercontent.com/52529498/141787594-89b069b7-6a1a-466e-b1d8-36bbf8e53c9b.png)
+
+Data lakes promise the ability to store all data for a business in a single repository. You can leverage data lakes to store large volumes of data instead of persisting that data in data warehouses. Data lakes, such as those built in Amazon S3, are generally less expensive than specialized big data storage solutions. That way, you only pay for the specialized solutions when using them for processing and analytics and not for long-term storage. Your extract, transform, and load (ETL) and analytic process can still access this data for analytics. 
 
 
 
