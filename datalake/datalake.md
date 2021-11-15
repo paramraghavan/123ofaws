@@ -1,4 +1,6 @@
-# Data Lake
+# Data Lake 
+- datalake provides a central repository for all your data and analytics.
+
 Amazon S3 is an amazing object container. Like any bucket, you can put content in it in a neat and orderly fashion, or you can just dump it in. But no matter 
 how the data gets there, once it’s there, you need a way to organize it in a meaningful way so you can find it when you need it.  *A data lake is an architectural
 concept that helps you manage multiple data types from multiple sources, both structured and unstructured, through a single set of tools.* A data lake takes Amazon
