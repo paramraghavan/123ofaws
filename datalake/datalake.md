@@ -75,3 +75,29 @@ Data processing means the collection and manipulation of data to produce meaning
 
 ![image](https://user-images.githubusercontent.com/52529498/141805926-f1767bb6-bc5a-45dc-a513-f46142b9acdd.png)
 
+## Stream processing
+means processing data in a stream—in other words, processing data that’s generated continuously, in small datasets (measured in kilobytes). You would use stream processing when you need real-time feedback or continuous insights. This kind of processing is performed on datasets like IoT sensor data, e-commerce purchases, in-game player activity, clickstreams, or information from social networks.
+Many organizations use both types of processing, stream and batch, on the exact same dataset. Stream processing is used to get initial insights and real-time feedback, while batch processing is used to get deep insights from complex analytics. For example, credit card transactions. Have you ever received in text just moments after swiping your card? This is a streaming data fraud prevention alert. This is a stream process that happens in near-real time.
+
+Now another process going on regularly using the same data would be the credit card company processing the days customer fraud prevention alert trends. Same data, two completely different business being met, two different velocities.
+Stream processing also comes in two forms: real time and near-real time. Both types involve streaming data, which is, as you know, processed quickly in small batches. The difference comes in the velocity: real-time processing occurs within milliseconds, whereas near-real-time processing occurs within minutes. Processing is always performed against a storage location.
+
+In stream processing, you use multiple services. One service to ingest the constant stream of data, one service to process and analyze the stream and another service to load the data into an analytical data store if required.
+
+In AWS, we have a number of services for this purpose, including Amazon Kinesis Data Firehose and Amazon Kinesis Data Streams, which are used to ingest data streams and load the data stream into analytical data stores. Amazon Kinesis Data Analytics is used to process and analyze the data stream. Amazon Kinesis Data Analytics allows you to choose to query a rolling time window of data, say the last two minutes. The analysis is limited to only those records collected within that window of time. Because of this limitation, analytics on streaming data are often simple aggregates. The result of the analysis is made available to be viewed in a dashboard and/or be stored within an analytical data store. The latency in a stream processing system is seconds to milliseconds. Screaming fast! 
+
+Imagine an advertising company that uses clickstream data from social media to identify product trends. The sheer amount of data produced per second is huge. Collection must be fast enough to gather all data without missing anything. Once collected, this data must be processed just as fast in a continuous stream, so the company can decide which trends to jump on. Rapid collection of data followed by the rapid processing of data is another common challenge. The best solution for this environment is a stream processing system.
+
+## Scheduled or periodic batch processing
+Data processing and the challenges associated with it can often be defined by the velocity at which the data must be collected and processed. Batch processing comes in two forms: scheduled and periodic.
+
+Scheduled batch processing is a very large volume of data processed on a regular schedule—hourly, daily or weekly. It is generally the same amount of data each time, so the workloads are predictable. Periodic batch processing occurs at random times, on-demand. These workloads often run once a certain amount of data has been collected. This can make workloads unpredictable and hard to plan around.
+
+It may seem that these processing methods would have a slow velocity. However, just because they are scheduled or periodic does not mean they can take hours to process. They may still require high-velocity processing. For example, when an airplane lands at the airport, the data from the flight computers and the IoT sensors on the engines must be collected and processed. The ground crew has just minutes to determine if the data proves that the plane is ready for another flight.
+
+In batch processing, you use often use a single application to collect, process, and temporarily store data while it is processing. The final step in batch processing is to load the data into an analytical data store.
+
+Amazon EMR, a managed Hadoop framework, uses common tools like Apache Spark and Hive to perform complex data processing. Part of the processing includes performing analytics on the data. In batch analytics, the entire dataset is made available for these analytic queries. This allows for highly complex analytics to be performed. Batch processing is commonly implemented in cases where deep insights and advanced analysis is required. The latency in a batch processing system is minutes to hours, depending on the complexity of the analytics being performed.
+
+Imagine a retail chain is trying to analyze point-of-sale data from its franchise stores. The stores are located all over the world. Each location transmits batches of data to the central data center periodically throughout the day. The customer prefers to hold the analysis of the datasets until 1:15 am Eastern standard time. At that point, all datasets must be rapidly processed so that reports can be generated and delivered to branch managers across the world as soon as possible. Slower collection of data followed by a rapid processing requirement is a common challenge. The best solution for this environment is a batch processing system.
+
