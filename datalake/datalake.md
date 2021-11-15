@@ -118,7 +118,7 @@ Next, let’s use a processing service called AWS Lambda. Using AWS Lambda, we w
 
 Once the analytics and processing has been completed, the results are sent to a service called Amazon Redshift. Amazon Redshift is a fast, scalable data warehouse that makes it simple and cost-effective to analyze all your data across your data warehouse and data lake.
 
-### simple use case with Gleu etl
+### simple use case with Glue etl
 AWS Glue is a fully managed ETL service that categorizes, cleans, enriches, and moves your data reliably between various data stores. AWS Glue simplifies and automates difficult and time-consuming data discovery, conversion, mapping, and job-scheduling tasks. In other words, it simplifies data processing.
 
 
