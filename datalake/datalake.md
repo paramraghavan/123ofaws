@@ -105,3 +105,23 @@ Imagine a retail chain is trying to analyze point-of-sale data from its franchis
 <table style="width:100%;background:white;"><tbody><tr><td style="width:15.58%;background:rgb(237, 125, 49);padding:0in 5.4pt;vertical-align:top;"><br></td><td style="width:40.02%;background:rgb(237, 125, 49);vertical-align:top;text-align:center;"><p><span style="color:rgb(255, 255, 255);"><strong>Batch data processing</strong></span></p></td><td style="width:44.4%;background:rgb(237, 125, 49);vertical-align:top;text-align:center;"><p><span style="color:rgb(255, 255, 255);"><strong>Stream data processing</strong></span></p></td></tr><tr><td style="width:15.58%;padding:0in 5.4pt;vertical-align:top;"><p><strong>Data scope</strong></p></td><td style="width:40.02%;padding:0in 5.4pt;vertical-align:top;"><p>Queries or processing over all or most of the data in the dataset</p></td><td style="width:44.4%;padding:0in 5.4pt;vertical-align:top;"><p>Queries or processing over data within a rolling time window, or on just the most recent data record</p></td></tr><tr><td style="width:15.58%;padding:0in 5.4pt;vertical-align:top;"><p><strong>Data size</strong></p></td><td style="width:40.02%;padding:0in 5.4pt;vertical-align:top;"><p>Large batches of data</p></td><td style="width:44.4%;padding:0in 5.4pt;vertical-align:top;"><p>Individual records or micro batches consisting of a few records</p></td></tr><tr><td style="width:15.58%;padding:0in 5.4pt;vertical-align:top;"><p><strong>Latency</strong></p></td><td style="width:40.02%;padding:0in 5.4pt;vertical-align:top;"><p>Minutes to hours</p></td><td style="width:44.4%;padding:0in 5.4pt;vertical-align:top;"><p>Seconds or milliseconds</p></td></tr><tr><td style="width:15.58%;padding:0in 5.4pt;vertical-align:top;"><p><strong>Analysis</strong></p></td><td style="width:40.02%;padding:0in 5.4pt;vertical-align:top;"><p>Complex analytics</p></td><td style="width:44.4%;padding:0in 5.4pt;vertical-align:top;"><p>Simple response functions, aggregates, and rolling metrics</p></td></tr></tbody></table>
 
 
+Amazon EMR decouples the collection system from the processing system. This is accomplished by implementing one of two common frameworks: Hadoop or Apache Spark. Both frameworks process high-velocity data but they do it in different ways.
+
+Hadoop running in Amazon EMR, configures a cluster of EC2 instances to serve as a single distributed storage and processing solution. This provides speed, fault tolerance, and the ability to scale the instances supporting collection separately from the instances supporting processing. Hadoop complements existing data systems by simultaneously ingesting and processing large volumes of data, structured or not, from any number of sources. This enables deeper analysis than any one system can provide. The analytical results can be delivered to any existing data store for further use.
+
+Apache Spark is a competing framework to Hadoop. The difference is that Spark uses in-memory caching and optimized execution for faster performance. Analytics are performed by first filtering the data and then aggregating it. Apache Spark avoids writing data to storage, preferring to keep the data in memory at all times. Both Hadoop and Spark support general batch processing, streaming analytics, machine learning, graph databases, and ad hoc queries.
+
+### Simple use case with EMR
+Let’s start with a really simple architecture. In this solution, we start with the data sources. Remember, data sources can come from anywhere. The data from these sources is first added to an Amazon S3 bucket. This bucket becomes the repository for all the data that will eventually be processed.
+
+Next, let’s use a processing service called AWS Lambda. Using AWS Lambda, we will create a program to run once every four hours to grab any new data from the Amazon S3 bucket and send it to Amazon EMR - hadoop or SPark, for processing. This program creates the batches.
+
+Once the analytics and processing has been completed, the results are sent to a service called Amazon Redshift. Amazon Redshift is a fast, scalable data warehouse that makes it simple and cost-effective to analyze all your data across your data warehouse and data lake.
+
+### simple use case with Gleu etl
+AWS Glue is a fully managed ETL service that categorizes, cleans, enriches, and moves your data reliably between various data stores. AWS Glue simplifies and automates difficult and time-consuming data discovery, conversion, mapping, and job-scheduling tasks. In other words, it simplifies data processing.
+
+
+
+
+
