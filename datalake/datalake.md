@@ -126,3 +126,4 @@ There are many reasons to use streaming data solutions. In a batch processing sy
 
 
 ## Variety
+relational, semi-Structured, unstrucutred, [see section](https://github.com/paramraghavan/Data-Engineering-and-Analytics-with-AWS/blob/main/data.md)
