@@ -8,6 +8,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - lambda
 - api gateway
 - aws batch
+- kinesis analytics
 - [serverless framework](https://www.serverless.com/), serverless is a very easy to use and powerful framework to use aws services. I have build many project using this framework, see [sample alexa project](https://github.com/paramraghavan/sls-py-alexa-color-picker)
 - ec2
 - step functions/state machine
