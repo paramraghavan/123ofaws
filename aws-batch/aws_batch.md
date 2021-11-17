@@ -44,6 +44,7 @@ When there are many jobs submitted, scheduler looks at the job and their priorit
 
 
 
-ref: 
+### References 
 - https://aws.amazon.com/
 - pluralsight
+- https://github.com/dejonghe/aws-batch-example
