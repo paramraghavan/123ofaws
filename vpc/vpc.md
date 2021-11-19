@@ -1,6 +1,6 @@
 **VPC**
 
-It's like your own private data center. You can think of a VPC as a logically isolated piece of the AWS cloud. When an AWS account is created, you have a default VPC in each AWS Region. A default VPC is ready for you to use so that you don't have to create and configure your own VPC. You can immediately start launching Amazon EC2 instances into your default VPC. You can also use services such as Elastic Load Balancing, Amazon RDS, and Amazon EMR in your default VPC.It can be deleted and recreated from the console UI .They always have the same IP range and same '1 subnet per AZ's (Availability Zones) architecture.[more details](https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html)
+It's like your own private data center. You can think of a VPC as a logically isolated piece of the AWS cloud. When an AWS account is created, you have a default VPC in each AWS Region. A default VPC is ready for you to use so that you don't have to create and configure your own VPC. You can immediately start launching Amazon EC2 instances into your default VPC. You can also use services such as Elastic Load Balancing, Amazon RDS, and Amazon EMR in your default VPC. The default VPC can be deleted and recreated from the console UI .They always have the same IP range and same '1 subnet per AZ's (Availability Zones) architecture.[more details](https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html)
 
 *Region and VPC*
 
