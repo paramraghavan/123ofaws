@@ -1,0 +1,1 @@
+[Former2](https://aws.amazon.com/blogs/opensource/accelerate-infrastructure-as-code-development-with-open-source-former2/)
