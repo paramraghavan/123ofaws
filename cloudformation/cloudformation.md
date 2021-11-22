@@ -2,3 +2,10 @@
 - terraform
 - [cloudformation cli](https://github.com/aws-cloudformation/cloudformation-cli)
 - [Sceptre](https://sceptre.cloudreach.com/latest/docs/get_started.html)
+- Sceptre
+  - mkdir sceptre 
+  - python -m pip install virtualenv 
+  - cd sceptre
+  - virtualenv .
+  - .\Scripts\activate
+  - pip install sceptre  
