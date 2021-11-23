@@ -10,6 +10,6 @@
   - .\Scripts\activate
   - pip install sceptre  
 - [aws cdk, cloud development kit](https://docs.aws.amazon.com/cdk/latest/guide/home.html)
+  - cdk, cloud development kit - infrastructure as code to **infrastructure is code**
 - https://github.com/zzenonn
-- cdk - infrastructure as code to **infrastructure is code**
 - 
