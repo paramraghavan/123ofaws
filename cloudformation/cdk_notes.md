@@ -31,5 +31,17 @@ Steps to create first sample app. See also on [github](https://github.com/zzenon
 - cdk synth LambdaStack >cfn_lambda_stack.yaml
 - aws cloudformation create-stack --stack-name CDKToolkit --template-body file://cfn_lambda_stack.yaml
 
-- https://github.com/aws-samples/aws-cdk-examples/tree/master/python **
+
+## AWS CDK github project
+- https://github.com/aws-samples/aws-cdk-examples/tree/master/python
+- https://docs.aws.amazon.com/cdk/latest/guide/bootstrapping.html
+
+The environment aws://687162148361/us-east-1 doesn't have the CDK toolkit stack
+(CDKToolkit) installed. Use cdk bootstrap "aws://687162148361/us-east-1" to setup 
+your environment for use with the toolkit.
+
+Error: CDKToolkit | 7:44:45 AM | CREATE_FAILED        | AWS::S3::Bucket       | StagingBucket API: s3:PutPublicAccessBlock Access Denied
+- cdk bootstrap
+
+
 
