@@ -1,6 +1,7 @@
 ## AWS CDK reference
 - https://docs.aws.amazon.com/cdk/latest/guide/home.html
 - https://docs.aws.amazon.com/cdk/api/latest/python/modules.html
+- https://docs.aws.amazon.com/cdk/api/latest/docs/@aws-cdk_aws-s3.Bucket.html
 
 
 # CDK Setup
