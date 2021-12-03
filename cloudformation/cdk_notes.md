@@ -40,8 +40,21 @@ The environment aws://687162148361/us-east-1 doesn't have the CDK toolkit stack
 (CDKToolkit) installed. Use cdk bootstrap "aws://687162148361/us-east-1" to setup 
 your environment for use with the toolkit.
 
-Error: CDKToolkit | 7:44:45 AM | CREATE_FAILED        | AWS::S3::Bucket       | StagingBucket API: s3:PutPublicAccessBlock Access Denied
+Error: CDKToolkit | 7:44:45 AM | CREATE_FAILED        | AWS::S3::Bucket       | 
+StagingBucket API: s3:PutPublicAccessBlock Access Denied
 - cdk bootstrap
+
+# CDK Setup
+- python
+- install node js, node and npm gets installed; node --version
+- aws cli; aws --version
+- aws cdk cli; npm install -g aws-cdk; cdk --version
+- ide, vs-code has some useful plugins - Remote Containers Extension and AWS Toolkit Extension
+- [visual studio code](https://code.visualstudio.com/docs/?dv=win64user)
+- ref: https://github.com/devbyaccident/aws-cdk-course-materials.git
+
+# 
+
 
 
 
