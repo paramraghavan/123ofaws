@@ -1,3 +1,8 @@
+## AWS CDK reference
+- https://docs.aws.amazon.com/cdk/latest/guide/home.html
+- https://docs.aws.amazon.com/cdk/api/latest/python/modules.html
+
+
 # CDK Setup
 - python
 - install node js, node and npm gets installed; node --version
