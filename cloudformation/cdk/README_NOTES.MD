@@ -23,6 +23,14 @@
 - cdk diff --> shows if we did  a cdk deploy what resources will get deployed
 - cdk synth > demo-stack.yaml
 
+- mkdir lambda_app; cd lambda_app
+- cdk init --language python
+- above command create virtual env, app.py, cdk.json,etc,..., see picture below, everything inside the red box
+- source .env\Scripts\activate.bat
+- pip install -r requirements.txt
+- cdk ls --> return "LambdaStack"
+- cdk diff
+
 
 # Context Methods
 Context method in the CDK is a key‑value pair associated with your stack or your construct, this might be an
