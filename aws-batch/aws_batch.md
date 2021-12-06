@@ -49,3 +49,4 @@ When there are many jobs submitted, scheduler looks at the job and their priorit
 - pluralsight
 - https://github.com/dejonghe/aws-batch-example
 - [how to enable bash shell feature on windows](https://www.laptopmag.com/articles/use-bash-shell-windows-10)
+- https://aws.amazon.com/blogs/compute/orchestrating-an-application-process-with-aws-batch-using-aws-cloudformation/
