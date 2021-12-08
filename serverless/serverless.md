@@ -1,7 +1,7 @@
 # Serverless.com, a serverless framework
 
 ## [Python packaging in Lambda with Serverless plugins](https://www.serverless.com/blog/serverless-python-packaging/)
-[Serverless and Python Project](serverless/numpy-test)
+[Serverless and Python Project](serverless/numpy-test/)
 <pre>
 npm install -g serverless
 serverless create --template aws-python3 --name numpy-test --path numpy-test
