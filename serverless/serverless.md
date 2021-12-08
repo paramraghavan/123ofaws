@@ -1,7 +1,7 @@
 # Serverless.com, a serverless framework
 
 ## [Python packaging in Lambda with Serverless plugins](https://www.serverless.com/blog/serverless-python-packaging/)
-[Serverless and Python Project](serverless/numpy-test/)
+[Serverless and Python Project](https://github.com/paramraghavan/123ofaws/tree/main/serverless/numpy-test)
 <pre>
 npm install -g serverless
 serverless create --template aws-python3 --name numpy-test --path numpy-test
@@ -30,7 +30,7 @@ plugin.
 </pre>
 
 ## [serverless-lambda-dynamodb](https://www.serverless.com/blog/flask-python-rest-api-serverless-lambda-dynamodb)
-[Serverless and Flask Project](serverless/my-flask-application)
+[Serverless and Flask Project](https://github.com/paramraghavan/123ofaws/tree/main/serverless/my-flask-application)
 <pre>
 mkdir my-flask-application && cd my-flask-application
 npm init -f
