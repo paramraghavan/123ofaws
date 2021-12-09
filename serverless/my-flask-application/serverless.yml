@@ -7,6 +7,7 @@ plugins:
   - serverless-wsgi
 
 custom:
+  tableName: 'sample-users-table-${self:provider.stage}'
   wsgi:
     app: app.app
     packRequirements: false
@@ -18,6 +19,20 @@ provider:
   runtime: python3.8
   stage: dev
   region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+  environment:
+    USERS_TABLE: ${self:custom.tableName}
+
 
 functions:
   app:
@@ -25,6 +40,36 @@ functions:
     events:
       - http: ANY /
       - http: 'ANY {proxy+}'
+  getUser:
+    handler: wsgi.handler
+    events:
+      - http: 'GET /getuser/{proxy+}'
+  createUser:
+    handler: wsgi.handler
+    events:
+      - http: 'GET /createuser/{proxy+}'
+
+resources:
+  Resources:
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: currDatePlusUserId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: currDatePlusUserId
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
+
+
 
 # you can add packaging information here
 package:
