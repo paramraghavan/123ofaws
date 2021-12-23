@@ -29,8 +29,7 @@ plugins:
   - serverless-python-requirements
 
 
-# have copied over numpy package to local folder
-# docker install zip somehow becomes too big
+
 custom:
   pythonRequirements:
     dockerizePip: non-linux
