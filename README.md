@@ -18,6 +18,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [cfn-nag](https://stelligent.com/2018/03/23/validating-aws-cloudformation-templates-with-cfn_nag-and-mu/), Stelligent cfn_nag is an open source command-line tool that performs static analysis of AWS CloudFormation templates
 - [cloudformation](./cloudformation/cloudformation.md)
 - [airflow](airflow/airflow.md)
+- [boto3](boto3/boto3.md)
 
 Usually at work we have single AWS account per environment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
@@ -123,12 +124,6 @@ Software-based load balancers are replaced with Elastic Load Balancing load bala
 
 Databases can be replaced with Amazon Relational Database Service (RDS), which lets you run Amazon Aurora, PostgreSQL, MySQL, MariaDB, Oracle, and Microsoft SQL Server on a managed AWS-based platform. Amazon RDS offers master, read replica, and standby instances.
 Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus replacing the need for on-premises database backup hardware.
-
-
-
-
-
-
 
 
 **Learned AWS using following resources**
