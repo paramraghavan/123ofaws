@@ -12,4 +12,4 @@
 - [aws cdk, cloud development kit](https://docs.aws.amazon.com/cdk/latest/guide/home.html)
   - cdk, cloud development kit - infrastructure as code to **infrastructure is code**
 - https://github.com/zzenonn
-- 
+- [sample cloudformation templates](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html)
