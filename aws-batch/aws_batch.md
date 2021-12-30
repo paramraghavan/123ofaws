@@ -23,7 +23,7 @@ Compute environments provision and manage your EC2 instances and other compute r
 The following diagram shows a general overview of how the AWS Batch resources interact.
 ![image](https://user-images.githubusercontent.com/52529498/147717782-b6838f4e-ba32-4199-97de-6f62dbf2d082.png)
 
-- [ref)[https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/]
+- [ref](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/]
 
 ## Job Queues
 -  Jobs are submitted to job queue
