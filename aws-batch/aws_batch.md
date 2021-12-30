@@ -8,6 +8,22 @@ Jobs are submitted to a job queue where they reside until they're able to be sch
 Queues are mapped to compute environments containing EC2 instances that run containerized batch jobs. So its application virtualization, a form of Docker images that we load in a Docker container to run. So where do those container environments live? They live in compute environments, and they take two forms. So I've managed compute environments where Amazon manages the addition and removal, the scale out and scale in of your batch processing landscape, or unmanaged, where e set that up,
 
 
+##AWS Batch manages the following resources:
+
+- Job definitions
+- Job queues
+- Compute environments
+
+A job definition specifies how jobs are to be run—for example, which Docker image to use for your job, how many vCPUs and how much memory is required, the IAM role to be used, and more.
+
+Jobs are submitted to job queues where they reside until they can be scheduled to run on Amazon EC2 instances within a compute environment. An AWS account can have multiple job queues, each with varying priority. This gives you the ability to closely align the consumption of compute resources with your organizational requirements.
+
+Compute environments provision and manage your EC2 instances and other compute resources that are used to run your AWS Batch jobs. Job queues are mapped to one more compute environments and a given environment can also be mapped to one or more job queues. This many-to-many relationship is defined by the compute environment order and job queue priority properties.
+
+The following diagram shows a general overview of how the AWS Batch resources interact.
+![image](https://user-images.githubusercontent.com/52529498/147717782-b6838f4e-ba32-4199-97de-6f62dbf2d082.png)
+
+- [ref)[https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/]
 
 ## Job Queues
 -  Jobs are submitted to job queue
