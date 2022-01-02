@@ -7,3 +7,5 @@
 
 Reference:
 [json to yaml converter](https://www.json2yaml.com/)
+[yaml lint to veify generated yaml]((http://www.yamllint.com/))
+[Also see](https://aws.amazon.com/blogs/compute/creating-a-simple-fetch-and-run-aws-batch-job/)
