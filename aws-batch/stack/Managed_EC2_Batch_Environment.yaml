@@ -4,9 +4,6 @@ Description: 'AWS CloudFormation Sample Template Managed Single Batch Job Queue:
   template demonstrates the usage of simple Job Queue and EC2 style Compute Environment.  **WARNING**
   You will be billed for the AWS resources used if you create a stack from this template.'
 Parameters:
-  Ec2KeyPair:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: 'Ec2KeyPair to use for Compute Environment'
   ProcessImageName:
     Type: String
     Description: 'Name and tag of Process Container Image'
@@ -102,7 +99,7 @@ Resources:
         - echo
         - Hello world
       RetryStrategy:
-        Attempts:
+        Attempts: 3
   Queue:
     Type: AWS::Batch::JobQueue
     Properties:
@@ -118,7 +115,6 @@ Resources:
       ComputeResources:
         Type: EC2
         MinvCpus: 0
-        Ec2KeyPair: !Ref Ec2KeyPair
         Tags: { "Name": "Batch POC" }
         DesiredvCpus: 0
         MaxvCpus: 1

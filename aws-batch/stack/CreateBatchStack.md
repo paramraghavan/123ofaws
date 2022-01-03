@@ -17,11 +17,10 @@ This example registers a simple job definition, a job queue that can accept job 
 - A VPC subnet
 - A security group
 
-This stack creates via CLI commands that complete the stack creation for you.
->
-> aws --region us-east-2 cloudformation create-stack --stack-name hello-world-batch-stack --template-url https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/Managed_EC2_Batch_Environment.template --capabilities CAPABILITY_IAM
+Following CLI command completes stack creation.[ref](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
 
-
+> aws cloudformation validate-template --template-body file://Managed_EC2_Batch_Environment.yaml
+> aws --region us-east-1 cloudformation create-stack --stack-name hello-world-batch-stack --template-body file://Managed_EC2_Batch_Environment.yaml  --capabilities CAPABILITY_IAM
 
 Reference:
 [json to yaml converter](https://www.json2yaml.com/)
