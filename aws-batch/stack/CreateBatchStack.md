@@ -19,7 +19,13 @@ This example registers a simple job definition, a job queue that can accept job 
 
 Following CLI command completes stack creation, [see here for details](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html) :
 > aws cloudformation validate-template --template-body file://Managed_EC2_Batch_Environment.yaml
+> 
 > aws --region us-east-1 cloudformation create-stack --stack-name hello-world-batch-stack --template-body file://Managed_EC2_Batch_Environment.yaml  --capabilities CAPABILITY_IAM
+
+> Output from above command:
+>> {
+    "StackId": "arn:aws:cloudformation:us-east-1:Your-AWS_ACCT:stack/hello-world-batch-stack/q23455-6cb4-11ec-acfe-123456"
+} 
 
 Reference:
 - [json to yaml converter](https://www.json2yaml.com/)
