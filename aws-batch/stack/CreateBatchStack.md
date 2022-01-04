@@ -22,6 +22,7 @@ Following CLI command completes stack creation, [see here for details](https://d
 > aws --region us-east-1 cloudformation create-stack --stack-name hello-world-batch-stack --template-body file://Managed_EC2_Batch_Environment.yaml  --capabilities CAPABILITY_IAM
 
 Reference:
-[json to yaml converter](https://www.json2yaml.com/)
-[yaml lint to veify generated yaml]((http://www.yamllint.com/))
-[Sourced](https://aws.amazon.com/blogs/compute/creating-a-simple-fetch-and-run-aws-batch-job/)
+- [json to yaml converter](https://www.json2yaml.com/)
+- [yaml lint to veify generated yaml]((http://www.yamllint.com/))
+- [Also see](https://aws.amazon.com/blogs/compute/creating-a-simple-fetch-and-run-aws-batch-job/)
+- [Sourced](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/)
