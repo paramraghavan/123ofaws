@@ -1,7 +1,7 @@
 # Creating Hello World AWS Batch Stack
 - [First download the sample templates zip file](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html)
 - Extract the above zip file and use template **Managed_EC2_Batch_Environment.template**
-- coverted the json to yaml format using json to yaml converter, [see](https://www.json2yaml.com/)  
+- coverted the json to yaml format using json to yaml converter - **Managed_EC2_Batch_Environment.yaml**, [see](https://www.json2yaml.com/)  
 - AWS::Region, AWS::Account referred in yaml are called [Pseudo parameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html)
 
 
@@ -16,9 +16,9 @@ This example registers a simple job definition, a job queue that can accept job 
 - A VPC
 - A VPC subnet
 - A security group
+- [See here for details](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
 
-Following CLI command completes stack creation.[ref](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
-
+Following CLI command completes stack creation.
 > aws cloudformation validate-template --template-body file://Managed_EC2_Batch_Environment.yaml
 > aws --region us-east-1 cloudformation create-stack --stack-name hello-world-batch-stack --template-body file://Managed_EC2_Batch_Environment.yaml  --capabilities CAPABILITY_IAM
 
