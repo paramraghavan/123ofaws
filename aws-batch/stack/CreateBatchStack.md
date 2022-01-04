@@ -27,6 +27,10 @@ Following CLI command completes stack creation, [see here for details](https://d
     "StackId": "arn:aws:cloudformation:us-east-1:Your-AWS_ACCT:stack/hello-world-batch-stack/q23455-6cb4-11ec-acfe-123456"
 } 
 
+> Check stack error:
+>> aws cloudformation describe-stack-events --stack-name hello-world-batch-stack
+
+
 Reference:
 - [json to yaml converter](https://www.json2yaml.com/)
 - [yaml lint to veify generated yaml]((http://www.yamllint.com/))
