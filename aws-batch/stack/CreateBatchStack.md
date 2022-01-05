@@ -29,10 +29,38 @@ Following CLI command completes stack creation, [see here for details](https://d
 
 > Check stack error:
 >> aws cloudformation describe-stack-events --stack-name hello-world-batch-stack
+> aws cloudformation delete-stack --stack-name hello-world-batch-stack
 
+> Decode error message
+>> aws sts decode-authorization-message --encoded-message
 
-Reference:
+>added policy
+>>        {
+>>            "Effect": "Allow",
+>>            "Action": [
+>>                "sts:DecodeAuthorizationMessage"
+>>            ],
+>>            "Resource": "*"
+>>        }
+>>        {
+>>        	"Effect": "Allow",
+>>        	"Action": [
+>>        		"ec2:CreateVpc"
+>>        	],
+>>        	"Resource": "arn:aws:ec2:us-east-1::vpc/*"
+>>        }
+>>
+> 
+
+# Able to submit the job, but it remains *RUNNABLE*, never goes to RUNNING state
+ 
+## Errors
+- [why-are-aws-batch-jobs-stuck-in-runnable](https://newbedev.com/why-are-aws-batch-jobs-stuck-in-runnable)
+- https://aws.amazon.com/premiumsupport/knowledge-center/batch-job-stuck-runnable-status/
+
+## Reference:
 - [json to yaml converter](https://www.json2yaml.com/)
 - [yaml lint to veify generated yaml]((http://www.yamllint.com/))
 - [Also see](https://aws.amazon.com/blogs/compute/creating-a-simple-fetch-and-run-aws-batch-job/)
 - [Sourced](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/)
+- https://www.infoq.com/articles/aws-vpc-cloudformation/
