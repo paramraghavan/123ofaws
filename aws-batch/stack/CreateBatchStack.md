@@ -29,7 +29,7 @@ Following CLI command completes stack creation, [see here for details](https://d
 
 > Check stack error:
 >> aws cloudformation describe-stack-events --stack-name hello-world-batch-stack
-> aws cloudformation delete-stack --stack-name hello-world-batch-stack
+> aws cloudformation delete-stack --stack-name hello-world-batch-stack <-- deletes the stack, not always though, in that case use aws console
 
 > Decode error message
 >> aws sts decode-authorization-message --encoded-message
@@ -64,3 +64,4 @@ Following CLI command completes stack creation, [see here for details](https://d
 - [Also see](https://aws.amazon.com/blogs/compute/creating-a-simple-fetch-and-run-aws-batch-job/)
 - [Sourced](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/)
 - https://www.infoq.com/articles/aws-vpc-cloudformation/
+- [aws templates](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/sample-templates-services-us-east-1.html)
