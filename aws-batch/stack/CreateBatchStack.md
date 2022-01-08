@@ -1,7 +1,8 @@
 # Creating Hello World AWS Batch Stack
-- [First download the sample templates zip file](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html)
-- Extract the above zip file and use template **Managed_EC2_Batch_Environment.template**
-- coverted the json to yaml format using json to yaml converter - **Managed_EC2_Batch_Environment.yaml**, [see](https://www.json2yaml.com/)  
+- copy the json file from https://s3.amazonaws.com/cloudformation-templates-us-east-1/Managed_EC2_Batch_Environment.template
+- convert it to yaml
+  - coverted the json to yaml format using json to yaml converter - **Managed_EC2_Batch_Environment.yaml**, [see](https://www.json2yaml.com/)  
+  - convert, view json in [cloudformation designer](https://console.aws.amazon.com/cloudformation/designer) , in the ui select yaml 
 - AWS::Region, AWS::Account referred in yaml are called [Pseudo parameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html)
 
 
@@ -65,3 +66,5 @@ Following CLI command completes stack creation, [see here for details](https://d
 - [Sourced](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/)
 - https://www.infoq.com/articles/aws-vpc-cloudformation/
 - [aws templates](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/sample-templates-services-us-east-1.html)
+- [First download the sample templates zip file](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html)
+- Extract the above zip file and use template **Managed_EC2_Batch_Environment.template**
