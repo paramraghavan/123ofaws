@@ -19,6 +19,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [cloudformation](./cloudformation/cloudformation.md)
 - [airflow](airflow/airflow.md)
 - [boto3](boto3/boto3.md)
+- [aws docs](https://docs.aws.amazon.com/)
 
 Usually at work we have single AWS account per environment(dev/test/acpt/prod) with multiple roles. These roles are assigned to active directory user ids.
 
