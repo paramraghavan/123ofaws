@@ -126,6 +126,18 @@ Software-based load balancers are replaced with Elastic Load Balancing load bala
 Databases can be replaced with Amazon Relational Database Service (RDS), which lets you run Amazon Aurora, PostgreSQL, MySQL, MariaDB, Oracle, and Microsoft SQL Server on a managed AWS-based platform. Amazon RDS offers master, read replica, and standby instances.
 Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus replacing the need for on-premises database backup hardware.
 
+**AWS Batch vs AWS Fargate: What are the differences?**
+
+- AWS Batch is a "Fully Managed Batch Processing at Any Scale". It enables developers, scientists, and engineers to easily and efficiently run
+  hundreds of thousands of batch computing jobs on AWS. It dynamically provisions the optimal quantity and type of compute resources (e.g., CPU or
+  memory optimized instances) based on the volume and specific resource requirements of the batch jobs submitted. 
+- AWS Fargate is detailed as "Run Containers Without Managing Infrastructure". AWS Fargate is a technology for Amazon ECS and EKS* that 
+  allows you to run containers without having to manage servers or clusters. With AWS Fargate, you no longer have to provision, 
+  configure, and scale clusters of virtual machines to run containers.
+- AWS Batch belongs to "Serverless / Task Processing" category of the tech stack
+- AWS Fargate can be primarily classified under "Containers as a Service".
+- [ref](https://stackshare.io/stackups/aws-batch-vs-aws-fargate)
+
 
 **Learned AWS using following resources**
 - [AWS Documnentation](https://docs.aws.amazon.com/index.html?nc2=h_ql_doc)
