@@ -66,5 +66,6 @@ Following CLI command completes stack creation, [see here for details](https://d
 - [Sourced](https://aws.amazon.com/blogs/compute/using-aws-cloudformation-to-create-and-manage-aws-batch-resources/)
 - https://www.infoq.com/articles/aws-vpc-cloudformation/
 - [aws templates](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/sample-templates-services-us-east-1.html)
+- [aws template reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html)
 - [First download the sample templates zip file](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html)
 - Extract the above zip file and use template **Managed_EC2_Batch_Environment.template**
