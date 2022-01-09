@@ -18,6 +18,11 @@
     details when interacting with AWS services. As a result, code written with Resources tends to
     be simpler.
 
+- Session
+  - The boto3. Session class, according to the docs, “ stores configuration state and allows you to create service clients and resources.
+    ”Most importantly it represents the configuration of an IAM identity (IAM user or assumed role) and AWS region, the two things you 
+    need to talk to an AWS service. How long session lasts - The token (and the access and secret keys) generated using this API is valid for a 
+    specific duration (minimum 900 seconds). The maximum duration of the validity of the token is 12 hours.
 
 ref: 
 https://www.learnaws.org/2021/02/24/boto3-resource-client/
