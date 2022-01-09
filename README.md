@@ -134,8 +134,8 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 - AWS Fargate is detailed as "Run Containers Without Managing Infrastructure". AWS Fargate is a technology for Amazon ECS and EKS* that 
   allows you to run containers without having to manage servers or clusters. With AWS Fargate, you no longer have to provision, 
   configure, and scale clusters of virtual machines to run containers.
-- AWS Batch belongs to "Serverless / Task Processing" category of the tech stack
-- AWS Fargate can be primarily classified under "Containers as a Service".
+- AWS Batch belongs to __"Serverless / Task Processing"__ category of the tech stack
+- AWS Fargate can be primarily classified under __"Containers as a Service"__.
 - [ref](https://stackshare.io/stackups/aws-batch-vs-aws-fargate)
 
 
