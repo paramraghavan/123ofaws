@@ -3,7 +3,7 @@
 - convert it to yaml
   - coverted the json to yaml format using json to yaml converter - **Managed_EC2_Batch_Environment.yaml**, [see](https://www.json2yaml.com/)  
   - convert, view json in [cloudformation designer](https://console.aws.amazon.com/cloudformation/designer) , in the ui select yaml 
-- AWS::Region, AWS::Account referred in yaml are called [Pseudo parameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html)
+- AWS::Region, AWS::AccountId, AWS::StackId, AWS::StackName, referred in yaml are called [Pseudo parameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html)
 
 
 # Launching a “Hello World” example stack
