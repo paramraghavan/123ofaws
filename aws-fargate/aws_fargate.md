@@ -40,6 +40,8 @@ For now we really don't need a 'service', but during the service definition crea
 
 - step4, last step Configuring the Cluster. Accept the default values of 'Cluster name' as default, and note that AWS will automatically create a VPC and subnets as needed. 
 - sample screen capture
+![image](https://user-images.githubusercontent.com/52529498/149153448-dd3554da-7596-4465-8846-f22d4323949d.png)
+
 - Review the changes and create to create the container definition, task definition, service and the cluster.
 
 ## References:
