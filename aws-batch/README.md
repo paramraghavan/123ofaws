@@ -12,7 +12,7 @@ Queues are mapped to compute environments containing EC2 instances that run cont
 - Job definitions
 - Job queues
 - Compute environments
-- [sample cloudforamtion yaml](aws-batch/stack/Managed_EC2_Batch_Environment.yaml)
+- [sample cloudforamtion yaml](stack/Managed_EC2_Batch_Environment.yaml)
 
 A job definition specifies how jobs are to be run—for example, which Docker image to use for your job, how many vCPUs and how much memory is required, the IAM role to be used, and more.
 
