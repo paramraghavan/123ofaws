@@ -27,13 +27,13 @@ sample screen capture:
 ![image](https://user-images.githubusercontent.com/52529498/149152749-45e7e10d-8ede-4f5f-a83c-268e353b4a7c.png)
 
 
-- Step1, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
+- Step1, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registered with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the envirnoment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
     - awslogs-group - /ecs/ffmpeg-thumb-task-definition
     - awslogs-region - us-east-1
     - awslogs-stream-prefix - ecs
 
 - step2 update task defination 
-    - compatibilites --> Fatrgate
+    - compatibilites --> Fargate
     - task size - appropriate memory and cpu
 - step3 Service Definition
 For now we really don't need a 'service', but during the service definition creation step, AWS automatically creates a 'security group'. This is useful. So accept all the default values and click the 'Next' button:
