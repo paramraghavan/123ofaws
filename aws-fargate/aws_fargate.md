@@ -24,7 +24,8 @@ This image runs a shell script which copies file from S3 Input bucket into to  w
 **High level up AWS Fargate**
 AWS provides a First Run Wizard that is an excellent resource to start playing with ECS using Fargate. 
 sample screen capture:
-![Uploading Screen Shot 2021-09-30 at 1.18.49 PM.png…]()
+![image](https://user-images.githubusercontent.com/52529498/149152749-45e7e10d-8ede-4f5f-a83c-268e353b4a7c.png)
+
 
 - Step1, we will create the container definition, most likely a custom container. Give the container a name, then image. You could ahve the image registred with ECR, Elastic Container Registry, or with docker hub using the docker hub registry URL, in the advanced container set the enviroment varaibles. Next, in the 'STORAGE AND LOGGING' add the following 'Log configuration' key/value pairs:
     - awslogs-group - /ecs/ffmpeg-thumb-task-definition
