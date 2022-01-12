@@ -1,6 +1,6 @@
 # boto3
 ## What is the use of Boto3?
-  - Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3 and Amazon EC2. You can find the latest, most up to date, documentation at our doc site, including a list of services that are supported.
+  - Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3 and Amazon EC2.
   - https://aws.amazon.com/sdk-for-python/
   - [boto3 api](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/index.html)
     
