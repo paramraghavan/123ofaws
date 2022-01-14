@@ -80,7 +80,7 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
   - On Account #3
     - Assuming that youa re logged into the AWS console, IAM Service and you already have a S3 permission policy created.
     - Create Role
-    - Select another AWS account
+    - Select type of trusted entity "Another AWS account"
     - Add Account #1
     - Attach s3 readonly permission policy, name and save it
     - get the Role ARN and note it down.
