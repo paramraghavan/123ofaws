@@ -89,6 +89,8 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
     - Choose service **STS**
     - choose assume role
     - add above noted ARN
+    - ![image](https://user-images.githubusercontent.com/52529498/149468833-b62a7a64-9a2d-48f8-8645-ac32d65c41b9.png)
+
   - On Account #1 again
     - addabove Assume-S3-ReadOnly policy to User A  
     - 
