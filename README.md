@@ -156,3 +156,5 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 - [online photo editor](https://www.photopea.com/)
 - [online block diagram tool](https://www.diagrameditor.com/)
 - [serverless](https://www.serverless.com/examples/)
+- https://www.diagrameditor.com/
+- https://www.microsoft.com/en-us/p/drawio-diagrams/9mvvszk43qqw?activetab=pivot:overviewtab
