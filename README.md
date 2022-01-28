@@ -139,7 +139,7 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 - [ref](https://stackshare.io/stackups/aws-batch-vs-aws-fargate)
 
 
-**vCPU
+**vCPU**
 
 -The Math Behind Calculating vCPU
 In the past, there was a rule of thumb that there were eight vCPUs per core. Today, vCPU count is largely determined by the manufacturer. It’s calculated by taking the number of processing threads that a chipset offers per core and multiplying the number of occupied sockets. Here’s how it looks:
