@@ -153,7 +153,11 @@ Fist, we need to select a virtual server and CPU. For this example, we’ll sele
 Intel Xeon E-2288G include 8 cores / 16 threads with a 3.7GHz base clock and 5.0GHz turbo boost. There is 16MB of onboard cache.
 (16 Threads x 8 Cores) x 1 CPU = 128 vCPU
 
-ref:https://www.datacenters.com/news/what-is-a-vcpu-and-how-do-you-calculate-vcpu-to-cpu
+![image](https://user-images.githubusercontent.com/52529498/151554537-e4350384-90bb-4d78-9f39-3de2cfed3fe1.png)
+
+
+ref: https://www.datacenters.com/news/what-is-a-vcpu-and-how-do-you-calculate-vcpu-to-cpu
+ref: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Fargate.html
 
 **Learned AWS using following resources**
 - [AWS Documnentation](https://docs.aws.amazon.com/index.html?nc2=h_ql_doc)
