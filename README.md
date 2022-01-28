@@ -141,7 +141,9 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 
 **vCPU**
 
--The Math Behind Calculating vCPU
+What is a vCPU? vCPU is the abbreviation for virtual centralized processing unit. As for a definition, a vCPU represents a portion or share of the underlying, physical CPU that is assigned to a particular virtual machine (VM).
+
+- The Math Behind Calculating vCPU
 In the past, there was a rule of thumb that there were eight vCPUs per core. Today, vCPU count is largely determined by the manufacturer. It’s calculated by taking the number of processing threads that a chipset offers per core and multiplying the number of occupied sockets. Here’s how it looks:
 (Threads x Cores) x Physical CPU = Number vCPU
 
