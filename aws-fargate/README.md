@@ -45,5 +45,5 @@ For now we really don't need a 'service', but during the service definition crea
 - Review the changes and create to create the container definition, task definition, service and the cluster.
 
 ## References:
-https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
-https://medium.com/acast-tech/running-apache-spark-on-aws-81a5f766d3a6
+- https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
+- https://medium.com/acast-tech/running-apache-spark-on-aws-81a5f766d3a6
