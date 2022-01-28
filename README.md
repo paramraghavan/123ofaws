@@ -139,6 +139,20 @@ Finally, Amazon RDS instances can be automatically backed up to Amazon S3, thus 
 - [ref](https://stackshare.io/stackups/aws-batch-vs-aws-fargate)
 
 
+**vCPU
+
+-The Math Behind Calculating vCPU
+In the past, there was a rule of thumb that there were eight vCPUs per core. Today, vCPU count is largely determined by the manufacturer. It’s calculated by taking the number of processing threads that a chipset offers per core and multiplying the number of occupied sockets. Here’s how it looks:
+(Threads x Cores) x Physical CPU = Number vCPU
+
+- Example Calculation of vCPU & Cores
+The best way to learn how to calculate vCPU and cores is to demonstrate through an example.
+Fist, we need to select a virtual server and CPU. For this example, we’ll select Intel Xeon E-2288G as the underlying CPU. Key stats for the
+Intel Xeon E-2288G include 8 cores / 16 threads with a 3.7GHz base clock and 5.0GHz turbo boost. There is 16MB of onboard cache.
+(16 Threads x 8 Cores) x 1 CPU = 128 vCPU
+
+ref:https://www.datacenters.com/news/what-is-a-vcpu-and-how-do-you-calculate-vcpu-to-cpu
+
 **Learned AWS using following resources**
 - [AWS Documnentation](https://docs.aws.amazon.com/index.html?nc2=h_ql_doc)
 - pluralsight
