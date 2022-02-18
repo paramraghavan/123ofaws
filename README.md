@@ -3,7 +3,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 
  I think services - IAM, VPC and S3 form the foundation of AWS, once you have a good understanding of these services rest of the services will be easy to follow.
 - [iam](https://github.com/paramraghavan/123ofaws/blob/main/iam/README.md)
-- [vpc](https://github.com/paramraghavan/123ofaws/blob/main/vpc/vpc.md)
+- [vpc](https://github.com/paramraghavan/123ofaws/blob/main/vpc/README.md)
 - [s3](https://github.com/paramraghavan/123ofaws/blob/main/s3/s3.md)
 - lambda
 - api gateway
