@@ -65,7 +65,16 @@ Generate a presigned URL to upload an object by using the SDK for Python (Boto3)
  
   
 # S3 Strong vs Eventual Consistency  
+  
+Amazon S3 delivers strong read-after-write consistency automatically for all applications, without changes to performance or availability, without sacrificing regional isolation for applications, and at no additional cost. With strong consistency, S3 simplifies the migration of on-premises analytics workloads by removing the need to make changes to applications, and reduces costs by removing the need for extra infrastructure to provide strong consistency.
 
+Any request for S3 storage is strongly consistent. After a successful write of a new object or an overwrite of an existing object, any subsequent read request immediately receives the latest version of the object. S3 also provides strong consistency for list operations, so after a write, you can immediately perform a listing of the objects in a bucket with any changes reflected.  
+
+After a successful write of a new object, or an overwrite or delete of an existing object, any subsequent read request immediately receives the latest version of the object. S3 also provides strong consistency for list operations, so after a write, you can immediately perform a listing of the objects in a bucket with any changes reflected.
+
+For all existing and new objects, and in all regions, all S3 GET, PUT, and LIST operations, as well as operations that change object tags, ACLs, or metadata, are now strongly consistent. What you write is what you will read, and the results of a LIST will be an accurate reflection of what’s in the bucket.
+  
+ref: https://aws.amazon.com/s3/consistency/  
 # Notes
 > Difference between s3n, s3a and s3
 > - The letter change on the URI scheme makes a big difference because it causes different software to be used to interface to S3. Somewhat like the difference between http and https - it's only a one-letter change, but it triggers a big difference in behavior.
