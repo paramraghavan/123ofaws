@@ -63,6 +63,8 @@ Generate a presigned URL to upload an object by using the SDK for Python (Boto3)
   
  - [See here for more details](https://docs.aws.amazon.com/AmazonS3/latest/userguide/PresignedUrlUploadObject.html)
  
+  
+# S3 Strong vs Eventual Consistency  
 
 # Notes
 > Difference between s3n, s3a and s3
