@@ -50,6 +50,21 @@ All instances that are to be accessed via the internet you will need to create a
 ![image](https://user-images.githubusercontent.com/52529498/137607039-4ec285b8-0ef7-4841-8241-3c8e6f73418a.png)
 
 
+# AWS Services and VPC
+- By default, Lambda functions are not launched within a virtual private cloud (VPC), so they can only connect to public resources
+  accessible through the internet.
+- This is not how most Amazon cloud services operate. For example, EC2 instances can only be accessed within a VPC -- same 
+  goes for internal application load balancers. When launching a database with Amazon Relational Database Service (RDS), it's
+  considered a best practice to only allow authorized components within a VPC to connect to a specific database instance. In 
+  addition, services such as ElastiCache, Elastic File System and DynamoDB Accelerator only allow access within a VPC. 
+- There are a number of services that support public access, but AWS has introduced the ability to allow VPC-only access
+  using private endpoints. Some examples include S3, DynamoDB, API Gateway, Elastic MapReduce, Athena, CodeBuild and 
+  CodePipeline, among others. 
+- If a Lambda function is required to operate within a VPC -- an increasingly common scenario -- then it needs to be 
+  configured in a particular way. To do this, you need to assign a VPC to the Lambda function, then assign one 
+  or more subnets, as well as the accompanying VPC security groups.
+- [more](https://www.techtarget.com/searchcloudcomputing/answer/How-do-I-configure-AWS-Lambda-functions-in-a-VPC)
+
 **Notes**
 - https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
 - https://aws.amazon.com/vpc/faqs/
