@@ -63,7 +63,11 @@ All instances that are to be accessed via the internet you will need to create a
 - If a Lambda function is required to operate within a VPC -- an increasingly common scenario -- then it needs to be 
   configured in a particular way. To do this, you need to assign a VPC to the Lambda function, then assign one 
   or more subnets, as well as the accompanying VPC security groups.
+- [VPC endpoint](https://docs.aws.amazon.com/whitepapers/latest/building-scalable-secure-multi-vpc-network-infrastructure/centralized-access-to-vpc-private-endpoints.html)
 - [more](https://www.techtarget.com/searchcloudcomputing/answer/How-do-I-configure-AWS-Lambda-functions-in-a-VPC)
+
+
+
 
 **Notes**
 - https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
