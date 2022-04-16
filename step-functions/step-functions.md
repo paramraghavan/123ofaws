@@ -17,8 +17,12 @@ Then we have wait states. Wait states are for steps that are going to take a l
 
 ![image](https://user-images.githubusercontent.com/52529498/163675455-5d624ad8-0b0d-41f3-b138-0a79c87fdb70.png)
 
+**Pass** doesn't perform any work. The main purpose is to pass its input to the output. They are mostly used for constructing and debugging state machines.
+![image](https://user-images.githubusercontent.com/52529498/163675632-1853f5ba-b91c-4d40-ac12-fb029525d50e.png)
+Here the constructed "Identity" object is passed as input to to the next step.
 
-Finally, when your application completes, we have fail and we have success states to let a simple workflow know if we completed successfully.
+Success/Fail - Finally, when your application completes, we have fail and we have success states to let a simple workflow know if we completed successfully.
+![image](https://user-images.githubusercontent.com/52529498/163675737-2ae56945-644f-41c5-bd83-360f5e9d6623.png)
 
 Pix2
 
