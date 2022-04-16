@@ -13,8 +13,12 @@ The next is we have choice states. Choice states are like branching states whe
 Then we have parallel states, which allow you to do things at the same time and then merge back together.
 
 Then we have wait states. Wait states are for steps that are going to take a long amount of time. So instead of you using resources to constantly poll that, you can then use the wait states to check every 30 seconds or some time interval that you set.
+![image](https://user-images.githubusercontent.com/52529498/163675420-f52f8a3c-b7ab-45c2-a97f-241b5b40f446.png)
 
-Finally, when your application completes, we have fail and we have success states to let a simple workflow know if we completed successfully.
+![image](https://user-images.githubusercontent.com/52529498/163675455-5d624ad8-0b0d-41f3-b138-0a79c87fdb70.png)
+
+
+Finally, when your application completes, we have fail and we have success states to let a simple workflow know if we completed successfully.
 
 Pix2
 
