@@ -1,4 +1,5 @@
 ## Step functions
+With microservices architecture in play, we use step function to orchestrate microservices as tasks with are run in sequence and eac step of the way we can take actions based on task1 succeeds or fails and go to taskn1 or taskn0. For example we can have 3 microservices -generate report, encrypt report, and email report. All these micorservices can run standalone, and we can use step functions to orchestrate - generate, encrypt and email report as a single process. The step function at each steps looks at the status of the previous step, lets say the encrypt step fails the entire step funtion fails and the report is not emailed. Lets say the encrypt failed because of lambda throtelling or some kind of network error, we can have logic to retry the encrypt step n number of times, before we deem this step and the enite process as a faield process.
 
 **States Types**
 Pix1
