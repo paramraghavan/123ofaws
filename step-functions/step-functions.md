@@ -24,6 +24,8 @@ Here the constructed "Identity" object is passed as input to to the next step.
 Success/Fail - Finally, when your application completes, we have fail and we have success states to let a simple workflow know if we completed successfully.
 ![image](https://user-images.githubusercontent.com/52529498/163675737-2ae56945-644f-41c5-bd83-360f5e9d6623.png)
 
+Error States : States.All, States.Runtime, States.Timeout, States.TaskFailed, States.Permissions
+
 Pix2
 
 So above is an example of a simple sequential workflow in which we have a start state that sets us up into our start state, and then that starts state runs a lambda function. Once that completes, we set it over to a final state, which is also a lambda function, which,
