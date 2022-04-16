@@ -4,7 +4,7 @@ With microservices architecture in play, we use step function to orchestrate mic
 **States Types**
 ![image](https://user-images.githubusercontent.com/52529498/163674993-2b4ed59a-23cd-4350-9c6c-aa1e356fdf41.png)
 
-The first is a task state, and a task state determines what kind of work do you want to do, for example lambda task, which you defer to a lambda function to process, Or you can have activity tasks submit job, which defer to some EC2 instance running your application or call another step function.
+The first is a task state, and a task state determines what kind of work do you want to do, for example lambda task, which you defer to a lambda function to process, Or you can have activity tasks submit job, which defer to some EC2 instance running your application or call another step function. **AWS services** that can be invoked - AWS Batch Job, Glue, SNS, SQS.
 
 The next is we have choice states. Choice states are like branching states where depending on the output of a previous state determines what you're going to do next.
 
