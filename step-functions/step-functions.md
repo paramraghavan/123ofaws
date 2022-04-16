@@ -26,6 +26,10 @@ Success/Fail - Finally, when your application completes, we have fail and we hav
 
 Error States : States.All, States.Runtime, States.Timeout, States.TaskFailed, States.Permissions
 
+![image](https://user-images.githubusercontent.com/52529498/163678569-a221356f-9aaa-4d2f-815e-37ca977b2319.png)
+So above is an example of a simple sequential workflow in which we have a start state that sets us up into our start state, and then that starts state runs a lambda function. Once that completes, we set it over to a final state, which is also a lambda function, which,
+if it completes successfully, we send it up to an end state. So how do you define these workflows? That's using the Amazon State Language.
+
 <pre>
 {
   "StartAt": "Step 1",
@@ -55,12 +59,6 @@ Error States : States.All, States.Runtime, States.Timeout, States.TaskFailed, St
   }
 }
 </pre>
-
-So above is an example of a simple sequential workflow in which we have a start state that sets us up into our start state, and then that starts state runs a lambda function. Once that completes, we set it over to a final state, which is also a lambda function, which,
-if it completes successfully, we send it up to an end state. So how do you define these workflows? That's using the Amazon State Language.
-
-
-Pix3
 See above - the same in workflow seen above this image, but here we can show it with the code. And here you can see, we have the StartAt, which determines where we're going to start our state, and then we define the two states there with our StartState and FinalState that configure which lambda function it's going to run. 
 
 <pre>
