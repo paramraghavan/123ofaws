@@ -26,7 +26,35 @@ Success/Fail - Finally, when your application completes, we have fail and we hav
 
 Error States : States.All, States.Runtime, States.Timeout, States.TaskFailed, States.Permissions
 
-Pix2
+<pre>
+{
+  "StartAt": "Step 1",
+  "States": {
+    "Step 1": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:049827573258:function:step1:$LATEST",
+        "Payload": {
+          "Input.$": "$"
+        }
+      },
+      "Next": "Step 2"
+    },
+    "Step 2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:049827573258:function:step2:$LATEST",
+        "Payload": {
+          "Input.$": "$"
+        }
+      },
+      "End": true
+    }
+  }
+}
+</pre>
 
 So above is an example of a simple sequential workflow in which we have a start state that sets us up into our start state, and then that starts state runs a lambda function. Once that completes, we set it over to a final state, which is also a lambda function, which,
 if it completes successfully, we send it up to an end state. So how do you define these workflows? That's using the Amazon State Language.
