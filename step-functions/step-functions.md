@@ -32,9 +32,9 @@ if it completes successfully, we send it up to an end state. So how do you def
 
 <pre>
 {
-  "StartAt": "Step 1",
+  "StartAt": "StartState",
   "States": {
-    "Step 1": {
+    "StartState": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
@@ -45,7 +45,7 @@ if it completes successfully, we send it up to an end state. So how do you def
       },
       "Next": "Step 2"
     },
-    "Step 2": {
+    "FinalState": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
