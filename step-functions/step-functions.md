@@ -145,7 +145,7 @@ Assume that the comment and extra nodes can be discarded, but that we want t
 
 In the updated state machine, the Task state is altered to process the input to the task.
 
-"InputPath": "$.lambda",
+"InputPath": "$.lambda" or "Input.$": "$.lambda",
 This line in the state machine definition limits the task input to only the lambda node from the state input. The Lambda function receives only the JSON object {"who": "AWS Step Functions"} as input.
 
 "ResultPath": "$.data.lambdaresult",
