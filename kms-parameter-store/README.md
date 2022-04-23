@@ -263,3 +263,7 @@ Useful links:
 -----------
 - https://github.com/alexcasalboni/ssm-cache-python
 - https://medium.com/@whaleberry/tips-for-storing-secrets-with-aws-ssm-parameter-store-d70a4a42c64
+
+Questions
+------------
+- What is AWS Secrets Manager
