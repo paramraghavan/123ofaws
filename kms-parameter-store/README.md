@@ -252,11 +252,14 @@ layer of protection, we can use something called a SecureString parameter. And S
 encrypted using keys managed in KMS
 
 Sample AWS Cli command
-aws ssm get-parameter - name “/dev/dbconnectionstring”
-aws ssm get-parameter - name “/dev/dbconnectionstring” --with-decryption(KMS key encrypted), this should have the role to 
+----------------------
+- aws ssm get-parameter - name “/dev/dbconnectionstring”
+- aws ssm get-parameter - name “/dev/dbconnectionstring” --with-decryption(KMS key encrypted), this should have the role to 
 access kms keys so the value can be decrypted.
+
 **Note:** IAM role will require ssm:GetParameters permissions (optionally, also kms:Decrypt if you use SecureString params).
 
 Useful links:
+-----------
 - https://github.com/alexcasalboni/ssm-cache-python
 - https://medium.com/@whaleberry/tips-for-storing-secrets-with-aws-ssm-parameter-store-d70a4a42c64
