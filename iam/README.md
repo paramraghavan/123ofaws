@@ -7,7 +7,7 @@ AWS account offered at no additional charge. You will be charged only for use of
 AWS services by your users. ref https://aws.amazon.com/iam/
 
 
-Every IAM account comes with its own running copy of IAM, its own database.
+Think of it like - every IAM account comes with its own running copy of IAM, its own database.
 IAM is a globally resilient service. Its your own dedicated instance of IAM for each account.
 You AWS account trusts your instance of IAM like your root user. IAM is a global service and
 there no cost for this service
