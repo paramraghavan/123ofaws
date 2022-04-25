@@ -8,16 +8,15 @@ Terraform Object Types
 
 
 Terraform Block syntax
- - JSON like syntax with provision to add comments, where label name is prvoder specific and name_lable is the alias.
-￼![img.png](img.png)￼￼￼
+ - JSON like syntax with provision to add comments, where label name is prvoder specific and name_lable is the alias. 
+￼![img.png](img.png)
 
-
-Build/Deploy Steps
+ - Build/Deploy Steps
 --------------------
-terraform init —> pulls provider plugin If need be, get state info
-terraform plan —> plan to update the target
-terraform apply —> resources created and state data updated
-terraform destroy —>  destroy target env
+- terraform init —> pulls provider plugin If need be, get current state info of for the resources
+- terraform plan —> what is the plan to update the target
+- terraform apply —> resources created and state data updated - creates or updates the target envvironment.
+- terraform destroy —>  destroys target env
 
 Useful Links
 --------------
