@@ -23,7 +23,7 @@ All instances that are to be accessed via the internet you will need to create a
  For the internet-accessible VPC, you'll start out with a VPC that has a public subnet,
  meaning the `instances in that subnet have public IP addresses. All instances are accessed via the internet, so you'll need to create and attach an internet gateway to your VPC. 
  
- This will allow communication from your VPC to the outside internet. You will also define routes/routing tqble to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups are set up properly so that you don't expose your instances to  risk. You can also configure allow and deny rules in a network access control list - nacl, and attach that to the subnet. [NACL VS Secutiry Groups](https://www.knowledgehut.com/tutorials/aws/nacl-vs-security-groups)
+ This will allow communication from your VPC to the outside internet. You will also define routes/routing tqble to tell the router to send external traffic through the internet gateway, and how to route inbound traffic to your instances via their public IP addresses. In this scenario, you would need to ensure that your security groups are set up properly so that you don't expose your instances to  risk. You can also configure allow and deny rules in a network access control list - nacl, and attach that to the subnet. [NACL VS Security Groups](https://www.knowledgehut.com/tutorials/aws/nacl-vs-security-groups)
 
 ![image](https://user-images.githubusercontent.com/52529498/125168074-9dcddb00-e171-11eb-8e92-4c8f0a7ef92b.png)
 
