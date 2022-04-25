@@ -13,9 +13,9 @@ Terraform Block syntax
 
  - Build/Deploy Steps
 --------------------
-- terraform init —> pulls provider plugin If need be, get current state info of for the resources
-- terraform plan —> what is the plan to update the target
-- terraform apply —> resources created and state data updated - creates or updates the target envvironment.
+- terraform init —> pulls provider plugin If need be, get current state info of the resources
+- terraform plan —> prepares the plan to update the target
+- terraform apply —> resources created and state data updated - creates or updates the target environment.
 - terraform destroy —>  destroys target env
 
 Useful Links
