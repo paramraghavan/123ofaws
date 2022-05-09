@@ -8,8 +8,15 @@ Terraform Object Types
 
 
 Terraform Block syntax
- - JSON like syntax with provision to add comments, where label name is prvoder specific and name_lable is the alias. 
-￼![img.png](img.png)
+- JSON like syntax with provision to add comments, where label name is provider specific and name_label is the alias. 
+￼<pre>
+       block_type "label"  "name_label" {
+            key = "value"
+            nested_block {
+                  key = "value"
+            }
+       }
+ </pre>
 
  - Build/Deploy Steps
 --------------------
