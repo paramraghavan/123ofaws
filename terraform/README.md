@@ -8,15 +8,15 @@ Terraform Object Types
 
 
 Terraform Block syntax
-- JSON like syntax with provision to add comments, where label name is provider specific and name_label is the alias. 
-￼<pre>
-       block_type "label"  "name_label" {
-            key = "value"
-            nested_block {
-                  key = "value"
-            }
-       }
- </pre>
+- JSON like syntax with provision to add comments, where label name is provider specific and name_label is the alias. ￼
+<pre>
+   block_type "label"  "name_label" {
+        key = "value"
+        nested_block {
+              key = "value"
+        }
+   }
+</pre>
 
  - Build/Deploy Steps
 --------------------
@@ -54,7 +54,7 @@ can add validation rule for input variables.
         }
       ]
     }
-</pre>
+<</pre>
 - [output variables](https://www.terraform.io/language/values/outputs). Output values are like function return values. Outputs are only rendered when Terraform applies your plan. Running terraform plan will not render outputs. 
 - example : 
 <pre>
