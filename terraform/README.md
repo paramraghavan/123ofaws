@@ -26,6 +26,14 @@ Terraform Block syntax
 - terraform destroy —>  destroys target env
 - only run for one particular resource, terraform plan -target=resource_label.resource_name_label, [ref](https://jhooq.com/terraform-run-specific-resource/).
   "terraform plan" will print a list of modules on  run completion.
+<pre>
+# If the bucket,my-existing-bucket, already exists, updating the bucket info. into the  terraform state.
+./deploy import module.de_s3_buckets.aws_s3_bucket.s3-data-vmg my-existing-bucket
+./deploy plan -target=module.de_s3_buckets.aws_s3_bucket.s3-data-lake
+./deploy apply -target=module.de_s3_buckets.aws_s3_bucket.s3-data-lake
+</pre>
+[ref](https://stackoverflow.com/questions/64517795/how-do-i-apply-a-lifecycle-rule-to-an-existing-s3-bucket-in-terraform)
+
 
 Input Output Variables
 ----------------------
