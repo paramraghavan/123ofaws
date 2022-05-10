@@ -24,7 +24,7 @@ Terraform Block syntax
 - terraform plan —> prepares the plan to update the target
 - terraform apply —> applies terraform plan, resources created and state data updated - creates or updates the target environment.
 - terraform destroy —>  destroys target env
-- only run for one particular resource, terraform plan -target=resource_label.resource_name_label 
+- only run for one particular resource, terraform plan -target=resource_label.resource_name_label. [ref](https://jhooq.com/terraform-run-specific-resource/)
 
 Input Output Variables
 ----------------------
