@@ -26,6 +26,7 @@ Terraform Block syntax
 - terraform destroy —>  destroys target env
 - only run for one particular resource, terraform plan -target=resource_label.resource_name_label, [ref](https://jhooq.com/terraform-run-specific-resource/).
   "terraform plan" will print a list of modules on  run completion.
+- terraform state pull,  command is used to manually download and output the state from remote state. This command also works with local state.
 <pre>
 # If the bucket,my-existing-bucket, already exists, updating the bucket info. into the  terraform state.
 ./deploy import module.de_s3_buckets.aws_s3_bucket.s3-data-vmg my-existing-bucket
@@ -93,12 +94,24 @@ locals {
     Owner   = local.owner
   }
 }
-
 </pre>
 
-
+- We can also have key value defined in  files as well passed in as a command line parameter
+Terraform loads variables in the following order, with later sources taking precedence over earlier ones:
+1. Environment variables
+2. The terraform.tfvars file, if present.
+3. The terraform.tfvars.json file, if present.
+4. Any *.auto.tfvars or *.auto.tfvars.json files, processed in lexical order of their filenames.
+5. Any -var and -var-file options on the command line, in the order they are provided. (This includes variables set by a Terraform Cloud workspace.)
+- example:
+  <pre>
+  env = "tst"
+  acct_num = "123456789"
+  </pre>
+  Above can be referred on other .tf's files - var.env, var.acct_num
 
 Useful Links
 --------------
 - https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 - https://github.com/ned1313/Getting-Started-Terraform
+- [variables](https://www.terraform.io/language/values/variables)
