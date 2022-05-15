@@ -1,7 +1,6 @@
 # Terraform
 
-Terraform Object Types
-----------------------
+## Terraform Object Types
 1. Providers - in our case AWS, could be Azure or GCP
 2. Resources - ec2 instances, database etc
 3. Data sources - are based are on provider - could be a list of AZ’s in a region, AMI’s that can be used, etc
@@ -16,10 +15,21 @@ Terraform Block syntax
               key = "value"
         }
    }
+
+  Example of block resources - aws_vpc, aws_s3_bucket:
+  
+  resource "aws_vpc" "vpc" {
+  cidr_block  = var.vpc_cidr_block
+  enable_dns_hostnames = var.enable_dns_hostnames
+  tags = local.common_tags
+  }
+  
+  resource "aws_s3_bucket" "web_bucket" {
+  ..
+  }
 </pre>
 
- - Build/Deploy Steps
---------------------
+## Build/Deploy Steps
 - terraform init —> pulls provider plugin If need be, get current state info of the resources
 - terraform plan —> prepares the plan to update the target
 - terraform apply —> applies terraform plan, resources created and state data updated - creates or updates the target environment.
@@ -28,7 +38,7 @@ Terraform Block syntax
   "terraform plan" will print a list of modules on  run completion.
 - terraform state pull,  command is used to manually download and output the state from remote state. This command also works with local state.
 <pre>
-# If the bucket,my-existing-bucket, already exists, updating the bucket info. into the  terraform state.
+## If the bucket,my-existing-bucket, already exists, updating the bucket info. into the  terraform state.
 ./deploy import module.de_s3_buckets.aws_s3_bucket.s3-data-vmg my-existing-bucket
 ./deploy plan -target=module.de_s3_buckets.aws_s3_bucket.s3-data-lake
 ./deploy apply -target=module.de_s3_buckets.aws_s3_bucket.s3-data-lake
@@ -36,8 +46,8 @@ Terraform Block syntax
 [ref](https://stackoverflow.com/questions/64517795/how-do-i-apply-a-lifecycle-rule-to-an-existing-s3-bucket-in-terraform)
 
 
-Input Output Variables
-----------------------
+## Input Output Variables
+
 - [input variable](https://www.terraform.io/language/values/variables). Input variables are like function arguments. You
 can add validation rule for input variables.
 - input variable example: 
@@ -110,8 +120,8 @@ Terraform loads variables in the following order, with later sources taking prec
   </pre>
   Above can be referred on other .tf's files - var.env, var.acct_num
 
-Useful Links
---------------
+## Useful Links
+
 - https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 - https://github.com/ned1313/Getting-Started-Terraform
 - [variables](https://www.terraform.io/language/values/variables)
