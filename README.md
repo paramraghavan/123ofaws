@@ -5,7 +5,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [iam](https://github.com/paramraghavan/123ofaws/blob/main/iam/README.md)
 - [vpc](https://github.com/paramraghavan/123ofaws/blob/main/vpc/README.md)
 - [s3](https://github.com/paramraghavan/123ofaws/blob/main/s3/README.md)
-- lambda
+- lambda, https://www.serverless.com/aws-lambda
 - api gateway
 - [aws batch](https://github.com/paramraghavan/123ofaws/blob/main/aws-batch/aws_batch.md)
 - kinesis analytics
