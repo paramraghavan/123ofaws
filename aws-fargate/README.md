@@ -47,3 +47,4 @@ For now we really don't need a 'service', but during the service definition crea
 ## References:
 - https://www.serverless.com/blog/serverless-application-for-long-running-process-fargate-lambda
 - https://medium.com/acast-tech/running-apache-spark-on-aws-81a5f766d3a6 --> AWS Fargate + SparkSql + Glue
+- https://spot.io/blog/fargate-vs-ecs-comparing-amazons-container-management-services
