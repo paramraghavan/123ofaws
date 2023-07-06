@@ -112,3 +112,6 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 }
 
 </pre>
+
+- Ref:
+https://jumpcloud.com/blog/aws-iam-vs-aws-sso
