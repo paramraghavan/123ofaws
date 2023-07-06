@@ -113,5 +113,4 @@ specifying Principal: * in your policy above, the danger here is that you’ve  
 
 </pre>
 
-- Ref:
-https://jumpcloud.com/blog/aws-iam-vs-aws-sso
+- [AWS Identity and Access Management (IAM) and AWS IAM Identity Center](https://jumpcloud.com/blog/aws-iam-vs-aws-sso)
