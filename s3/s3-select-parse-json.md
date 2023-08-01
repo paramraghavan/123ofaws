@@ -5,7 +5,7 @@ def s3_select():
     bucket = "test"
     key = "test.json"
     expression_type = "SQL"
-    expression = """SELECT * FROM S3Object"""
+    expression = """SELECT * FROM S3Object as t1 where t1.event_id ='xcdeere' """
     input_serialization = {'CompressionType': 'GZIP', "JSON": {"Type": "Document"}}
     output_serialization = {"JSON": {}}
     response = client.select_object_content(
