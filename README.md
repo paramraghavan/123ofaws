@@ -166,6 +166,10 @@ ref: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Fargate.htm
 - linux academy
 - AWS class room trainings,AWS  Re-invent and other conferences
 - And have been using AWS for 4 plus years at work
+- https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html
+- https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/asynchronous.html
+- https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/javav2/example_code
+
 
 **Came across following website seems to be interesting**
 - [simplilearn tutorial](https://www.simplilearn.com/tutorials/aws-tutorial/)
