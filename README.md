@@ -159,6 +159,9 @@ Intel Xeon E-2288G include 8 cores / 16 threads with a 3.7GHz base clock and 5.0
 ref: https://www.datacenters.com/news/what-is-a-vcpu-and-how-do-you-calculate-vcpu-to-cpu
 ref: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Fargate.html
 
+**Python Generative AI AWS Bedrock**
+- https://www.youtube.com/watch?v=ab1mbj0acDo
+
 **Learned AWS using following resources**
 - [AWS Documnentation](https://docs.aws.amazon.com/index.html?nc2=h_ql_doc)
 - pluralsight
