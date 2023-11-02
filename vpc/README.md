@@ -9,6 +9,19 @@ It's like your own private data center. You can think of a VPC as a logically is
 Region can have one or more VPC's. Northern Virgina region is labeled **us-east-1** and it has 6 Availability Zones - us-east-1a, us-east-1b, us-east-1c, us-east-1d, us-east-1e and us-east-1f. When you create an AWS account a default VPC is created for each region, a subnet created in each Availability Zone and you can launch EC2 instance insde this subnet. AWS does allow you to delete default VPC. You can create one or more VPC's as
 needed.  [Regions,AvailabilityZones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones). **"I"** above represents an EC2 instance.
 
+**For the default VPC:**
+
+- **VPC Size**: AWS creates a VPC with a size /16 IPv4 CIDR block, which provides up to 65,536 private IPv4 addresses.
+
+- **Subnets**: In the default VPC, AWS creates a subnet in each Availability Zone, ensuring that resources that you launch into this VPC can run in multiple locations. Each of these default subnets has a size /20 IPv4 CIDR block, which provides over 4,000 private IPv4 addresses. This ensures a wide range of IP addresses for launching resources in different Availability Zones.
+
+- **Internet Connectivity**: A default VPC includes an internet gateway, and all of your instances will have a private and a public IPv4 address. This means instances in the default VPC can communicate directly with the internet, as long as they have an Elastic IP or Public IP.
+
+- **Security**: The default VPC has a security group that allows all outbound traffic and disallows all inbound traffic. It also comes with a network access control list (NACL) that allows all inbound and outbound traffic. Additionally, the default VPC includes a route table that directs all traffic (0.0.0.0/0) to the internet gateway.
+
+- **DHCP**: AWS sets up a default DHCP options set for the default VPC.
+If you're doing something production-critical, it's usually a good idea to customize your VPC setup.
+
 Behind the scenes AWS is a massive network infrastructure. Within each availability zone and between availability zones in the same region is a private AWS network. This is highly over-provisioned, highly scalable, and very high throughput. Availability zones are connected and designed for extremely low latency, as if you were in the same data center. At the edge of the private network, AWS utilizes several different public internet providers to ensure high availability, high throughput, and low latency of all network traffic. Amazon also has their own global network backbone which provides region-to-region connection. This ensures privacy, speed, and reliability.
 
 When you create/deploy an EC2 instance through the aws console, you can use the available default VPC and subnet. You can create and assign a security group and NACL - Network Access Control List. The subnet could be a public subnet, meaning EC2 instance can access internet, provided SG and NACL allow. SG, Security Group, are made up of set inbound and outbound rules at instance level within an AZ within a VPC. NACL, Network Access Control List, is applied at subnet level, nacl requires separate inbound and outbound rules. Security Groups are assigned to instances and applied to other instances. NACL are assigned to Subnet.
