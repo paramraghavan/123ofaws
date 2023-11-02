@@ -76,11 +76,35 @@ For all existing and new objects, and in all regions, all S3 GET, PUT, and LIST 
   
 ref: https://aws.amazon.com/s3/consistency/  
 # Notes
-> Difference between s3n, s3a and s3
-> - The letter change on the URI scheme makes a big difference because it causes different software to be used to interface to S3. Somewhat like the difference between http and https - it's only a one-letter change, but it triggers a big difference in behavior.
-> - The difference between s3 and s3n/s3a is that s3 is a block-based overlay on top of Amazon S3, while s3n/s3a are not (they are object-based).
-> - The difference between s3n and s3a is that s3n supports objects up to 5GB in size, while s3a supports objects up to 5TB and has higher performance (both are because it uses multi-part upload). s3a is the successor to s3n.
-> - If you're here because you want to understand which S3 file system you should use with Amazon EMR, then read [this article](https://web.archive.org/web/20170718025436/https://aws.amazon.com/premiumsupport/knowledge-center/emr-file-system-s3/) from Amazon (only available on wayback machine). The net is: use s3:// because s3:// and s3n:// are functionally interchangeable in the context of EMR, while s3a:// is not compatible with EMR.
-> - For additional advice, read [Work with Storage and File Systems](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-file-systems.html).
+**Difference between s3n, s3a and s3**
+Amazon S3 (Simple Storage Service) is a scalable object storage service from AWS. When working with Hadoop ecosystems (like HDFS, Spark, etc.), different schemes were developed to allow these systems to interact with Amazon S3. These schemes are denoted by their prefixes: s3, s3n, and s3a. Let's dive into the differences among these:
+* s3 (Block-based FileSystem for S3):
+    * The original adapter to connect Hadoop to S3.
+    * It treats S3 as a block-based filesystem, which means it divides files into blocks, just like HDFS.
+    * It's not considered suitable for large files because of the block-based approach. It can cause many S3 PUT requests, leading to data consistency issues and additional costs.
+    * It's largely obsolete now and isn't recommended for use.
+* s3n (S3 Native FileSystem):
+    * A successor to the original s3 scheme.
+    * It stands for "S3 Native" and treats S3 objects as native files, making it more suitable for larger files compared to the original s3 scheme.
+    * s3n uses a single S3 object for files, avoiding the block-based approach.
+    * Allows for horizontal scalability, but still has some limitations and inconsistencies, especially in write operations.
+* s3a (S3 Advanced FileSystem):
+    * The most recent and recommended way to integrate Hadoop with S3.
+    * It's an extension of s3n and is built on top of the AWS Java SDK.
+    * Resolves many of the issues and limitations found in s3 and s3n.
+    * Supports larger files (multi-terabyte scale).
+    * Provides better performance and more features, like S3 server-side encryption, S3Guard for consistency, and optimized data transfers.
+    * Supports Amazon S3 Select, allowing for more efficient data retrievals.
+    * It's the preferred choice when working with Hadoop ecosystems and Amazon S3.
 
+**In summary:**
+* If you're working with the Hadoop ecosystem and Amazon S3, you should choose s3a because of its performance, features, and support.
+* Both s3 and s3n are older connectors and come with limitations. While they may still be in use in older systems, for new implementations, s3a is the recommended choice.
+
+- The letter change on the URI scheme makes a big difference because it causes different software to be used to interface to S3. Somewhat like the difference between http and https - it's only a one-letter change, but it triggers a big difference in behavior.
+- The difference between s3 and s3n/s3a is that s3 is a block-based overlay on top of Amazon S3, while s3n/s3a are not (they are object-based).
+- The difference between s3n and s3a is that s3n supports objects up to 5GB in size, while s3a supports objects up to 5TB and has higher performance (both are because it uses multi-part upload). s3a is the successor to s3n.
+- - If you're here because you want to understand which S3 file system you should use with Amazon EMR, then read [this article](https://web.archive.org/web/20170718025436/https://aws.amazon.com/premiumsupport/knowledge-center/emr-file-system-s3/) from Amazon (only available on wayback machine). The net is: use s3:// because s3:// and s3n:// are functionally interchangeable in the context of EMR, while s3a:// is not compatible with EMR.
+- For additional advice, read [Work with Storage and File Systems](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-file-systems.html).
+  
 - [difference between s3n, s3a and s3](https://stackoverflow.com/questions/33356041/technically-what-is-the-difference-between-s3n-s3a-and-s3)
