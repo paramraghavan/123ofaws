@@ -7,7 +7,7 @@ For lot many of us in IT who have not still started  working on cloud or only no
 - [s3](https://github.com/paramraghavan/123ofaws/blob/main/s3/README.md)
 - lambda, https://www.serverless.com/aws-lambda
 - api gateway
-- [aws batch](https://github.com/paramraghavan/123ofaws/blob/main/aws-batch/README.md)
+- [aws batch](https://github.com/paramraghavan/123ofaws/tree/main/aws-batch#aws-batch)
 - kinesis analytics
 - [serverless framework](https://www.serverless.com/), serverless is a very easy to use and powerful framework to use aws services. I have build many project using this framework, see [sample alexa project](https://github.com/paramraghavan/sls-py-alexa-color-picker). [Also see](serverless/serverless.md) 
 - ec2
