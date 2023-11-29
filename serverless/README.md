@@ -28,7 +28,7 @@ plugin.
 # remove sls deployed code  
 $ sls remove 
 #serverless package -v --stage dev ****
-
+</pre>
 
 
 # Serverless links
