@@ -30,6 +30,34 @@ $ sls remove
 #serverless package -v --stage dev ****
 </pre>
 
+# Rest vs HTTP API endpoints
+## Rest API 
+<pre>
+
+In AWS (Amazon Web Services), there are two primary types of API endpoints you can create using Amazon 
+API Gateway: REST APIs and HTTP APIs. Both serve to create scalable and secure APIs for applications,
+but they have different features and use cases. 
+
+REST API
+Purpose:
+  Best for APIs that require a range of features like API keys, request validation, request and response transformations, etc.
+Features: 
+  Supports a wider range of API Gateway features, including API keys, request validation, AWS IAM permissions,
+  Lambda authorizers, and more.
+Use Case: 
+  Ideal for scenarios where you need complex API setups, legacy system support, or specific API Gateway 
+  features not available in HTTP APIs.
+</pre>
+
+## HTTP API 
+<pre>
+Purpose:
+  Best for building high-performance, cost-effective HTTP APIs.
+Features: 
+  Faster and cheaper than REST APIs but with limited features. Offers native support for OIDC and OAuth 2.0 authorization, and payload format versioning.
+Use Case:
+  Ideal for simple, straightforward HTTP APIs, where performance and cost are a priority over extensive API Gateway features.  
+</pre>
 
 # Serverless links
 - [Serverless install guide](https://www.serverless.com/framework/docs/getting-started)
