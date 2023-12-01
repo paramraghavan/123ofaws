@@ -1,7 +1,7 @@
 # How to use paramter-store and npx serverless config credentials
 To incorporate AWS Parameter Store and the npx serverless config credentials command in your buildspec.yml 
 for a serverless application, you need to make sure your build process has the necessary permissions
-and steps to access these services. Here's an updated buildspec.yml sample:
+and steps to access these services. Here's an  buildspec.yml sample:
 ```yaml
 version: 0.2
 
