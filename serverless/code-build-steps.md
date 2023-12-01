@@ -15,6 +15,15 @@
     * Service role: Either select an existing role or allow CodePipeline to create a new role.
     * Source stage:
     * Select the same source provider as your CodeBuild project and configure it to track the branch where your code is located.
+      <pre>
+       Configure the Source Stage:
+         Select the repository and the branch.
+         For Change detection options, you usually have two main choices:
+         AWS CodePipeline Polling: CodePipeline regularly checks the source 
+           repository for changes.
+         Webhooks (recommended for GitHub and Bitbucket): Automatically triggered 
+          when a change occurs in the repository. This is more efficient and leads to faster pipeline executions.
+      </pre>  
     * Build stage:
     * Add a build stage by choosing "Add build stage."
     * In the build stage settings, select "AWS CodeBuild" and choose the CodeBuild project you created earlier.
