@@ -37,7 +37,7 @@ $ sls remove
 In AWS (Amazon Web Services), there are two primary types of API endpoints you can create using Amazon 
 API Gateway: REST APIs and HTTP APIs. Both serve to create scalable and secure APIs for applications,
 but they have different features and use cases. 
-
+</pre>
 ## REST API
 <pre>
 Purpose:
