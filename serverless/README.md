@@ -38,7 +38,8 @@ In AWS (Amazon Web Services), there are two primary types of API endpoints you c
 API Gateway: REST APIs and HTTP APIs. Both serve to create scalable and secure APIs for applications,
 but they have different features and use cases. 
 
-REST API
+## REST API
+<pre>
 Purpose:
   Best for APIs that require a range of features like API keys, request validation, request and response transformations, etc.
 Features: 
