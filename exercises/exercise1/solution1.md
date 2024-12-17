@@ -38,3 +38,27 @@ print(requests.get('https://checkip.amazonaws.com').text.strip())
 session = requests.Session()
 response = session.get('https://abc.conenct.com', headers=headers)
 ```
+# how to findmy edges nodes instance id
+To find your AWS EC2 instance ID when you're already logged into the instance, you can use one of these methods:
+
+1. Using EC2 metadata service:
+```bash
+curl http://169.254.169.254/latest/meta-data/instance-id
+```
+
+2. Using AWS CLI (if installed):
+```bash
+aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+```
+
+3. Check the system log:
+```bash
+cat /var/log/cloud-init-output.log | grep "instance-id"
+```
+
+4. From instance tags (if hostname is set to instance ID):
+```bash
+hostname
+```
+
+The first method (metadata service) is the most reliable and commonly used. 
