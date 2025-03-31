@@ -1,0 +1,288 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Data Processing Pipeline with Lambda, Step Functions, SNS, SQS, and EMR'
+
+Parameters:
+  DataBucketName:
+    Type: String
+    Description: The S3 bucket for data files
+
+  CodeBucketName:
+    Type: String
+    Description: The S3 bucket for code files
+
+  EmrClusterId:
+    Type: String
+    Description: The ID of the EMR cluster
+
+  SsmInstanceId:
+    Type: String
+    Description: The ID of the EC2 instance with SSM agent
+
+  LambdaRuntime:
+    Type: String
+    Default: python3.9
+    Description: The runtime for Lambda functions
+
+Resources:
+  # IAM Roles
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+        - arn:aws:iam::aws:policy/AmazonEMRFullAccessPolicy_v2
+
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+
+  # SNS Topic
+  DataProcessingTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: DataProcessingTopic
+
+  # SQS Queue
+  DataProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 300
+
+  # SNS Subscription to SQS
+  SnsToSqsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref DataProcessingTopic
+      Endpoint: !GetAtt DataProcessingQueue.Arn
+
+  # SQS Queue Policy
+  SqsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref DataProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt DataProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref DataProcessingTopic
+
+  # Lambda Functions
+  RunPyLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: run_py_lambda
+      Handler: index.run_py_lambda
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: !Ref LambdaRuntime
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucketName
+          STEP_FUNCTION_ARN: !Ref DataProcessingStateMachine
+
+  JobTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: job_trigger_lambda
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: !Ref LambdaRuntime
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          EMR_CLUSTER_ID: !Ref EmrClusterId
+          SSM_INSTANCE_ID: !Ref SsmInstanceId
+          CODE_BUCKET: !Ref CodeBucketName
+
+  JobStatusCheckerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: job_status_checker_lambda
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: !Ref LambdaRuntime
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          EMR_CLUSTER_ID: !Ref EmrClusterId
+
+  # Event Source Mapping for SQS to Lambda
+  SqsToLambdaMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DataProcessingQueue.Arn
+      FunctionName: !Ref JobTriggerLambda
+      Enabled: true
+      BatchSize: 1
+
+  # Step Functions State Machine
+  DataProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: DataProcessingStateMachine
+      RoleArn: !GetAtt StepFunctionsExecutionRole.Arn
+      DefinitionSubstitutions:
+        SNSTopicArn: !Ref DataProcessingTopic
+        JobTriggerLambdaArn: !GetAtt JobTriggerLambda.Arn
+        JobStatusCheckerLambdaArn: !GetAtt JobStatusCheckerLambda.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "State machine to process S3 files and submit EMR jobs",
+          "StartAt": "ProcessS3Urls",
+          "States": {
+            "ProcessS3Urls": {
+              "Type": "Map",
+              "ItemsPath": "$.s3_urls",
+              "MaxConcurrency": 1,
+              "Iterator": {
+                "StartAt": "PublishToSNSTopic",
+                "States": {
+                  "PublishToSNSTopic": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::sns:publish",
+                    "Parameters": {
+                      "TopicArn": "${SNSTopicArn}",
+                      "Message.$": "$",
+                      "MessageAttributes": {
+                        "datasetName": {
+                          "DataType": "String",
+                          "StringValue.$": "$$.Execution.Input.datasetName"
+                        },
+                        "query": {
+                          "DataType": "String",
+                          "StringValue.$": "$$.Execution.Input.query"
+                        }
+                      }
+                    },
+                    "Next": "SubmitEMRJob"
+                  },
+                  "SubmitEMRJob": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Parameters": {
+                      "FunctionName": "${JobTriggerLambdaArn}",
+                      "Payload": {
+                        "s3_url.$": "$",
+                        "query.$": "$$.Execution.Input.query",
+                        "index.$": "$$.Execution.Input.index",
+                        "datasetName.$": "$$.Execution.Input.datasetName"
+                      }
+                    },
+                    "ResultPath": "$.jobDetails",
+                    "Next": "WaitForJobCompletion"
+                  },
+                  "WaitForJobCompletion": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Parameters": {
+                      "FunctionName": "${JobStatusCheckerLambdaArn}",
+                      "Payload": {
+                        "jobId.$": "$.jobDetails.Payload.jobId"
+                      }
+                    },
+                    "ResultPath": "$.jobStatus",
+                    "Next": "CheckJobStatus"
+                  },
+                  "CheckJobStatus": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.jobStatus.Payload.status",
+                        "StringEquals": "RUNNING",
+                        "Next": "WaitBeforeCheckingStatus"
+                      },
+                      {
+                        "Variable": "$.jobStatus.Payload.status",
+                        "StringEquals": "PENDING",
+                        "Next": "WaitBeforeCheckingStatus"
+                      }
+                    ],
+                    "Default": "JobComplete"
+                  },
+                  "WaitBeforeCheckingStatus": {
+                    "Type": "Wait",
+                    "Seconds": 60,
+                    "Next": "WaitForJobCompletion"
+                  },
+                  "JobComplete": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.jobStatus.Payload.status",
+                        "StringEquals": "FAILED",
+                        "Next": "JobFailed"
+                      }
+                    ],
+                    "Default": "JobSucceeded"
+                  },
+                  "JobFailed": {
+                    "Type": "Fail",
+                    "Error": "EMRJobFailed",
+                    "Cause": "The EMR job failed to complete successfully"
+                  },
+                  "JobSucceeded": {
+                    "Type": "Succeed"
+                  }
+                }
+              },
+              "End": true
+            }
+          }
+        }
+
+Outputs:
+  RunPyLambdaArn:
+    Description: ARN of the run_py_lambda function
+    Value: !GetAtt RunPyLambda.Arn
+
+  JobTriggerLambdaArn:
+    Description: ARN of the job_trigger_lambda function
+    Value: !GetAtt JobTriggerLambda.Arn
+
+  JobStatusCheckerLambdaArn:
+    Description: ARN of the job_status_checker_lambda function
+    Value: !GetAtt JobStatusCheckerLambda.Arn
+
+  DataProcessingStateMachineArn:
+    Description: ARN of the data processing state machine
+    Value: !Ref DataProcessingStateMachine
+
+  DataProcessingTopicArn:
+    Description: ARN of the data processing SNS topic
+    Value: !Ref DataProcessingTopic
+
+  DataProcessingQueueUrl:
+    Description: URL of the data processing SQS queue
+    Value: !Ref DataProcessingQueue

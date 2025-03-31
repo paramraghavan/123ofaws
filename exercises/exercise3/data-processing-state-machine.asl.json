@@ -1,0 +1,103 @@
+{
+  "Comment": "State machine to process S3 files and submit EMR jobs",
+  "StartAt": "ProcessS3Urls",
+  "States": {
+    "ProcessS3Urls": {
+      "Type": "Map",
+      "ItemsPath": "$.s3_urls",
+      "MaxConcurrency": 1,
+      "Iterator": {
+        "StartAt": "PublishToSNSTopic",
+        "States": {
+          "PublishToSNSTopic": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sns:publish",
+            "Parameters": {
+              "TopicArn": "${SNSTopicArn}",
+              "Message.$": "$",
+              "MessageAttributes": {
+                "datasetName": {
+                  "DataType": "String",
+                  "StringValue.$": "$$.Execution.Input.datasetName"
+                },
+                "query": {
+                  "DataType": "String",
+                  "StringValue.$": "$$.Execution.Input.query"
+                }
+              }
+            },
+            "Next": "SubmitEMRJob"
+          },
+          "SubmitEMRJob": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${JobTriggerLambdaArn}",
+              "Payload": {
+                "s3_url.$": "$",
+                "query.$": "$$.Execution.Input.query",
+                "index.$": "$$.Execution.Input.index",
+                "datasetName.$": "$$.Execution.Input.datasetName"
+              }
+            },
+            "ResultPath": "$.jobDetails",
+            "Next": "WaitForJobCompletion"
+          },
+          "WaitForJobCompletion": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${JobStatusCheckerLambdaArn}",
+              "Payload": {
+                "jobId.$": "$.jobDetails.Payload.jobId"
+              }
+            },
+            "ResultPath": "$.jobStatus",
+            "Next": "CheckJobStatus"
+          },
+          "CheckJobStatus": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.jobStatus.Payload.status",
+                "StringEquals": "RUNNING",
+                "Next": "WaitBeforeCheckingStatus"
+              },
+              {
+                "Variable": "$.jobStatus.Payload.status",
+                "StringEquals": "PENDING",
+                "Next": "WaitBeforeCheckingStatus"
+              }
+            ],
+            "Default": "JobComplete"
+          },
+          "WaitBeforeCheckingStatus": {
+            "Type": "Wait",
+            "Seconds": 60,
+            "Next": "WaitForJobCompletion"
+          },
+          "JobComplete": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.jobStatus.Payload.status",
+                "StringEquals": "FAILED",
+                "Next": "JobFailed"
+              }
+            ],
+            "Default": "JobSucceeded"
+          },
+          "JobFailed": {
+            "Type": "Fail",
+            "Error": "EMRJobFailed",
+            "Cause": "The EMR job failed to complete successfully"
+          },
+          "JobSucceeded": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
