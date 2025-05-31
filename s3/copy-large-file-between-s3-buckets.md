@@ -123,11 +123,9 @@ aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-dat
 For your 3TB Parquet dataset, start with AWS CLI with optimized settings, then moving to DataSync if you need the
 additional features or better reliability.
 
-######
-
-# Error
-
-############
+> Error software.amazon.awssdk.ervices.s3.model: the bucket you are attempting to access must be 
+> addressed using specified endpoint. Status code 301. Fix below
+### Fix
 This error indicates that your S3 buckets are in different AWS regions, and the s3-dist-cp tool is trying to access a
 bucket using the wrong regional endpoint. The HTTP 301 status code means "Moved Permanently" - AWS is redirecting you to
 the correct regional endpoint.
