@@ -122,3 +122,70 @@ aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-dat
 
 For your 3TB Parquet dataset, start with AWS CLI with optimized settings, then moving to DataSync if you need the
 additional features or better reliability.
+
+######
+
+# Error
+
+############
+This error indicates that your S3 buckets are in different AWS regions, and the s3-dist-cp tool is trying to access a
+bucket using the wrong regional endpoint. The HTTP 301 status code means "Moved Permanently" - AWS is redirecting you to
+the correct regional endpoint.
+
+Here are the solutions:
+
+## 1. Specify the correct region explicitly
+
+Add the `--srcAwsCliConfig` parameter to specify the region:
+
+```bash
+s3-dist-cp \
+  --src s3://source-bucket/parquet-data/ \
+  --dest s3://destination-bucket/parquet-data/ \
+  --srcAwsCliConfig region=us-west-2
+```
+
+Replace `us-west-2` with the actual region of your source bucket.
+
+## 2. Check bucket regions
+
+First, verify which regions your buckets are in:
+
+```bash
+# Check source bucket region
+aws s3api get-bucket-location --bucket source-bucket
+
+# Check destination bucket region  
+aws s3api get-bucket-location --bucket destination-bucket
+```
+
+## 3. Set AWS CLI default region
+
+Make sure your EMR cluster's default region matches your bucket regions:
+
+```bash
+aws configure set region us-west-2
+```
+
+## 4. Use EMR regional endpoint
+
+If your EMR cluster is in a different region than your buckets, you may need to specify both source and destination
+regions:
+
+```bash
+s3-dist-cp \
+  --src s3://source-bucket/parquet-data/ \
+  --dest s3://destination-bucket/parquet-data/ \
+  --srcAwsCliConfig region=us-west-2 \
+  --destAwsCliConfig region=us-east-1
+```
+
+## 5. Alternative: Use aws s3 sync
+
+If s3-dist-cp continues to have issues, you can use the standard AWS CLI:
+
+```bash
+aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-data/
+```
+
+The most common cause is that your EMR cluster is configured for one region but your buckets are in another. 
