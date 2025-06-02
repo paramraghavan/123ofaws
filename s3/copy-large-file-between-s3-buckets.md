@@ -123,9 +123,11 @@ aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-dat
 For your 3TB Parquet dataset, start with AWS CLI with optimized settings, then moving to DataSync if you need the
 additional features or better reliability.
 
-> Error software.amazon.awssdk.ervices.s3.model: the bucket you are attempting to access must be 
+> Error software.amazon.awssdk.ervices.s3.model: the bucket you are attempting to access must be
 > addressed using specified endpoint. Status code 301. Fix below
+
 ### Fix
+
 This error indicates that your S3 buckets are in different AWS regions, and the s3-dist-cp tool is trying to access a
 bucket using the wrong regional endpoint. The HTTP 301 status code means "Moved Permanently" - AWS is redirecting you to
 the correct regional endpoint.
@@ -182,10 +184,82 @@ s3-dist-cp \
 
 If s3-dist-cp continues to have issues, you can use the standard AWS CLI:
 Recommended for cross-region
+
 ```bash
 aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-data/ \
   --source-region us-east-2 \
   --region us-east-1
 ```
 
-The most common cause is that your EMR cluster is configured for one region but your buckets are in another. 
+The most common cause is that your EMR cluster is configured for one region but your buckets are in another.
+
+## Getting error  on emr trying to reduc e resource usage
+
+You're correct - `--numberOfFiles` is not a valid s3-dist-cp parameter. I apologize for the confusion. Here are the
+correct s3-dist-cp parameters to help with the "Initialization of all collectors failed" error:
+
+## Valid s3-dist-cp Parameters for Resource Management
+
+```bash
+s3-dist-cp \
+  --src s3://source-bucket/parquet-data/ \
+  --dest s3://destination-bucket/parquet-data/ \
+  --groupBy ".*" \
+  --targetSize 128 \
+  --outputCodec gzip
+```
+
+## Common Valid Parameters:
+
+- `--groupBy` - Pattern for grouping files
+- `--targetSize` - Target size in MB for output files
+- `--outputCodec` - Compression codec (gzip, lzo, snappy, none)
+- `--multipartUploadChunkSize` - Chunk size for multipart uploads
+- `--copyFromManifest` - Copy from a manifest file
+- `--previousManifest` - Skip files in previous manifest
+- `--requirePreviousManifest` - Require previous manifest
+- `--verbose` - Enable verbose logging
+
+## To Fix "Initialization of all collectors failed":
+
+### 1. Check YARN Resource Manager
+
+```bash
+# Check cluster resources
+yarn node -list -all
+yarn application -list
+```
+
+### 2. Try with Basic Command First
+
+```bash
+s3-dist-cp \
+  --src s3://source-bucket/parquet-data/ \
+  --dest s3://destination-bucket/parquet-data/
+```
+
+### 3. If Still Failing, Use Hadoop DistCp
+
+```bash
+hadoop distcp \
+  -m 1 \
+  s3://source-bucket/parquet-data/ \
+  s3://destination-bucket/parquet-data/
+```
+
+The `-m 1` limits to 1 mapper, reducing resource requirements.
+
+### 4. Check EMR Logs
+
+```bash
+# View application logs
+yarn logs -applicationId <application-id>
+```
+
+### 5. Alternative: AWS CLI
+
+```bash
+aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-data/ \
+  --source-region us-east-2
+```
+
