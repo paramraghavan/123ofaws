@@ -132,18 +132,18 @@ the correct regional endpoint.
 
 Here are the solutions:
 
-## 1. Specify the correct region explicitly
+## 1. Set region-specific endpoints
 
-Add the `--srcAwsCliConfig` parameter to specify the region:
+The '--s3Endpoint' parameter applies to both source and destination operations.
 
 ```bash
 s3-dist-cp \
   --src s3://source-bucket/parquet-data/ \
   --dest s3://destination-bucket/parquet-data/ \
-  --srcAwsCliConfig region=us-west-2
+  --s3Endpoint s3.us-east-2.amazonaws.com
 ```
 
-Replace `us-west-2` with the actual region of your source bucket.
+Replace `us-east-2` with the actual region of your source bucket.
 
 ## 2. Check bucket regions
 
@@ -162,28 +162,30 @@ aws s3api get-bucket-location --bucket destination-bucket
 Make sure your EMR cluster's default region matches your bucket regions:
 
 ```bash
-aws configure set region us-west-2
+aws configure set region us-east-2
 ```
 
 ## 4. Use EMR regional endpoint
 
 If your EMR cluster is in a different region than your buckets, you may need to specify both source and destination
-regions:
+regions. The --s3Endpoint parameter applies to both source and destination operations.
 
 ```bash
 s3-dist-cp \
   --src s3://source-bucket/parquet-data/ \
   --dest s3://destination-bucket/parquet-data/ \
-  --srcAwsCliConfig region=us-west-2 \
-  --destAwsCliConfig region=us-east-1
+  --s3Endpoint s3.us-east-2.amazonaws.com\
+
 ```
 
 ## 5. Alternative: Use aws s3 sync
 
 If s3-dist-cp continues to have issues, you can use the standard AWS CLI:
-
+Recommended for cross-region
 ```bash
-aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-data/
+aws s3 sync s3://source-bucket/parquet-data/ s3://destination-bucket/parquet-data/ \
+  --source-region us-east-2 \
+  --region us-east-1
 ```
 
 The most common cause is that your EMR cluster is configured for one region but your buckets are in another. 
