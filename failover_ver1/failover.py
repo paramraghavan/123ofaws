@@ -311,6 +311,169 @@ class AWSFailoverManager:
         self.logger.info(f"Restarting EMR cluster: {cluster_id}")
         return self.recreate_emr_cluster(cluster_id)
 
+    def clone_emr_cluster(self, source_cluster_id: str, new_cluster_name: str) -> str:
+        """Clone an existing EMR cluster without terminating the source
+
+        Args:
+            source_cluster_id: ID of the cluster to clone
+            new_cluster_name: Name for the new cloned cluster
+
+        Returns:
+            New cluster ID if successful, None otherwise
+        """
+        self.logger.info(f"Cloning EMR cluster: {source_cluster_id} as {new_cluster_name}")
+
+        try:
+            # Get complete cluster configuration
+            cluster_detail = self.emr_client.describe_cluster(ClusterId=source_cluster_id)['Cluster']
+
+            # Check if source cluster exists and is accessible
+            source_state = cluster_detail['Status']['State']
+            self.logger.info(f"Source cluster state: {source_state}")
+
+            # List all instance groups (Master, Core, Task)
+            instance_groups_response = self.emr_client.list_instance_groups(ClusterId=source_cluster_id)
+            instance_groups = instance_groups_response.get('InstanceGroups', [])
+
+            # Get bootstrap actions
+            bootstrap_actions = self.emr_client.list_bootstrap_actions(ClusterId=source_cluster_id)
+            bootstrap_actions_list = bootstrap_actions.get('BootstrapActions', [])
+
+            # Log current configuration
+            self.logger.info(f"Cloning config - Release: {cluster_detail['ReleaseLabel']}")
+            for ig in instance_groups:
+                self.logger.info(f"  {ig['InstanceGroupType']}: {ig['InstanceType']} "
+                                 f"({ig['RequestedInstanceCount']} instances, {ig['Market']})")
+
+            if bootstrap_actions_list:
+                self.logger.info(f"  Bootstrap Actions: {len(bootstrap_actions_list)} found")
+                for ba in bootstrap_actions_list:
+                    self.logger.info(f"    - {ba['Name']}: {ba['ScriptPath']}")
+
+            # Build instance groups configuration with full details
+            new_instance_groups = []
+            for ig in instance_groups:
+                instance_group_config = {
+                    'Name': ig['Name'],
+                    'InstanceRole': ig['InstanceGroupType'],
+                    'InstanceType': ig['InstanceType'],
+                    'InstanceCount': ig['RequestedInstanceCount'],
+                    'Market': ig['Market']  # ON_DEMAND or SPOT
+                }
+
+                # Add spot-specific configuration if applicable
+                if ig['Market'] == 'SPOT':
+                    if 'BidPrice' in ig:
+                        instance_group_config['BidPrice'] = ig['BidPrice']
+                    if 'Configurations' in ig:
+                        instance_group_config['Configurations'] = ig['Configurations']
+
+                # Add EBS configuration if present
+                if 'EbsBlockDevices' in ig and ig['EbsBlockDevices']:
+                    ebs_config = {'EbsBlockDeviceConfigs': []}
+                    for ebs in ig['EbsBlockDevices']:
+                        volume_spec = ebs['VolumeSpecification']
+                        ebs_config['EbsBlockDeviceConfigs'].append({
+                            'VolumeSpecification': {
+                                'VolumeType': volume_spec['VolumeType'],
+                                'SizeInGB': volume_spec['SizeInGB']
+                            },
+                            'VolumesPerInstance': 1
+                        })
+                    instance_group_config['EbsConfiguration'] = ebs_config
+
+                # Add autoscaling policy if present
+                if 'AutoScalingPolicy' in ig:
+                    instance_group_config['AutoScalingPolicy'] = ig['AutoScalingPolicy']
+
+                new_instance_groups.append(instance_group_config)
+
+            # Build complete cluster configuration
+            new_cluster_config = {
+                'Name': new_cluster_name,
+                'ReleaseLabel': cluster_detail['ReleaseLabel'],
+                'Instances': {
+                    'InstanceGroups': new_instance_groups,
+                    'KeepJobFlowAliveWhenNoSteps': True,
+                    'TerminationProtected': False,
+                },
+                'Applications': [{'Name': app['Name']} for app in cluster_detail.get('Applications', [])],
+                'VisibleToAllUsers': cluster_detail.get('VisibleToAllUsers', True),
+                'JobFlowRole': cluster_detail['Ec2InstanceAttributes']['IamInstanceProfile'].split('/')[-1],
+                'ServiceRole': cluster_detail['ServiceRole']
+            }
+
+            # Add bootstrap actions if present
+            if bootstrap_actions_list:
+                formatted_bootstrap_actions = []
+                for ba in bootstrap_actions_list:
+                    bootstrap_config = {
+                        'Name': ba['Name'],
+                        'ScriptBootstrapAction': {
+                            'Path': ba['ScriptPath']
+                        }
+                    }
+                    # Add arguments if present
+                    if 'Args' in ba and ba['Args']:
+                        bootstrap_config['ScriptBootstrapAction']['Args'] = ba['Args']
+                    formatted_bootstrap_actions.append(bootstrap_config)
+
+                new_cluster_config['BootstrapActions'] = formatted_bootstrap_actions
+                self.logger.info(f"  Added {len(formatted_bootstrap_actions)} bootstrap actions to clone")
+
+            # Add EC2 attributes if present
+            if 'Ec2InstanceAttributes' in cluster_detail:
+                ec2_attrs = cluster_detail['Ec2InstanceAttributes']
+                instances_config = new_cluster_config['Instances']
+
+                if 'Ec2KeyName' in ec2_attrs:
+                    instances_config['Ec2KeyName'] = ec2_attrs['Ec2KeyName']
+                if 'Ec2SubnetId' in ec2_attrs:
+                    instances_config['Ec2SubnetId'] = ec2_attrs['Ec2SubnetId']
+                if 'EmrManagedMasterSecurityGroup' in ec2_attrs:
+                    instances_config['EmrManagedMasterSecurityGroup'] = ec2_attrs['EmrManagedMasterSecurityGroup']
+                if 'EmrManagedSlaveSecurityGroup' in ec2_attrs:
+                    instances_config['EmrManagedSlaveSecurityGroup'] = ec2_attrs['EmrManagedSlaveSecurityGroup']
+                if 'AdditionalMasterSecurityGroups' in ec2_attrs:
+                    instances_config['AdditionalMasterSecurityGroups'] = ec2_attrs['AdditionalMasterSecurityGroups']
+                if 'AdditionalSlaveSecurityGroups' in ec2_attrs:
+                    instances_config['AdditionalSlaveSecurityGroups'] = ec2_attrs['AdditionalSlaveSecurityGroups']
+
+            # Add configurations if present
+            if 'Configurations' in cluster_detail:
+                new_cluster_config['Configurations'] = cluster_detail['Configurations']
+
+            # Add tags if present (and add a clone indicator)
+            tags = cluster_detail.get('Tags', [])
+            tags.append({
+                'Key': 'ClonedFrom',
+                'Value': source_cluster_id
+            })
+            tags.append({
+                'Key': 'ClonedAt',
+                'Value': datetime.now().isoformat()
+            })
+            new_cluster_config['Tags'] = tags
+
+            # Create new cluster (source remains running)
+            response = self.emr_client.run_job_flow(**new_cluster_config)
+            new_cluster_id = response['JobFlowId']
+
+            self.logger.info(f"Cloned cluster created: {new_cluster_id}")
+            self.logger.info(f"  Source: {source_cluster_id} (still running)")
+            self.logger.info(f"  Clone: {new_cluster_id}")
+            self.logger.info(f"  Name: {new_cluster_name}")
+            if bootstrap_actions_list:
+                self.logger.info(f"  Bootstrap Actions: {len(bootstrap_actions_list)} copied")
+
+            return new_cluster_id
+
+        except Exception as e:
+            self.logger.error(f"Error cloning cluster {source_cluster_id}: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return None
+
     def recreate_emr_cluster(self, cluster_id: str) -> str:
         """Terminate and recreate EMR cluster with complete configuration"""
         self.logger.info(f"Recreating EMR cluster: {cluster_id}")
@@ -323,11 +486,20 @@ class AWSFailoverManager:
             instance_groups_response = self.emr_client.list_instance_groups(ClusterId=cluster_id)
             instance_groups = instance_groups_response.get('InstanceGroups', [])
 
+            # Get bootstrap actions
+            bootstrap_actions = self.emr_client.list_bootstrap_actions(ClusterId=cluster_id)
+            bootstrap_actions_list = bootstrap_actions.get('BootstrapActions', [])
+
             # Log current configuration
             self.logger.info(f"Cluster config - Release: {cluster_detail['ReleaseLabel']}")
             for ig in instance_groups:
                 self.logger.info(f"  {ig['InstanceGroupType']}: {ig['InstanceType']} "
                                  f"({ig['RequestedInstanceCount']} instances, {ig['Market']})")
+
+            if bootstrap_actions_list:
+                self.logger.info(f"  Bootstrap Actions: {len(bootstrap_actions_list)} found")
+                for ba in bootstrap_actions_list:
+                    self.logger.info(f"    - {ba['Name']}: {ba['ScriptPath']}")
 
             # Terminate existing cluster
             self.emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
@@ -395,6 +567,24 @@ class AWSFailoverManager:
                 'ServiceRole': cluster_detail['ServiceRole']
             }
 
+            # Add bootstrap actions if present
+            if bootstrap_actions_list:
+                formatted_bootstrap_actions = []
+                for ba in bootstrap_actions_list:
+                    bootstrap_config = {
+                        'Name': ba['Name'],
+                        'ScriptBootstrapAction': {
+                            'Path': ba['ScriptPath']
+                        }
+                    }
+                    # Add arguments if present
+                    if 'Args' in ba and ba['Args']:
+                        bootstrap_config['ScriptBootstrapAction']['Args'] = ba['Args']
+                    formatted_bootstrap_actions.append(bootstrap_config)
+
+                new_cluster_config['BootstrapActions'] = formatted_bootstrap_actions
+                self.logger.info(f"  Added {len(formatted_bootstrap_actions)} bootstrap actions")
+
             # Add EC2 attributes if present
             if 'Ec2InstanceAttributes' in cluster_detail:
                 ec2_attrs = cluster_detail['Ec2InstanceAttributes']
@@ -433,6 +623,8 @@ class AWSFailoverManager:
             if len(new_instance_groups) > 2:
                 self.logger.info(
                     f"  Task: {new_instance_groups[2]['InstanceType']} x{new_instance_groups[2]['InstanceCount']}")
+            if bootstrap_actions_list:
+                self.logger.info(f"  Bootstrap Actions: {len(bootstrap_actions_list)} copied")
 
             return new_cluster_id
 

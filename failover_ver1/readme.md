@@ -1,170 +1,40 @@
 On startup detect the instanceids, cluster ids and then run failover
 
-Example log output:
+# AWS Failover Manager
 
-```
-INFO - Cluster config - Release: emr-6.10.0
-INFO -   MASTER: m5.xlarge (1 instances, ON_DEMAND)
-INFO -   CORE: r5.2xlarge (4 instances, SPOT)
-INFO -   TASK: c5.4xlarge (10 instances, SPOT)
-INFO - New cluster created: j-NEWCLUSTERID
-```
-
-## AWS Resource Failover Operations
-
-### EC2 Instances
-
-**Detection:** Automatically finds all EC2 instances or filter by tags  
-**Failover:** Stop → Wait for stopped → Start → Wait for running  
-**Use case:** Restart hung instances, apply updates
-
-```python
-manager.run_failover(instance_ids=['i-1234567890abcdef0'])
-```
-
-### EMR Clusters
-
-**Detection:** Lists clusters by state (RUNNING, WAITING, etc.)  
-**Failover:** Terminate → Recreate with identical configuration (master/core/task nodes, spot/on-demand, EBS, etc.)  
-**Use case:** Recover from cluster failures, apply configuration changes
-
-```python
-manager.run_failover(cluster_ids=['j-XXXXXXXXXXXXX'], restart_clusters=True)
-```
-
-### RDS Databases
-
-**Detection:** All RDS instances with engine, class, and Multi-AZ info  
-**Failover:** Reboot (optional: force failover to standby for Multi-AZ)  
-**Use case:** Apply parameter changes, test failover, recover from issues
-
-```python
-# Simple reboot
-manager.run_failover(rds_instance_ids=['mydb-instance'])
-
-# Force Multi-AZ failover
-manager.run_failover(rds_instance_ids=['mydb-instance'], rds_force_failover=True)
-```
-
-### Lambda Functions
-
-**Detection:** All Lambda functions with runtime and state  
-**Failover:** Update function configuration to trigger refresh  
-**Use case:** Force redeploy, clear function cache, apply environment updates
-
-```python
-manager.run_failover(lambda_function_names=['my-function-1', 'my-function-2'])
-```
-
-### ECS Services
-
-**Detection:** Services across all clusters with task counts  
-**Failover:** Force new deployment (rolling update of all tasks)  
-**Use case:** Deploy new task definitions, recover unhealthy tasks
-
-```python
-manager.run_failover(ecs_services=[
-    ('my-cluster', 'web-service'),
-    ('prod-cluster', 'api-service')
-])
-```
-
-### ElastiCache (Redis/Memcached)
-
-**Detection:** All cache clusters with engine, node type, and status  
-**Failover:** Reboot all nodes in the cluster  
-**Use case:** Apply parameter changes, clear cache, recover from issues
-
-```python
-manager.run_failover(elasticache_cluster_ids=['my-redis-cluster'])
-```
-
-### Auto Scaling Groups
-
-**Detection:** All ASGs with capacity and instance counts  
-**Failover:** Start rolling instance refresh  
-**Use case:** Deploy new AMI, update launch template, replace unhealthy instances
-
-```python
-manager.run_failover(asg_names=['my-asg-web-servers'])
-```
-
-### Complete Failover Example
-
-Restart all unhealthy resources across all AWS services:
-
-```python
-from failover import AWSFailoverManager
-
-manager = AWSFailoverManager()
-
-# Detect all resources
-instances = manager.detect_ec2_instances()
-clusters = manager.detect_emr_clusters()
-rds_instances = manager.detect_rds_instances()
-lambda_functions = manager.detect_lambda_functions()
-ecs_services = manager.detect_ecs_services()
-elasticache_clusters = manager.detect_elasticache_clusters()
-auto_scaling_groups = manager.detect_auto_scaling_groups()
-
-# Perform comprehensive failover
-manager.run_failover(
-    # EC2: restart stopped instances
-    instance_ids=[i['instance_id'] for i in instances if i['state'] != 'running'],
-
-    # EMR: recreate non-running clusters
-    cluster_ids=[c['cluster_id']  # AWS Failover Manager
-
-                 A comprehensive AWS infrastructure management tool that monitors EC2 instances and EMR clusters, logs
-                 their status, and performs
-automated
-failover
-operations
-with a Flask-based web dashboard.
+A comprehensive AWS infrastructure management tool that monitors EC2 instances and EMR clusters, logs their status, and performs automated failover operations with a Flask-based web dashboard.
 
 ## Features
 
-- 🔍 ** Auto-detection ** of AWS resources:
-    - EC2
-Instances
-- EMR
-Clusters
-- RDS
-Databases
-- Lambda
-Functions
-- ECS
-Services
-- ElastiCache(Redis / Memcached)
-- Auto
-Scaling
-Groups
-- 📊 ** Real - time
-status
-logging **
-with detailed tracking
-- 🔄 ** Automated failover ** for all supported AWS services
-- 🌐 ** Custom resource monitoring ** for non-AWS resources (APIs, databases, services)
-- 📈 ** Web-based log viewer ** with analytics dashboard
-- 🎯 ** AWS Profile support ** for multi-account management
-- 📝 ** Comprehensive logging ** (JSONL + text formats)
+- 🔍 **Auto-detection** of AWS resources:
+  - EC2 Instances
+  - EMR Clusters
+  - RDS Databases
+  - Lambda Functions
+  - ECS Services
+  - ElastiCache (Redis/Memcached)
+  - Auto Scaling Groups
+- 📊 **Real-time status logging** with detailed tracking
+- 🔄 **Automated failover** for all supported AWS services
+- 🌐 **Custom resource monitoring** for non-AWS resources (APIs, databases, services)
+- 📈 **Web-based log viewer** with analytics dashboard
+- 🎯 **AWS Profile support** for multi-account management
+- 📝 **Comprehensive logging** (JSONL + text formats)
 
 ## Project Structure
 
 ```
-
 aws-failover-manager/
-├── failover.py # Main failover script
-├── app.py # Flask web viewer
-├── config.py # Configuration settings
-├── requirements.txt # Python dependencies
+├── failover.py           # Main failover script
+├── app.py                # Flask web viewer
+├── config.py             # Configuration settings
+├── requirements.txt      # Python dependencies
 ├── templates/
-│ └── index.html # Web dashboard template
-└── logs/ # Auto-created log directory
-├── failover.log # System logs
-├── status.jsonl # Status snapshots
-└── failover.jsonl # Failover operation logs
-
+│   └── index.html       # Web dashboard template
+└── logs/                # Auto-created log directory
+    ├── failover.log     # System logs
+    ├── status.jsonl     # Status snapshots
+    └── failover.jsonl   # Failover operation logs
 ```
 
 ## Prerequisites
@@ -219,28 +89,24 @@ cd aws-failover-manager
 2. **Create all required files** (using the code provided in artifacts)
 
 3. **Create the templates directory**:
-
 ```bash
 mkdir templates
 ```
 
 4. **Install dependencies**:
-
 ```bash
 pip install -r requirements.txt
 ```
 
 5. **Configure AWS profile** (if not using default):
-
 ```bash
 aws configure --profile your-profile-name
 ```
 
 6. **Update config.py** with your settings:
-
 ```python
 AWS_PROFILE = 'your-profile-name'  # or 'default'
-AWS_REGION = 'us-east-1'  # your AWS region
+AWS_REGION = 'us-east-1'           # your AWS region
 ```
 
 ## Usage
@@ -248,13 +114,11 @@ AWS_REGION = 'us-east-1'  # your AWS region
 ### 1. Run Failover Detection
 
 Basic detection and status logging:
-
 ```bash
 python failover.py
 ```
 
 This will:
-
 - Detect all EC2 instances and EMR clusters
 - Log their current status
 - Generate logs in the `logs/` directory
@@ -281,17 +145,16 @@ python app.py
 Access the dashboard at: **http://localhost:5000**
 
 The dashboard provides:
-
 - **AWS Resources**: Real-time view of EC2 instances and EMR clusters
 - **Failover Analysis**: Success rates and statistics for failover operations
 - **Non AWS Resources**: Health check summary for custom resources
 - **Six Log Views**:
-    - **AWS Log**: Table view of AWS resource status (EC2, EMR)
-    - **AWS Log Detail**: Full JSON logs for AWS resources
-    - **Non AWS Log**: Table view of custom resource checks (APIs, databases, services)
-    - **Non AWS Log Detail**: Full JSON logs for custom resources
-    - **Failover Logs**: Records of all failover operations
-    - **System Logs**: Text format logs for debugging
+  - **AWS Log**: Table view of AWS resource status (EC2, EMR)
+  - **AWS Log Detail**: Full JSON logs for AWS resources
+  - **Non AWS Log**: Table view of custom resource checks (APIs, databases, services)
+  - **Non AWS Log Detail**: Full JSON logs for custom resources
+  - **Failover Logs**: Records of all failover operations
+  - **System Logs**: Text format logs for debugging
 
 ### 4. Programmatic Usage
 
@@ -385,14 +248,12 @@ custom_resources.append(
     )
 )
 
-
 # Check custom resources with your own functions
 def check_disk_space(path='/data', min_free_gb=100):
     import shutil
     stat = shutil.disk_usage(path)
-    free_gb = stat.free / (1024 ** 3)
+    free_gb = stat.free / (1024**3)
     return free_gb >= min_free_gb
-
 
 custom_resources.append(
     manager.check_custom_resource(
@@ -410,7 +271,6 @@ print(f"Unhealthy: {custom_status['summary']['unhealthy']}")
 ```
 
 **Supported Resource Types:**
-
 - HTTP/HTTPS endpoints (APIs, web applications)
 - TCP ports (databases, application servers)
 - Databases (MySQL, PostgreSQL, MongoDB, Redis)
@@ -422,8 +282,7 @@ print(f"Unhealthy: {custom_status['summary']['unhealthy']}")
 
 ### Restart vs Recreate
 
-Both `restart_emr_cluster()` and `recreate_emr_cluster()` perform the same operation (terminate and recreate) since EMR
-clusters cannot be stopped and started like EC2 instances. The methods are provided for semantic clarity:
+Both `restart_emr_cluster()` and `recreate_emr_cluster()` perform the same operation (terminate and recreate) since EMR clusters cannot be stopped and started like EC2 instances. The methods are provided for semantic clarity:
 
 - **`restart_emr_cluster()`**: Use when you want to restart a cluster as part of routine maintenance
 - **`recreate_emr_cluster()`**: Use when you need to rebuild a cluster after a failure
@@ -444,13 +303,143 @@ When restarting/recreating EMR clusters, the system preserves:
 - **Tags**: All resource tags for organization
 
 Example log output:
-
 ```
 INFO - Cluster config - Release: emr-6.10.0
 INFO -   MASTER: m5.xlarge (1 instances, ON_DEMAND)
 INFO -   CORE: r5.2xlarge (4 instances, SPOT)
 INFO -   TASK: c5.4xlarge (10 instances, SPOT)
 INFO - New cluster created: j-NEWCLUSTERID
+```
+
+## AWS Resource Failover Operations
+
+### EC2 Instances
+**Detection:** Automatically finds all EC2 instances or filter by tags  
+**Failover:** Stop → Wait for stopped → Start → Wait for running  
+**Use case:** Restart hung instances, apply updates
+
+```python
+manager.run_failover(instance_ids=['i-1234567890abcdef0'])
+```
+
+### EMR Clusters
+**Detection:** Lists clusters by state (RUNNING, WAITING, etc.)  
+**Failover:** Terminate → Recreate with identical configuration (master/core/task nodes, spot/on-demand, EBS, etc.)  
+**Clone:** Create duplicate cluster with new name (keeps original running)  
+**Use case:** Recover from cluster failures, apply configuration changes, create test environments
+
+```python
+# Recreate (terminates original)
+manager.run_failover(cluster_ids=['j-XXXXXXXXXXXXX'], restart_clusters=True)
+
+# Clone (keeps original running)
+new_cluster_id = manager.clone_emr_cluster(
+    source_cluster_id='j-XXXXXXXXXXXXX',
+    new_cluster_name='Production-Clone-2025'
+)
+print(f"Clone created: {new_cluster_id}")
+```
+
+**See the EMR Clone & Recreate Guide artifact for detailed steps and examples.**
+
+### RDS Databases
+**Detection:** All RDS instances with engine, class, and Multi-AZ info  
+**Failover:** Reboot (optional: force failover to standby for Multi-AZ)  
+**Use case:** Apply parameter changes, test failover, recover from issues
+
+```python
+# Simple reboot
+manager.run_failover(rds_instance_ids=['mydb-instance'])
+
+# Force Multi-AZ failover
+manager.run_failover(rds_instance_ids=['mydb-instance'], rds_force_failover=True)
+```
+
+### Lambda Functions
+**Detection:** All Lambda functions with runtime and state  
+**Failover:** Update function configuration to trigger refresh  
+**Use case:** Force redeploy, clear function cache, apply environment updates
+
+```python
+manager.run_failover(lambda_function_names=['my-function-1', 'my-function-2'])
+```
+
+### ECS Services
+**Detection:** Services across all clusters with task counts  
+**Failover:** Force new deployment (rolling update of all tasks)  
+**Use case:** Deploy new task definitions, recover unhealthy tasks
+
+```python
+manager.run_failover(ecs_services=[
+    ('my-cluster', 'web-service'),
+    ('prod-cluster', 'api-service')
+])
+```
+
+### ElastiCache (Redis/Memcached)
+**Detection:** All cache clusters with engine, node type, and status  
+**Failover:** Reboot all nodes in the cluster  
+**Use case:** Apply parameter changes, clear cache, recover from issues
+
+```python
+manager.run_failover(elasticache_cluster_ids=['my-redis-cluster'])
+```
+
+### Auto Scaling Groups
+**Detection:** All ASGs with capacity and instance counts  
+**Failover:** Start rolling instance refresh  
+**Use case:** Deploy new AMI, update launch template, replace unhealthy instances
+
+```python
+manager.run_failover(asg_names=['my-asg-web-servers'])
+```
+
+### Complete Failover Example
+
+Restart all unhealthy resources across all AWS services:
+
+```python
+from failover import AWSFailoverManager
+
+manager = AWSFailoverManager()
+
+# Detect all resources
+instances = manager.detect_ec2_instances()
+clusters = manager.detect_emr_clusters()
+rds_instances = manager.detect_rds_instances()
+lambda_functions = manager.detect_lambda_functions()
+ecs_services = manager.detect_ecs_services()
+elasticache_clusters = manager.detect_elasticache_clusters()
+auto_scaling_groups = manager.detect_auto_scaling_groups()
+
+# Perform comprehensive failover
+manager.run_failover(
+    # EC2: restart stopped instances
+    instance_ids=[i['instance_id'] for i in instances if i['state'] != 'running'],
+    
+    # EMR: recreate non-running clusters
+    cluster_ids=[c['cluster_id'] for c in clusters if c['state'] != 'RUNNING'],
+    restart_clusters=True,
+    
+    # RDS: reboot unavailable databases with failover
+    rds_instance_ids=[r['instance_id'] for r in rds_instances if r['status'] != 'available'],
+    rds_force_failover=True,
+    
+    # Lambda: update inactive functions
+    lambda_function_names=[l['function_name'] for l in lambda_functions if l['state'] != 'Active'],
+    
+    # ECS: restart services with insufficient tasks
+    ecs_services=[(e['cluster_name'], e['service_name']) for e in ecs_services 
+                  if e['running_count'] < e['desired_count']],
+    
+    # ElastiCache: reboot unavailable clusters
+    elasticache_cluster_ids=[c['cluster_id'] for c in elasticache_clusters 
+                            if c['status'] != 'available'],
+    
+    # ASG: refresh groups with capacity issues
+    asg_names=[a['asg_name'] for a in auto_scaling_groups 
+              if a['instance_count'] < a['desired_capacity']]
+)
 ```
 
 ## Custom Resource Monitoring
@@ -471,7 +460,6 @@ result = manager.check_http_endpoint(
 ```
 
 **Use cases:**
-
 - API health endpoints
 - Web application status pages
 - Internal service monitoring
@@ -487,7 +475,6 @@ result = manager.check_tcp_port('db.example.com', 3306, timeout=5)
 ```
 
 **Use cases:**
-
 - Database server availability (MySQL: 3306, PostgreSQL: 5432, MongoDB: 27017)
 - Cache servers (Redis: 6379, Memcached: 11211)
 - Application servers (HTTP: 8080, custom ports)
@@ -549,7 +536,6 @@ def check_queue_size(queue_url, max_size=1000):
     current_size = get_queue_size(queue_url)
     return current_size < max_size
 
-
 result = manager.check_custom_resource(
     'Message Queue',
     check_queue_size,
@@ -559,7 +545,6 @@ result = manager.check_custom_resource(
 ```
 
 **Use cases:**
-
 - Disk space monitoring
 - Queue size checks
 - Custom application metrics
@@ -592,7 +577,6 @@ print(f"Unhealthy: {status['summary']['unhealthy']}")
 ### Complete Monitoring Example
 
 See `custom_monitor_example.py` for a comprehensive example that shows:
-
 - Checking multiple HTTP endpoints
 - Monitoring database ports and connections
 - Custom health check functions
@@ -605,17 +589,17 @@ Edit `config.py` to customize:
 
 ```python
 # AWS Settings
-AWS_PROFILE = 'default'  # AWS profile name
-AWS_REGION = 'us-east-1'  # AWS region
+AWS_PROFILE = 'default'        # AWS profile name
+AWS_REGION = 'us-east-1'       # AWS region
 
 # Flask Settings
-FLASK_HOST = '0.0.0.0'  # Host to bind (0.0.0.0 for all interfaces)
-FLASK_PORT = 5000  # Port number
-DEBUG = True  # Debug mode
+FLASK_HOST = '0.0.0.0'         # Host to bind (0.0.0.0 for all interfaces)
+FLASK_PORT = 5000              # Port number
+DEBUG = True                   # Debug mode
 
 # Logging
-LOG_DIR = 'logs'  # Log directory path
-LOGS_PER_PAGE = 50  # Pagination limit
+LOG_DIR = 'logs'               # Log directory path
+LOGS_PER_PAGE = 50             # Pagination limit
 ```
 
 ## Environment Variables
@@ -631,22 +615,15 @@ python failover.py
 ## Log Files Explained
 
 ### 1. failover.log (Text format)
-
 Standard Python logging output with timestamps, log levels, and messages.
 
 ### 2. status.jsonl (JSONL format)
-
 Each line is a JSON object containing:
-
 ```json
 {
   "timestamp": "2025-09-30T12:00:00",
-  "ec2_instances": [
-    ...
-  ],
-  "emr_clusters": [
-    ...
-  ],
+  "ec2_instances": [...],
+  "emr_clusters": [...],
   "summary": {
     "total_ec2": 5,
     "total_emr": 2,
@@ -657,9 +634,7 @@ Each line is a JSON object containing:
 ```
 
 ### 3. failover.jsonl (JSONL format)
-
 Each line records a failover operation:
-
 ```json
 {
   "timestamp": "2025-09-30T12:30:00",
@@ -674,9 +649,7 @@ Each line records a failover operation:
 ```
 
 ### 4. custom_resources.jsonl (JSONL format)
-
 Each line records custom resource checks:
-
 ```json
 {
   "timestamp": "2025-09-30T12:00:00",
@@ -708,11 +681,9 @@ Each line records custom resource checks:
 The Flask app exposes these REST endpoints:
 
 **Dashboard & UI:**
-
 - `GET /` - Dashboard UI
 
 **AWS Resources:**
-
 - `GET /api/current-status` - Get latest AWS status
 - `GET /api/status-logs?limit=50` - Get AWS status logs
 - `GET /api/status-table?limit=100` - Get AWS status in table format
@@ -720,13 +691,11 @@ The Flask app exposes these REST endpoints:
 - `GET /api/analysis/failover` - Get failover analytics
 
 **Custom Resources:**
-
 - `GET /api/custom-resources?limit=50` - Get custom resource logs
 - `GET /api/custom-resources-table?limit=100` - Get custom resources in table format
 - `GET /api/analysis/custom-resources` - Get custom resource analytics
 
 **System Logs:**
-
 - `GET /api/logs/text?limit=100` - Get system text logs
 
 ## Scheduling Automated Runs
@@ -752,9 +721,7 @@ Deploy `failover.py` as a Lambda function with CloudWatch Events trigger.
 ## Troubleshooting
 
 ### Issue: "No credentials found"
-
 **Solution**: Configure AWS CLI or set environment variables:
-
 ```bash
 aws configure
 # or
@@ -763,15 +730,12 @@ export AWS_SECRET_ACCESS_KEY=your_secret
 ```
 
 ### Issue: "Permission denied" errors
-
 **Solution**: Ensure your IAM role/user has required permissions listed in Prerequisites.
 
 ### Issue: "Templates not found" in Flask
-
 **Solution**: Ensure `templates/index.html` exists in the correct directory structure.
 
 ### Issue: EMR recreation fails
-
 **Solution**: Check that the original cluster configuration is compatible and all required IAM roles exist.
 
 ## Security Best Practices
@@ -782,64 +746,3 @@ export AWS_SECRET_ACCESS_KEY=your_secret
 4. **Rotate credentials** regularly
 5. **Use VPC** and security groups to restrict Flask app access
 6. **Review logs** regularly for unauthorized access attempts
-
-# Restart services
-
-Yes! All the services I added **do support restart operations**. Here's what each one does:
-
-## ✅ Restart Operations by Service
-
-| Service         | Restart Method                 | What Happens                                    |
-|-----------------|--------------------------------|-------------------------------------------------|
-| **EC2**         | `restart_ec2_instance()`       | Stop → Start (clean restart)                    |
-| **EMR**         | `restart_emr_cluster()`        | Terminate → Recreate (EMR can't be stopped)     |
-| **RDS**         | `reboot_rds_instance()`        | Reboot database (can force Multi-AZ failover)   |
-| **Lambda**      | `update_lambda_function()`     | Updates config (forces function refresh)        |
-| **ECS**         | `restart_ecs_service()`        | Force new deployment (rolling restart of tasks) |
-| **ElastiCache** | `reboot_elasticache_cluster()` | Reboot all cache nodes                          |
-| **ASG**         | `refresh_auto_scaling_group()` | Rolling instance refresh (replaces instances)   |
-
-## 💡 Two Ways to Use Them
-
-### Option 1: Direct Method Calls
-
-```python
-manager = AWSFailoverManager()
-
-# Restart individual services directly
-manager.restart_ec2_instance('i-123')
-manager.reboot_rds_instance('mydb', force_failover=True)
-manager.restart_ecs_service('my-cluster', 'my-service')
-manager.reboot_elasticache_cluster('cache-1')
-manager.refresh_auto_scaling_group('my-asg')
-manager.update_lambda_function('my-function')
-```
-
-### Option 2: Batch Failover
-
-```python
-# Restart multiple services at once
-manager.run_failover(
-    instance_ids=['i-123', 'i-456'],
-    rds_instance_ids=['db1', 'db2'],
-    lambda_function_names=['func1', 'func2'],
-    ecs_services=[('cluster1', 'service1')],
-    elasticache_cluster_ids=['cache1'],
-    asg_names=['asg1']
-)
-```
-
-## 🎯 Important Notes
-
-**Services that can't be truly "stopped/started":**
-
-- **Lambda**: No stop/start - we update configuration to force refresh
-- **EMR**: No stop/start - must terminate and recreate
-- **ASG**: No stop/start - refreshes instances in rolling fashion
-
-**Services with true restart:**
-
-- **EC2**: Stop and start
-- **RDS**: Reboot command
-- **ECS**: Forces task replacement
-- **ElastiCache**: Reboots nodes
