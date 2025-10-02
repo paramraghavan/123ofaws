@@ -1,0 +1,10 @@
+boto3==1.34.27
+Flask==3.0.0
+Werkzeug==3.0.1
+requests==2.31.0
+
+# Optional database libraries (install as needed)
+# pymysql==1.1.0          # For MySQL database checks
+# psycopg2-binary==2.9.9  # For PostgreSQL database checks
+# pymongo==4.6.0          # For MongoDB database checks
+# redis==5.0.1            # For Redis database checks
