@@ -29,36 +29,6 @@ def read_jsonl_file(filepath, limit=None):
     return records
 
 
-def analyze_status_logs(logs):
-    """Analyze status logs and generate insights"""
-    if not logs:
-        return {}
-
-    ec2_states = []
-    emr_states = []
-    timestamps = []
-
-    for log in logs:
-        timestamps.append(log.get('timestamp', ''))
-        for instance in log.get('ec2_instances', []):
-            ec2_states.append(instance.get('state', 'unknown'))
-        for cluster in log.get('emr_clusters', []):
-            emr_states.append(cluster.get('state', 'unknown'))
-
-    analysis = {
-        'total_logs': len(logs),
-        'date_range': {
-            'start': min(timestamps) if timestamps else 'N/A',
-            'end': max(timestamps) if timestamps else 'N/A'
-        },
-        'ec2_state_distribution': dict(Counter(ec2_states)),
-        'emr_state_distribution': dict(Counter(emr_states)),
-        'latest_summary': logs[-1].get('summary', {}) if logs else {}
-    }
-
-    return analysis
-
-
 def analyze_failover_logs(logs):
     """Analyze failover logs and generate insights"""
     if not logs:
@@ -99,6 +69,40 @@ def analyze_failover_logs(logs):
     return analysis
 
 
+def get_status_table_data():
+    """Extract status data in table format"""
+    logs = read_jsonl_file(Config.STATUS_LOG_FILE)
+    table_data = []
+
+    for log in logs:
+        timestamp = log.get('timestamp', '')
+
+        # Process EC2 instances
+        for instance in log.get('ec2_instances', []):
+            tags = instance.get('tags', {})
+            tag_name = tags.get('Name', 'N/A')
+
+            table_data.append({
+                'failover_run_time': timestamp,
+                'instance_id': instance.get('instance_id', 'N/A'),
+                'tag_name': tag_name,
+                'status': instance.get('state', 'unknown'),
+                'type': 'EC2'
+            })
+
+        # Process EMR clusters
+        for cluster in log.get('emr_clusters', []):
+            table_data.append({
+                'failover_run_time': timestamp,
+                'instance_id': cluster.get('cluster_id', 'N/A'),
+                'tag_name': cluster.get('name', 'N/A'),
+                'status': cluster.get('state', 'unknown'),
+                'type': 'EMR'
+            })
+
+    return table_data
+
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -116,6 +120,18 @@ def get_status_logs():
     })
 
 
+@app.route('/api/status-table')
+def get_status_table():
+    """API endpoint to get status table data"""
+    table_data = get_status_table_data()
+    # Return most recent entries
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify({
+        'data': table_data[-limit:] if len(table_data) > limit else table_data,
+        'count': len(table_data)
+    })
+
+
 @app.route('/api/failover-logs')
 def get_failover_logs():
     """API endpoint to get failover logs"""
@@ -125,14 +141,6 @@ def get_failover_logs():
         'logs': logs,
         'count': len(logs)
     })
-
-
-@app.route('/api/analysis/status')
-def get_status_analysis():
-    """API endpoint to get status log analysis"""
-    logs = read_jsonl_file(Config.STATUS_LOG_FILE)
-    analysis = analyze_status_logs(logs)
-    return jsonify(analysis)
 
 
 @app.route('/api/analysis/failover')

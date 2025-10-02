@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 cls
 
 echo ======================================
@@ -44,18 +45,20 @@ echo   Choose an option:
 echo ======================================
 echo 1) Run failover detection ^& status logging
 echo 2) Start Flask web dashboard
-echo 3) Run failover with auto-restart/recreate
-echo 4) View recent logs
-echo 5) Exit
+echo 3) Run failover with auto-restart (EC2 ^& EMR)
+echo 4) Restart specific EMR cluster
+echo 5) View recent logs
+echo 6) Exit
 echo.
 
-set /p choice="Enter your choice (1-5): "
+set /p choice="Enter your choice (1-6): "
 
 if "%choice%"=="1" goto detection
 if "%choice%"=="2" goto dashboard
 if "%choice%"=="3" goto failover
-if "%choice%"=="4" goto viewlogs
-if "%choice%"=="5" goto exit
+if "%choice%"=="4" goto restart_emr
+if "%choice%"=="5" goto viewlogs
+if "%choice%"=="6" goto exit
 goto invalid
 
 :detection
@@ -82,6 +85,23 @@ if /i "%confirm%"=="yes" (
     python failover.py
 ) else (
     echo Failover cancelled
+)
+goto end
+
+:restart_emr
+echo.
+echo Restart specific EMR cluster
+set /p cluster_id="Enter cluster ID (e.g., j-XXXXXXXXXXXXX): "
+if not "%cluster_id%"=="" (
+    echo WARNING: This will terminate and recreate cluster %cluster_id%
+    set /p confirm="Are you sure? (yes/no): "
+    if /i "!confirm!"=="yes" (
+        python -c "from failover import AWSFailoverManager; m = AWSFailoverManager(); m.restart_emr_cluster('%cluster_id%')"
+    ) else (
+        echo Restart cancelled
+    )
+) else (
+    echo No cluster ID provided
 )
 goto end
 

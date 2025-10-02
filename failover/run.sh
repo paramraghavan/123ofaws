@@ -41,11 +41,12 @@ echo "  Choose an option:"
 echo "======================================"
 echo "1) Run failover detection & status logging"
 echo "2) Start Flask web dashboard"
-echo "3) Run failover with auto-restart/recreate"
-echo "4) View recent logs"
-echo "5) Exit"
+echo "3) Run failover with auto-restart (EC2 & EMR)"
+echo "4) Restart specific EMR cluster"
+echo "5) View recent logs"
+echo "6) Exit"
 echo ""
-read -p "Enter your choice (1-5): " choice
+read -p "Enter your choice (1-6): " choice
 
 case $choice in
     1)
@@ -75,6 +76,22 @@ case $choice in
         ;;
     4)
         echo ""
+        echo "🔄 Restart specific EMR cluster"
+        read -p "Enter cluster ID (e.g., j-XXXXXXXXXXXXX): " cluster_id
+        if [ -n "$cluster_id" ]; then
+            echo "⚠️  WARNING: This will terminate and recreate cluster $cluster_id"
+            read -p "Are you sure? (yes/no): " confirm
+            if [ "$confirm" = "yes" ]; then
+                python3 -c "from failover import AWSFailoverManager; m = AWSFailoverManager(); m.restart_emr_cluster('$cluster_id')"
+            else
+                echo "❌ Restart cancelled"
+            fi
+        else
+            echo "❌ No cluster ID provided"
+        fi
+        ;;
+    5)
+        echo ""
         echo "📋 Recent logs:"
         echo "======================================"
         if [ -f "logs/failover.log" ]; then
@@ -83,7 +100,7 @@ case $choice in
             echo "No logs found. Run detection first."
         fi
         ;;
-    5)
+    6)
         echo "👋 Goodbye!"
         exit 0
         ;;

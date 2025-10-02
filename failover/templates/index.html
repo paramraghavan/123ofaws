@@ -44,7 +44,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -108,10 +108,12 @@
             display: flex;
             background: #f3f4f6;
             border-bottom: 2px solid #e5e7eb;
+            flex-wrap: wrap;
         }
 
         .tab-button {
             flex: 1;
+            min-width: 150px;
             padding: 15px 25px;
             background: none;
             border: none;
@@ -217,6 +219,61 @@
             padding: 40px;
             color: #9ca3af;
         }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-running, .status-waiting {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-stopped, .status-terminated, .status-terminating {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-starting, .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -238,16 +295,6 @@
             </div>
 
             <div class="card">
-                <h2>📈 Status Analysis</h2>
-                <div id="status-analysis">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading...
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
                 <h2>🔄 Failover Analysis</h2>
                 <div id="failover-analysis">
                     <div class="loading">
@@ -260,12 +307,40 @@
 
         <div class="tabs">
             <div class="tab-buttons">
-                <button class="tab-button active" onclick="switchTab('status')">Status Logs</button>
+                <button class="tab-button active" onclick="switchTab('status-table')">Status Log</button>
+                <button class="tab-button" onclick="switchTab('status-detail')">Status Log in Detail</button>
                 <button class="tab-button" onclick="switchTab('failover')">Failover Logs</button>
                 <button class="tab-button" onclick="switchTab('text')">System Logs</button>
             </div>
 
-            <div id="status" class="tab-content active">
+            <div id="status-table" class="tab-content active">
+                <div class="controls">
+                    <button onclick="loadStatusTable()">🔄 Refresh</button>
+                </div>
+                <div class="table-container">
+                    <table id="status-table-data">
+                        <thead>
+                            <tr>
+                                <th>Failover Run Time</th>
+                                <th>Instance ID</th>
+                                <th>Tag Name</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" class="loading">
+                                    <div class="spinner"></div>
+                                    Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="status-detail" class="tab-content">
                 <div class="controls">
                     <button onclick="loadStatusLogs()">🔄 Refresh</button>
                 </div>
@@ -352,35 +427,6 @@
             }
         }
 
-        async function loadStatusAnalysis() {
-            try {
-                const response = await fetch('/api/analysis/status');
-                const data = await response.json();
-
-                let html = `
-                    <div class="stat">
-                        <span class="stat-label">Total Logs</span>
-                        <span class="stat-value">${data.total_logs || 0}</span>
-                    </div>
-                `;
-
-                if (data.ec2_state_distribution) {
-                    for (const [state, count] of Object.entries(data.ec2_state_distribution)) {
-                        html += `
-                            <div class="stat">
-                                <span class="stat-label">EC2 ${state}</span>
-                                <span class="stat-value">${count}</span>
-                            </div>
-                        `;
-                    }
-                }
-
-                document.getElementById('status-analysis').innerHTML = html;
-            } catch (error) {
-                document.getElementById('status-analysis').innerHTML = `<div class="error">Error: ${error.message}</div>`;
-            }
-        }
-
         async function loadFailoverAnalysis() {
             try {
                 const response = await fetch('/api/analysis/failover');
@@ -402,6 +448,38 @@
                 `;
             } catch (error) {
                 document.getElementById('failover-analysis').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadStatusTable() {
+            try {
+                const tbody = document.querySelector('#status-table-data tbody');
+                tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div>Loading...</td></tr>';
+
+                const response = await fetch('/api/status-table?limit=100');
+                const data = await response.json();
+
+                if (data.data && data.data.length > 0) {
+                    let html = '';
+                    data.data.reverse().forEach(row => {
+                        const statusClass = `status-${row.status.toLowerCase().replace(' ', '-')}`;
+                        html += `
+                            <tr>
+                                <td>${new Date(row.failover_run_time).toLocaleString()}</td>
+                                <td><code>${row.instance_id}</code></td>
+                                <td>${row.tag_name}</td>
+                                <td><span class="status-badge ${statusClass}">${row.status}</span></td>
+                                <td><strong>${row.type}</strong></td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No status data available</td></tr>';
+                }
+            } catch (error) {
+                const tbody = document.querySelector('#status-table-data tbody');
+                tbody.innerHTML = `<tr><td colspan="5" class="error">Error: ${error.message}</td></tr>`;
             }
         }
 
@@ -479,15 +557,14 @@
         // Load all data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadCurrentStatus();
-            loadStatusAnalysis();
             loadFailoverAnalysis();
-            loadStatusLogs();
+            loadStatusTable();
 
             // Auto-refresh every 30 seconds
             setInterval(() => {
                 loadCurrentStatus();
-                loadStatusAnalysis();
                 loadFailoverAnalysis();
+                loadStatusTable();
             }, 30000);
         });
     </script>
