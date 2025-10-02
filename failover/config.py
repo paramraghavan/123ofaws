@@ -13,6 +13,7 @@ class Config:
     LOG_FILE = os.path.join(LOG_DIR, 'failover.log')
     STATUS_LOG_FILE = os.path.join(LOG_DIR, 'status.jsonl')
     FAILOVER_LOG_FILE = os.path.join(LOG_DIR, 'failover.jsonl')
+    CUSTOM_RESOURCES_LOG_FILE = os.path.join(LOG_DIR, 'custom_resources.jsonl')
 
     # Flask Settings
     FLASK_HOST = '0.0.0.0'

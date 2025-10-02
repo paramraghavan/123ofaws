@@ -103,6 +103,62 @@ def get_status_table_data():
     return table_data
 
 
+def get_custom_resources_table_data():
+    """Extract custom resource data in table format"""
+    logs = read_jsonl_file(Config.CUSTOM_RESOURCES_LOG_FILE)
+    table_data = []
+
+    for log in logs:
+        timestamp = log.get('timestamp', '')
+
+        # Process each custom resource
+        for resource in log.get('custom_resources', []):
+            resource_name = (resource.get('name') or
+                             resource.get('url') or
+                             f"{resource.get('host', 'N/A')}:{resource.get('port', 'N/A')}")
+
+            table_data.append({
+                'timestamp': timestamp,
+                'resource_name': resource_name,
+                'resource_type': resource.get('resource_type', 'UNKNOWN'),
+                'status': resource.get('status', 'unknown'),
+                'response_time_ms': resource.get('response_time_ms'),
+                'error': resource.get('error', '')
+            })
+
+    return table_data
+
+
+def analyze_custom_resources(logs):
+    """Analyze custom resource logs and generate insights"""
+    if not logs:
+        return {}
+
+    total_checks = 0
+    healthy = 0
+    unhealthy = 0
+    resource_types = []
+
+    for log in logs:
+        total_checks += log.get('summary', {}).get('total_resources', 0)
+        healthy += log.get('summary', {}).get('healthy', 0)
+        unhealthy += log.get('summary', {}).get('unhealthy', 0)
+
+        for resource in log.get('custom_resources', []):
+            resource_types.append(resource.get('resource_type', 'UNKNOWN'))
+
+    analysis = {
+        'total_checks': total_checks,
+        'total_healthy': healthy,
+        'total_unhealthy': unhealthy,
+        'success_rate': f"{(healthy / total_checks * 100):.1f}%" if total_checks > 0 else 'N/A',
+        'resource_type_distribution': dict(Counter(resource_types)),
+        'latest_check': logs[-1] if logs else {}
+    }
+
+    return analysis
+
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -175,6 +231,37 @@ def get_current_status():
     if logs:
         return jsonify(logs[0])
     return jsonify({})
+
+
+@app.route('/api/custom-resources')
+def get_custom_resources():
+    """API endpoint to get custom resource logs"""
+    limit = request.args.get('limit', 50, type=int)
+    logs = read_jsonl_file(Config.CUSTOM_RESOURCES_LOG_FILE, limit=limit)
+    return jsonify({
+        'logs': logs,
+        'count': len(logs)
+    })
+
+
+@app.route('/api/custom-resources-table')
+def get_custom_resources_table():
+    """API endpoint to get custom resources table data"""
+    table_data = get_custom_resources_table_data()
+    # Return most recent entries
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify({
+        'data': table_data[-limit:] if len(table_data) > limit else table_data,
+        'count': len(table_data)
+    })
+
+
+@app.route('/api/analysis/custom-resources')
+def get_custom_resources_analysis():
+    """API endpoint to get custom resource analysis"""
+    logs = read_jsonl_file(Config.CUSTOM_RESOURCES_LOG_FILE)
+    analysis = analyze_custom_resources(logs)
+    return jsonify(analysis)
 
 
 if __name__ == '__main__':

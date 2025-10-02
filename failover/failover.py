@@ -2,8 +2,10 @@ import boto3
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 import time
+import socket
+import requests
 from config import Config
 
 
@@ -359,10 +361,9 @@ def main():
     # if cluster_ids:
     #     manager.run_failover(cluster_ids=cluster_ids, restart_clusters=False)
 
-    # EMR clusters cannot be stopped and started like EC2 instances - they can only be terminated and recreated.
     # Example 4: Full failover - restart everything that's not healthy
-    # instance_ids = [i['instance_id'] for i in instances if i['state'] == 'terminated']
-    # cluster_ids = [c['cluster_id'] for c in clusters if c['state'] == 'TERMINATED']
+    # instance_ids = [i['instance_id'] for i in instances if i['state'] != 'running']
+    # cluster_ids = [c['cluster_id'] for c in clusters if c['state'] != 'RUNNING']
     # if instance_ids or cluster_ids:
     #     manager.run_failover(
     #         instance_ids=instance_ids,

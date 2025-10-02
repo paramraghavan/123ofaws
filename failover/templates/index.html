@@ -268,6 +268,26 @@
             color: #92400e;
         }
 
+        .status-healthy, .status-connected, .status-open {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-unhealthy, .status-failed, .status-closed, .status-unreachable {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-degraded, .status-timeout, .status-error {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+
+        .status-unknown {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
         .table-container {
             max-height: 600px;
             overflow-y: auto;
@@ -285,7 +305,7 @@
 
         <div class="dashboard" id="dashboard">
             <div class="card">
-                <h2>📊 Current Status</h2>
+                <h2>📊 AWS Resources</h2>
                 <div id="current-status">
                     <div class="loading">
                         <div class="spinner"></div>
@@ -303,12 +323,24 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card">
+                <h2>🌐 Non AWS Resources</h2>
+                <div id="custom-resources-analysis">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading...
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="tabs">
             <div class="tab-buttons">
-                <button class="tab-button active" onclick="switchTab('status-table')">Status Log</button>
-                <button class="tab-button" onclick="switchTab('status-detail')">Status Log in Detail</button>
+                <button class="tab-button active" onclick="switchTab('status-table')">AWS Log</button>
+                <button class="tab-button" onclick="switchTab('status-detail')">AWS Log Detail</button>
+                <button class="tab-button" onclick="switchTab('custom-resources-table')">Non AWS Log</button>
+                <button class="tab-button" onclick="switchTab('custom-resources-detail')">Non AWS Log Detail</button>
                 <button class="tab-button" onclick="switchTab('failover')">Failover Logs</button>
                 <button class="tab-button" onclick="switchTab('text')">System Logs</button>
             </div>
@@ -348,6 +380,46 @@
                     <div class="loading">
                         <div class="spinner"></div>
                         Loading status logs...
+                    </div>
+                </div>
+            </div>
+
+            <div id="custom-resources-table" class="tab-content">
+                <div class="controls">
+                    <button onclick="loadCustomResourcesTable()">🔄 Refresh</button>
+                </div>
+                <div class="table-container">
+                    <table id="custom-resources-table-data">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Resource Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Response Time (ms)</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="loading">
+                                    <div class="spinner"></div>
+                                    Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="custom-resources-detail" class="tab-content">
+                <div class="controls">
+                    <button onclick="loadCustomResourcesLogs()">🔄 Refresh</button>
+                </div>
+                <div id="custom-resources-logs">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading custom resource logs...
                     </div>
                 </div>
             </div>
@@ -448,6 +520,38 @@
                 `;
             } catch (error) {
                 document.getElementById('failover-analysis').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadCustomResourcesAnalysis() {
+            try {
+                const response = await fetch('/api/analysis/custom-resources');
+                const data = await response.json();
+
+                if (data.total_checks > 0) {
+                    document.getElementById('custom-resources-analysis').innerHTML = `
+                        <div class="stat">
+                            <span class="stat-label">Total Checks</span>
+                            <span class="stat-value">${data.total_checks || 0}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Healthy</span>
+                            <span class="stat-value success">${data.total_healthy || 0}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Unhealthy</span>
+                            <span class="stat-value error">${data.total_unhealthy || 0}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Success Rate</span>
+                            <span class="stat-value ${data.success_rate !== 'N/A' ? 'success' : ''}">${data.success_rate || 'N/A'}</span>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('custom-resources-analysis').innerHTML = '<div class="empty-state">No custom resource checks yet</div>';
+                }
+            } catch (error) {
+                document.getElementById('custom-resources-analysis').innerHTML = `<div class="error">Error: ${error.message}</div>`;
             }
         }
 
@@ -554,16 +658,79 @@
             }
         }
 
+        async function loadCustomResourcesTable() {
+            try {
+                const tbody = document.querySelector('#custom-resources-table-data tbody');
+                tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div>Loading...</td></tr>';
+
+                const response = await fetch('/api/custom-resources-table?limit=100');
+                const data = await response.json();
+
+                if (data.data && data.data.length > 0) {
+                    let html = '';
+                    data.data.reverse().forEach(row => {
+                        const statusClass = `status-${row.status.toLowerCase().replace(' ', '-').replace('_', '-')}`;
+                        const responseTime = row.response_time_ms ? `${row.response_time_ms}ms` : 'N/A';
+                        const error = row.error ? row.error.substring(0, 50) + (row.error.length > 50 ? '...' : '') : '';
+
+                        html += `
+                            <tr>
+                                <td>${new Date(row.timestamp).toLocaleString()}</td>
+                                <td><strong>${row.resource_name}</strong></td>
+                                <td><code>${row.resource_type}</code></td>
+                                <td><span class="status-badge ${statusClass}">${row.status}</span></td>
+                                <td>${responseTime}</td>
+                                <td title="${row.error}">${error}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No custom resource data available</td></tr>';
+                }
+            } catch (error) {
+                const tbody = document.querySelector('#custom-resources-table-data tbody');
+                tbody.innerHTML = `<tr><td colspan="6" class="error">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function loadCustomResourcesLogs() {
+            try {
+                document.getElementById('custom-resources-logs').innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+                const response = await fetch('/api/custom-resources?limit=20');
+                const data = await response.json();
+
+                if (data.logs && data.logs.length > 0) {
+                    let html = '';
+                    data.logs.reverse().forEach(log => {
+                        html += `
+                            <div class="log-entry">
+                                <div class="timestamp">⏰ ${new Date(log.timestamp).toLocaleString()}</div>
+                                <pre>${JSON.stringify(log, null, 2)}</pre>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('custom-resources-logs').innerHTML = html;
+                } else {
+                    document.getElementById('custom-resources-logs').innerHTML = '<div class="empty-state">No custom resource logs available</div>';
+                }
+            } catch (error) {
+                document.getElementById('custom-resources-logs').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
         // Load all data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadCurrentStatus();
             loadFailoverAnalysis();
+            loadCustomResourcesAnalysis();
             loadStatusTable();
 
             // Auto-refresh every 30 seconds
             setInterval(() => {
                 loadCurrentStatus();
                 loadFailoverAnalysis();
+                loadCustomResourcesAnalysis();
                 loadStatusTable();
             }, 30000);
         });
