@@ -1,0 +1,12 @@
+{
+  "_comment": "AWS Failover System - Simple Configuration",
+
+  "aws_profile": "default",
+  "aws_region": "us-east-1",
+  "tag_name": "production",
+
+  "emr": {
+    "bootstrap_repo": "https://github.com/your-org/emr-bootstrap-scripts.git",
+    "bootstrap_branch": "main"
+  }
+}

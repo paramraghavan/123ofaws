@@ -1,0 +1,19 @@
+boto3>=1.26.0
+flask>=2.3.0
+python-dateutil>=2.8.2
+requests>=2.31.0
+
+# Optional dependencies for extended functionality
+# Uncomment as needed:
+
+# For Snowflake monitoring
+# snowflake-connector-python>=3.0.0
+
+# For enhanced logging and monitoring
+# python-json-logger>=2.0.0
+
+# For email notifications
+# sendgrid>=6.9.0
+
+# For Slack notifications
+# slack-sdk>=3.20.0
