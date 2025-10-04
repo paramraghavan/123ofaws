@@ -94,19 +94,136 @@ class EMRMonitor(BaseMonitor):
             tags = {tag['Key']: tag['Value'] for tag in cluster_detail.get('Tags', [])}
 
             if tags.get('Name') == self.tag_name:
+                cluster_status = cluster_detail['Status']['State']
+
+                # Check for scaling issues if cluster is running
+                scaling_issues = []
+                if cluster_status in ['RUNNING', 'WAITING']:
+                    scaling_issues = self._check_scaling_issues(cluster_id, cluster_detail)
+
+                # Determine overall status
+                if scaling_issues:
+                    overall_status = 'SCALING_ISSUE'
+                else:
+                    overall_status = cluster_status
+
                 status_info = {
                     'resource_id': cluster_id,
                     'tag_name': cluster_detail['Name'],
-                    'status': cluster_detail['Status']['State'],
+                    'status': overall_status,
+                    'cluster_state': cluster_status,
                     'cluster_name': cluster_detail['Name'],
                     'release_label': cluster_detail.get('ReleaseLabel', 'N/A'),
-                    'master_instance_type': cluster_detail.get('MasterPublicDnsName', 'N/A'),
+                    'master_dns': cluster_detail.get('MasterPublicDnsName', 'N/A'),
+                    'scaling_issues': scaling_issues,
                     'timestamp': datetime.now().isoformat()
                 }
 
                 statuses.append(status_info)
 
         return statuses
+
+    def _check_scaling_issues(self, cluster_id: str, cluster_detail: Dict) -> List[str]:
+        """Check for EMR scaling issues"""
+        issues = []
+
+        try:
+            # Check instance fleets first (newer approach)
+            try:
+                fleets_response = self.emr.list_instance_fleets(ClusterId=cluster_id)
+
+                if fleets_response.get('InstanceFleets'):
+                    for fleet in fleets_response['InstanceFleets']:
+                        fleet_type = fleet['InstanceFleetType']
+
+                        # Check on-demand capacity
+                        target_on_demand = fleet.get('TargetOnDemandCapacity', 0)
+                        provisioned_on_demand = fleet.get('ProvisionedOnDemandCapacity', 0)
+
+                        if target_on_demand > 0 and provisioned_on_demand < target_on_demand:
+                            issues.append(
+                                f"{fleet_type} fleet: On-Demand capacity mismatch "
+                                f"(Target: {target_on_demand}, Provisioned: {provisioned_on_demand})"
+                            )
+
+                        # Check spot capacity
+                        target_spot = fleet.get('TargetSpotCapacity', 0)
+                        provisioned_spot = fleet.get('ProvisionedSpotCapacity', 0)
+
+                        if target_spot > 0 and provisioned_spot < target_spot:
+                            issues.append(
+                                f"{fleet_type} fleet: Spot capacity mismatch "
+                                f"(Target: {target_spot}, Provisioned: {provisioned_spot})"
+                            )
+
+                        # Check for fleet status
+                        fleet_status = fleet.get('Status', {}).get('State')
+                        if fleet_status in ['RESIZING', 'SUSPENDED']:
+                            issues.append(f"{fleet_type} fleet in {fleet_status} state")
+
+                    return issues
+            except:
+                pass  # Fall through to instance groups check
+
+            # Check instance groups (older approach)
+            groups_response = self.emr.list_instance_groups(ClusterId=cluster_id)
+
+            for group in groups_response['InstanceGroups']:
+                group_type = group['InstanceGroupType']
+                group_name = group.get('Name', group_type)
+
+                # Check capacity mismatch
+                requested = group['RequestedInstanceCount']
+                running = group['RunningInstanceCount']
+
+                if requested > running:
+                    issues.append(
+                        f"{group_name} ({group_type}): Instance count mismatch "
+                        f"(Requested: {requested}, Running: {running})"
+                    )
+
+                # Check group status
+                group_status = group['Status']['State']
+                if group_status in ['RESIZING', 'ARRESTED', 'SHUTTING_DOWN']:
+                    issues.append(f"{group_name} ({group_type}) in {group_status} state")
+
+                # Check for spot instance interruptions
+                if group['Market'] == 'SPOT':
+                    # Check if spot instances are being terminated
+                    terminated = len([i for i in group.get('Instances', [])
+                                      if i.get('Status', {}).get('State') == 'TERMINATED'])
+                    if terminated > 0:
+                        issues.append(
+                            f"{group_name} ({group_type}): {terminated} spot instances terminated"
+                        )
+
+            # Check for autoscaling issues
+            try:
+                for group in groups_response['InstanceGroups']:
+                    if group.get('AutoScalingPolicy'):
+                        policy_status = group['AutoScalingPolicy'].get('Status', {}).get('State')
+                        if policy_status in ['FAILED', 'DETACHING']:
+                            issues.append(
+                                f"{group.get('Name', group['InstanceGroupType'])} "
+                                f"autoscaling policy in {policy_status} state"
+                            )
+            except Exception as e:
+                self.logger.debug(f"Could not check autoscaling policies: {e}")
+
+            # Check cluster state reason for capacity issues
+            state_change_reason = cluster_detail.get('Status', {}).get('StateChangeReason', {})
+            if state_change_reason:
+                code = state_change_reason.get('Code', '')
+                message = state_change_reason.get('Message', '')
+
+                if 'INSTANCE_FAILURE' in code or 'INTERNAL_ERROR' in code:
+                    issues.append(f"Cluster issue: {message}")
+
+        except Exception as e:
+            self.logger.error(f"Error checking scaling for cluster {cluster_id}: {e}")
+            issues.append(f"Error checking scaling: {str(e)}")
+
+        return issues
 
 
 class LambdaMonitor(BaseMonitor):

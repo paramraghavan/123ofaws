@@ -176,7 +176,7 @@ def get_profiles():
     return jsonify(sorted(list(profiles)))
 
 
-def run_server(host='0.0.0.0', port=5000, debug=True):
+def run_server(host='0.0.0.0', port=7501, debug=True):
     """Run the Flask server"""
 
     # Create templates directory if it doesn't exist

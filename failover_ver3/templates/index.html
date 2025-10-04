@@ -199,6 +199,8 @@
         .status-terminated { background: #f8d7da; color: #721c24; }
         .status-error { background: #f8d7da; color: #721c24; }
         .status-success { background: #d4edda; color: #155724; }
+        .status-scaling { background: #ffeaa7; color: #d63031; }
+        .status-warning { background: #fff3cd; color: #856404; }
 
         .log-entry {
             background: #f8f9fa;
@@ -396,6 +398,8 @@
             if (s.includes('terminated') || s.includes('failed')) return 'status-terminated';
             if (s.includes('error')) return 'status-error';
             if (s.includes('success')) return 'status-success';
+            if (s.includes('scaling')) return 'status-scaling';
+            if (s.includes('waiting') || s.includes('resizing')) return 'status-warning';
             return '';
         }
 
@@ -430,17 +434,30 @@
                         return;
                     }
 
-                    tbody.innerHTML = data.map(log => `
+                    tbody.innerHTML = data.map(log => {
+                        // Format status display with scaling issues if present
+                        let statusDisplay = `<span class="status-badge ${getStatusClass(log.status || '')}">${log.status || 'UNKNOWN'}</span>`;
+
+                        if (log.scaling_issues && log.scaling_issues.length > 0) {
+                            statusDisplay += '<br><small style="color: #d63031; margin-top: 5px; display: block;">';
+                            statusDisplay += log.scaling_issues.slice(0, 2).join('<br>');
+                            if (log.scaling_issues.length > 2) {
+                                statusDisplay += `<br>+ ${log.scaling_issues.length - 2} more issues`;
+                            }
+                            statusDisplay += '</small>';
+                        }
+
+                        return `
                         <tr>
                             <td>${log.script_start_time || 'N/A'}</td>
                             <td>${log.resource_id || 'N/A'}</td>
                             <td>${log.tag_name || 'N/A'}</td>
-                            <td><span class="status-badge ${getStatusClass(log.status || '')}">${log.status || 'UNKNOWN'}</span></td>
+                            <td>${statusDisplay}</td>
                             <td>${log.resource_type || 'N/A'}</td>
                             <td>${log.aws_profile || 'N/A'}</td>
                             <td>${log.timestamp || 'N/A'}</td>
                         </tr>
-                    `).join('');
+                    `}).join('');
                 });
 
             loadStats();

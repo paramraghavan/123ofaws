@@ -51,11 +51,22 @@ The system **automatically discovers ALL configurations** from AWS:
 
 ### Supported Resources
 - EC2 Instances (start stopped, recreate terminated)
-- EMR Clusters (exact clone with auto-discovered config)
+- EMR Clusters (exact clone with auto-discovered config, **scaling issue detection**)
 - Lambda Functions
 - Auto Scaling Groups
 - Snowflake (optional)
 - API Tokens (optional)
+
+### EMR Scaling Detection
+The system automatically detects and reports:
+- ✅ Instance count mismatches (requested vs running)
+- ✅ Spot instance interruptions
+- ✅ Fleet capacity issues (on-demand and spot)
+- ✅ Instance group resizing problems
+- ✅ Autoscaling policy failures
+- ✅ Capacity provisioning failures
+
+When scaling issues are detected, status shows as `SCALING_ISSUE` with detailed problem descriptions.
 
 ### Web Dashboard
 - Real-time monitoring
@@ -274,6 +285,69 @@ Done! Your new resource is now monitored.
 ```
 
 **All logs include `aws_profile` and `aws_region` fields for multi-environment tracking.**
+
+---
+
+## 🔍 EMR Scaling Issue Detection
+
+The system monitors running EMR clusters for scaling problems:
+
+### What Gets Detected
+
+**Instance Count Mismatches:**
+```
+Core group: Requested 5 instances, Running 3 instances
+Task group: Requested 10 instances, Running 7 instances
+```
+
+**Spot Instance Issues:**
+```
+Task fleet: Spot capacity mismatch (Target: 10, Provisioned: 6)
+Task group: 3 spot instances terminated
+```
+
+**Fleet/Group State Problems:**
+```
+Core fleet in RESIZING state
+Task group in ARRESTED state
+```
+
+**Autoscaling Policy Failures:**
+```
+Task group autoscaling policy in FAILED state
+```
+
+### Example Log Entry with Scaling Issues
+
+```json
+{
+  "resource_id": "j-ABC123XYZ",
+  "status": "SCALING_ISSUE",
+  "cluster_state": "RUNNING",
+  "scaling_issues": [
+    "CORE group: Instance count mismatch (Requested: 5, Running: 3)",
+    "TASK fleet: Spot capacity mismatch (Target: 10, Provisioned: 7)",
+    "TASK group autoscaling policy in FAILED state"
+  ],
+  "aws_profile": "production",
+  "timestamp": "2025-10-04T10:30:00"
+}
+```
+
+### Automatic Remediation
+
+When `--mode failover` is used, the system attempts to:
+1. Trigger resize operations for instance groups with capacity mismatches
+2. Re-apply requested instance counts
+3. Log all actions taken
+
+```bash
+# Monitor detects scaling issues
+python failover_main.py --profile prod --tag-name production --mode monitor
+
+# Auto-remediate detected issues
+python failover_main.py --profile prod --tag-name production --mode failover
+```
 
 ---
 

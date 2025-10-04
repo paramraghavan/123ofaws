@@ -256,6 +256,45 @@ class EMRFailover(BaseFailover):
                 result[
                     'message'] = f'Created new cluster {new_cluster_id} to replace {cluster_id} (auto-discovered config from AWS)'
 
+            elif status == 'SCALING_ISSUE':
+                # Handle scaling issues
+                self.logger.info(f"Attempting to resolve scaling issues for cluster: {cluster_id}")
+
+                scaling_issues = resource_info.get('scaling_issues', [])
+                actions_taken = []
+
+                # Try to resize instance groups that have capacity mismatches
+                groups_response = self.emr.list_instance_groups(ClusterId=cluster_id)
+
+                for group in groups_response['InstanceGroups']:
+                    requested = group['RequestedInstanceCount']
+                    running = group['RunningInstanceCount']
+
+                    if requested > running and group['InstanceGroupType'] in ['CORE', 'TASK']:
+                        # Attempt to trigger resize by modifying instance group
+                        try:
+                            self.emr.modify_instance_groups(
+                                InstanceGroups=[{
+                                    'InstanceGroupId': group['Id'],
+                                    'InstanceCount': requested
+                                }]
+                            )
+                            actions_taken.append(
+                                f"Triggered resize for {group.get('Name', group['InstanceGroupType'])} "
+                                f"to {requested} instances"
+                            )
+                        except Exception as e:
+                            actions_taken.append(
+                                f"Failed to resize {group.get('Name', group['InstanceGroupType'])}: {str(e)}"
+                            )
+
+                result['action'] = 'resolve_scaling'
+                result['result'] = 'ATTEMPTED'
+                result['scaling_issues'] = scaling_issues
+                result['actions_taken'] = actions_taken
+                result[
+                    'message'] = f"Attempted to resolve {len(scaling_issues)} scaling issues. Actions: {', '.join(actions_taken)}"
+
             else:
                 result['action'] = 'none'
                 result['result'] = 'SKIPPED'

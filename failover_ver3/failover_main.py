@@ -117,7 +117,7 @@ class FailoverOrchestrator:
         # Filter resources that need failover
         needs_failover = [
             r for r in resources
-            if r.get('status') in ['stopped', 'terminated', 'INVALID', 'DOWN', 'FAILED']
+            if r.get('status') in ['stopped', 'terminated', 'INVALID', 'DOWN', 'FAILED', 'SCALING_ISSUE']
         ]
 
         self.logger.info(f"Found {len(needs_failover)} resources needing failover")
