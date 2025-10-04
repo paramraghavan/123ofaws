@@ -31,9 +31,22 @@ def get_summary_logs():
     status = request.args.get('status')
     resource_type = request.args.get('resource_type')
     aws_profile = request.args.get('aws_profile')
+    script_run = request.args.get('script_run')
 
     # Filter logs
     filtered_logs = monitor_logs
+
+    # Filter by script run if specified
+    if script_run and script_run != 'all':
+        if script_run == 'latest' and filtered_logs:
+            # Get the most recent script_start_time
+            latest_time = max([log.get('script_start_time', '') for log in filtered_logs])
+            filtered_logs = [log for log in filtered_logs
+                             if log.get('script_start_time') == latest_time]
+        else:
+            # Filter by specific run timestamp
+            filtered_logs = [log for log in filtered_logs
+                             if log.get('script_start_time') == script_run]
 
     if start_time:
         filtered_logs = [log for log in filtered_logs
@@ -116,8 +129,9 @@ def get_stats():
     monitor_logs = read_log_file('monitor')
     failover_logs = read_log_file('failover')
 
-    # Get filter parameter
+    # Get filter parameters
     aws_profile = request.args.get('aws_profile')
+    script_run = request.args.get('script_run')
 
     # Filter by profile if specified
     if aws_profile:
@@ -125,6 +139,22 @@ def get_stats():
                         if aws_profile.lower() in log.get('aws_profile', '').lower()]
         failover_logs = [log for log in failover_logs
                          if aws_profile.lower() in log.get('aws_profile', '').lower()]
+
+    # Filter by script run if specified
+    if script_run and script_run != 'all':
+        if script_run == 'latest' and monitor_logs:
+            # Get the most recent script_start_time
+            latest_time = max([log.get('script_start_time', '') for log in monitor_logs])
+            monitor_logs = [log for log in monitor_logs
+                            if log.get('script_start_time') == latest_time]
+            failover_logs = [log for log in failover_logs
+                             if log.get('script_start_time') == latest_time]
+        else:
+            # Filter by specific run timestamp
+            monitor_logs = [log for log in monitor_logs
+                            if log.get('script_start_time') == script_run]
+            failover_logs = [log for log in failover_logs
+                             if log.get('script_start_time') == script_run]
 
     # Calculate stats
     total_resources = len(monitor_logs)
@@ -174,6 +204,25 @@ def get_profiles():
             profiles.add(profile)
 
     return jsonify(sorted(list(profiles)))
+
+
+@app.route('/api/runs')
+def get_runs():
+    """Get list of all script runs with timestamps"""
+
+    monitor_logs = read_log_file('monitor')
+
+    # Extract unique script start times
+    runs = set()
+    for log in monitor_logs:
+        start_time = log.get('script_start_time')
+        if start_time:
+            runs.add(start_time)
+
+    # Sort by timestamp (most recent first)
+    sorted_runs = sorted(list(runs), reverse=True)
+
+    return jsonify(sorted_runs)
 
 
 def run_server(host='0.0.0.0', port=7501, debug=True):

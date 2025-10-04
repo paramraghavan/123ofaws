@@ -44,15 +44,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .selector-group {
+            display: flex;
+            align-items: center;
             gap: 10px;
         }
 
-        .profile-selector label {
+        .selector-group label {
             font-size: 1em;
             font-weight: bold;
         }
 
-        .profile-selector select {
+        .selector-group select {
             padding: 8px 15px;
             border: 2px solid white;
             border-radius: 6px;
@@ -63,7 +70,7 @@
             min-width: 200px;
         }
 
-        .profile-selector select:focus {
+        .selector-group select:focus {
             outline: none;
             box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
         }
@@ -247,10 +254,19 @@
             <h1>🔄 AWS Failover Monitor</h1>
             <p>Real-time monitoring and failover management</p>
             <div class="profile-selector">
-                <label for="profileFilter">AWS Profile:</label>
-                <select id="profileFilter" onchange="onProfileChange()">
-                    <option value="">All Profiles</option>
-                </select>
+                <div class="selector-group">
+                    <label for="runFilter">📅 Run:</label>
+                    <select id="runFilter" onchange="onRunChange()">
+                        <option value="latest">Latest Run</option>
+                        <option value="all">All Runs</option>
+                    </select>
+                </div>
+                <div class="selector-group">
+                    <label for="profileFilter">🔐 Profile:</label>
+                    <select id="profileFilter" onchange="onProfileChange()">
+                        <option value="">All Profiles</option>
+                    </select>
+                </div>
             </div>
         </header>
 
@@ -346,6 +362,18 @@
 
     <script>
         let currentProfile = '';
+        let currentRun = 'latest';
+
+        function onRunChange() {
+            currentRun = document.getElementById('runFilter').value;
+            loadStats();
+
+            // Reload current tab
+            const activeTab = document.querySelector('.tab-pane.active').id;
+            if (activeTab === 'summary') loadSummary();
+            else if (activeTab === 'detailed') loadDetailed();
+            else if (activeTab === 'failover') loadFailover();
+        }
 
         function onProfileChange() {
             currentProfile = document.getElementById('profileFilter').value;
@@ -356,6 +384,35 @@
             if (activeTab === 'summary') loadSummary();
             else if (activeTab === 'detailed') loadDetailed();
             else if (activeTab === 'failover') loadFailover();
+        }
+
+        function loadRuns() {
+            fetch('/api/runs')
+                .then(r => r.json())
+                .then(runs => {
+                    const select = document.getElementById('runFilter');
+
+                    // Keep "Latest Run" and "All Runs" options
+                    // Add individual run timestamps
+                    runs.forEach(run => {
+                        const option = document.createElement('option');
+                        option.value = run;
+
+                        // Format timestamp for display
+                        const date = new Date(run);
+                        const formatted = date.toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+
+                        option.textContent = `Run: ${formatted}`;
+                        select.appendChild(option);
+                    });
+                });
         }
 
         function loadProfiles() {
@@ -404,8 +461,11 @@
         }
 
         function loadStats() {
-            const params = currentProfile ? `?aws_profile=${currentProfile}` : '';
-            fetch('/api/stats' + params)
+            const params = new URLSearchParams();
+            if (currentProfile) params.append('aws_profile', currentProfile);
+            if (currentRun) params.append('script_run', currentRun);
+
+            fetch('/api/stats?' + params)
                 .then(r => r.json())
                 .then(data => {
                     document.getElementById('totalResources').textContent = data.total_resources;
@@ -422,7 +482,8 @@
                 tag_name: document.getElementById('filterTagName').value,
                 status: document.getElementById('filterStatus').value,
                 resource_type: document.getElementById('filterResourceType').value,
-                aws_profile: document.getElementById('filterAwsProfile').value || currentProfile
+                aws_profile: document.getElementById('filterAwsProfile').value || currentProfile,
+                script_run: currentRun
             });
 
             fetch('/api/logs/summary?' + params)
@@ -469,9 +530,18 @@
                 .then(data => {
                     const content = document.getElementById('detailedContent');
 
-                    // Filter by current profile if selected
+                    // Filter by current profile and run if selected
                     if (currentProfile) {
                         data = data.filter(log => log.aws_profile === currentProfile);
+                    }
+
+                    if (currentRun && currentRun !== 'all') {
+                        if (currentRun === 'latest' && data.length > 0) {
+                            const latestTime = Math.max(...data.map(log => log.script_start_time || ''));
+                            data = data.filter(log => log.script_start_time === latestTime);
+                        } else {
+                            data = data.filter(log => log.script_start_time === currentRun);
+                        }
                     }
 
                     if (data.length === 0) {
@@ -494,10 +564,20 @@
                 .then(data => {
                     const content = document.getElementById('failoverContent');
 
-                    // Filter by current profile if selected
+                    // Filter by current profile and run if selected
                     let failoverLogs = data.failover_logs;
+
                     if (currentProfile) {
                         failoverLogs = failoverLogs.filter(log => log.aws_profile === currentProfile);
+                    }
+
+                    if (currentRun && currentRun !== 'all') {
+                        if (currentRun === 'latest' && failoverLogs.length > 0) {
+                            const latestTime = Math.max(...failoverLogs.map(log => log.script_start_time || ''));
+                            failoverLogs = failoverLogs.filter(log => log.script_start_time === latestTime);
+                        } else {
+                            failoverLogs = failoverLogs.filter(log => log.script_start_time === currentRun);
+                        }
                     }
 
                     let html = '<h2>Failover Logs</h2>';
@@ -539,6 +619,7 @@
         });
 
         // Initial load
+        loadRuns();
         loadProfiles();
         loadSummary();
 
