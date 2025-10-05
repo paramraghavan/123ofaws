@@ -34,7 +34,7 @@ class EC2Monitor(BaseMonitor):
         statuses = []
 
         # Get instances with matching tag
-        filters = [{'Name': f'tag:Name', 'Values': [self.tag_name]}]
+        filters = [{'Name': f'tag:Name', 'Values': [f'*{self.tag_name}*']}]
 
         response = self.ec2.describe_instances(Filters=filters)
 
@@ -93,7 +93,7 @@ class EMRMonitor(BaseMonitor):
             # Check if cluster has matching tag
             tags = {tag['Key']: tag['Value'] for tag in cluster_detail.get('Tags', [])}
 
-            if tags.get('Name') == self.tag_name:
+            if self.tag_name in tags.get('Name'):
                 cluster_status = cluster_detail['Status']['State']
 
                 # Check for scaling issues if cluster is running
@@ -251,7 +251,7 @@ class LambdaMonitor(BaseMonitor):
                     )
                     tags = tags_response.get('Tags', {})
 
-                    if tags.get('Name') == self.tag_name:
+                    if self.tag_name in tags.get('Name'):
                         # Get function configuration
                         status_info = {
                             'resource_id': function['FunctionArn'],
@@ -293,7 +293,7 @@ class AutoScalingMonitor(BaseMonitor):
                 # Check tags
                 tags = {tag['Key']: tag['Value'] for tag in asg.get('Tags', [])}
 
-                if tags.get('Name') == self.tag_name:
+                if self.tag_name in tags.get('Name'):
                     # Determine status based on instances and capacity
                     desired = asg['DesiredCapacity']
                     current = len(asg['Instances'])
