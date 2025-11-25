@@ -37,10 +37,7 @@ def parse_loan_rows(message_body):
     if isinstance(data, list):
         return data
 
-    # Check if it has a 'loans' array
-    if 'loans' in data:
-        return data['loans']
-
+    # Check if it has a 'loans' dict
     return data.get('loans', [])
 
 
