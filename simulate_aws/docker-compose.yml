@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"           # LocalStack Gateway (all services)
+      - "4510-4559:4510-4559" # External services port range
+    environment:
+      # Services to enable
+      - SERVICES=ec2,s3,lambda,rds,sns,sqs,emr,iam,sts,cloudwatch,logs
+      
+      # Debug mode (set to 1 for verbose logging)
+      - DEBUG=0
+      
+      # Data persistence directory
+      - PERSISTENCE=1
+      - DATA_DIR=/var/lib/localstack/data
+      
+      # Lambda configuration
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_DOCKER_NETWORK=localstack-network
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      
+      # Default region
+      - DEFAULT_REGION=us-east-1
+      
+      # Hostname for external access
+      - LOCALSTACK_HOST=localhost
+      
+    volumes:
+      # Persist data between restarts
+      - localstack-data:/var/lib/localstack
+      # Allow LocalStack to spawn Lambda containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Optional: initialization scripts
+      - ./init-scripts:/etc/localstack/init/ready.d
+    
+    networks:
+      - localstack-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  localstack-network:
+    name: localstack-network
+
+volumes:
+  localstack-data:
