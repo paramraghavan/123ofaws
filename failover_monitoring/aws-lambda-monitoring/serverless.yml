@@ -1,0 +1,193 @@
+service: simple-aws-monitoring
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1
+  timeout: 300
+  memorySize: 256
+
+  environment:
+    TAG_NAME: production
+    LOG_BUCKET: ${self:service}-logs-${aws:accountId}
+    SNS_TOPIC_ARN: !Ref AlertTopic
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            - s3:GetBucketTagging
+            - s3:HeadBucket
+            - s3:PutObject
+            - s3:GetObject
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - ec2:DescribeInstances
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - emr:ListClusters
+            - emr:DescribeCluster
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource: !Ref AlertTopic
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: 'arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/*'
+
+functions:
+  monitor:
+    handler: monitor_lambda.lambda_handler
+    timeout: 300
+    memorySize: 256
+    description: Monitor AWS resources and log status to S3
+    events:
+      - schedule:
+          rate: rate(10 minutes)
+          enabled: true
+          description: Trigger monitoring every 10 minutes
+    layers:
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:python-dependencies:1
+
+  dashboard:
+    handler: generate_dashboard.lambda_handler
+    timeout: 60
+    memorySize: 128
+    description: Generate static HTML dashboard from status
+    events:
+      - schedule:
+          rate: rate(5 minutes)
+          enabled: true
+          description: Update dashboard every 5 minutes
+    layers:
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:python-dependencies:1
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!.git/**'
+    - '!.pytest_cache/**'
+    - '!__pycache__/**'
+
+resources:
+  Resources:
+    AlertTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-alerts
+        DisplayName: AWS Monitoring Alerts
+
+    LogBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.LOG_BUCKET}
+        VersioningConfiguration:
+          Status: Enabled
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        WebsiteConfiguration:
+          IndexDocument: dashboard/index.html
+          ErrorDocument: error.html
+
+    LogBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref LogBucket
+        PolicyText:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: '*'
+              Action:
+                - s3:GetObject
+              Resource: !Sub '${LogBucket.Arn}/dashboard/*'
+
+    HeartbeatAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-heartbeat-missing
+        AlarmDescription: Alert if monitoring Lambda fails to update heartbeat within 20 minutes
+        MetricName: LastUpdateAge
+        Namespace: AWS/Lambda
+        Statistic: Maximum
+        Period: 300
+        EvaluationPeriods: 4
+        Threshold: 1200
+        ComparisonOperator: GreaterThanThreshold
+        AlarmActions:
+          - !Ref AlertTopic
+
+    MonitorLambdaErrorAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-monitor-errors
+        AlarmDescription: Alert if monitoring Lambda encounters errors
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref MonitorLambdaFunction
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        AlarmActions:
+          - !Ref AlertTopic
+
+    DashboardLambdaErrorAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-dashboard-errors
+        AlarmDescription: Alert if dashboard generation Lambda encounters errors
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref DashboardLambdaFunction
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        AlarmActions:
+          - !Ref AlertTopic
+
+  Outputs:
+    LogBucketName:
+      Description: S3 bucket for logs and dashboard
+      Value: !Ref LogBucket
+      Export:
+        Name: ${self:service}-log-bucket
+
+    DashboardUrl:
+      Description: URL to access the monitoring dashboard
+      Value: !Sub 'https://${LogBucket}.s3-website-${aws:region}.amazonaws.com/dashboard/index.html'
+
+    SNSTopicArn:
+      Description: SNS topic for alerts
+      Value: !Ref AlertTopic
+      Export:
+        Name: ${self:service}-sns-topic
+
+    MonitorFunctionName:
+      Description: Name of the monitor Lambda function
+      Value: !Ref MonitorLambdaFunction
+
+    DashboardFunctionName:
+      Description: Name of the dashboard Lambda function
+      Value: !Ref DashboardLambdaFunction
