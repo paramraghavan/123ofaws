@@ -1,0 +1,2 @@
+i have ingestion pipeline when file lands to s3 bucket it triggers a lambda, lambda call sns which writes to sqs and  a jobtrigger lambda polls the sqs to perform actual ingestion
+Steps to associate cloudwatch group with my pipeline to monitor and alert on errors
