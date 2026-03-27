@@ -6,7 +6,8 @@ A production-ready example showing how to write code that works both as a **comm
 
 ```
 examples/
-├── README.md                    ← This file
+├── readme_quickstart.md         ← This file
+├── readme_architecture.md       ← Visual diagrams
 ├── requirements.txt             ← Third-party packages (for layer)
 │
 ├── shared_lib/                  ← Reusable code (goes in layer)
@@ -16,10 +17,13 @@ examples/
 │
 ├── cli_app.py                   ← CLI entry point (NOT in layer)
 ├── lambda_function.py           ← Lambda handler (NOT in layer)
-├── test_local.py                ← Local testing script
 │
-├── build_layer.sh               ← Build the layer ZIP
-└── deploy_layer.sh              ← Deploy to AWS Lambda
+├── deploy/                      ← Deployment tools
+│   ├── build_layer.sh           ← Build the layer ZIP
+│   └── deploy_layer.sh          ← Deploy to AWS Lambda
+│
+└── tests/                       ← Test suite
+    └── test_local.py            ← All tests
 ```
 
 ## 🎯 Key Concepts
@@ -100,14 +104,14 @@ python cli_app.py \
 python lambda_function.py
 
 # Or via test script
-python test_local.py
+python tests/test_local.py
 ```
 
 ### 4. Build Layer
 
 ```bash
-chmod +x build_layer.sh
-./build_layer.sh
+chmod +x deploy/build_layer.sh
+./deploy/build_layer.sh
 ```
 
 This creates `my-layer.zip` containing:
@@ -118,8 +122,8 @@ This creates `my-layer.zip` containing:
 ### 5. Deploy to AWS
 
 ```bash
-chmod +x deploy_layer.sh
-./deploy_layer.sh
+chmod +x deploy/deploy_layer.sh
+./deploy/deploy_layer.sh
 ```
 
 This publishes the layer and prints an **ARN** like:
@@ -277,7 +281,7 @@ print(result)
 ### Run All Tests
 
 ```bash
-python test_local.py
+python tests/test_local.py
 ```
 
 This runs:
@@ -386,13 +390,13 @@ python -c "from lambda_function import handler; ..."
 ### 4. Rebuild Layer
 
 ```bash
-./build_layer.sh
+./deploy/build_layer.sh
 ```
 
 ### 5. Deploy to AWS
 
 ```bash
-./deploy_layer.sh
+./deploy/deploy_layer.sh
 ```
 
 ### 6. Update Function
@@ -422,7 +426,7 @@ aws lambda update-function-configuration \
 
 **Cause:** `requests` package not in layer.
 
-**Fix:** Rebuild the layer with `./build_layer.sh`
+**Fix:** Rebuild the layer with `./deploy/build_layer.sh`
 
 ### ModuleNotFoundError on macOS/Windows
 
@@ -534,9 +538,9 @@ aws lambda update-function-code \
 
 - [ ] Code works locally with CLI
 - [ ] Code works locally with Lambda handler
-- [ ] All tests pass (`python test_local.py`)
-- [ ] Layer builds successfully (`./build_layer.sh`)
-- [ ] Layer deploys to AWS (`./deploy_layer.sh`)
+- [ ] All tests pass (`python tests/test_local.py`)
+- [ ] Layer builds successfully (`./deploy/build_layer.sh`)
+- [ ] Layer deploys to AWS (`./deploy/deploy_layer.sh`)
 - [ ] Function code uploaded to AWS
 - [ ] Layer attached to function
 - [ ] Test invocation works from AWS CLI
@@ -567,7 +571,7 @@ aws lambda update-function-code \
 export PYTHONPATH=/opt/python:$PYTHONPATH
 mkdir -p /tmp/opt/python
 cp -r build/python/* /tmp/opt/python/
-python test_local.py
+python tests/test_local.py
 ```
 
 ### View Layer Contents

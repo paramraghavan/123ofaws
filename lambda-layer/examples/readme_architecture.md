@@ -215,13 +215,13 @@ examples/
 ├── shared_lib/
 ├── cli_app.py
 ├── lambda_function.py
-└── test_local.py
+└── tests/test_local.py
 ```
 
 ### Step 2: Build Process
 
 ```bash
-./build_layer.sh
+./deploy/build_layer.sh
 ```
 
 Creates:
@@ -239,7 +239,7 @@ examples/
 ├── shared_lib/
 ├── cli_app.py
 ├── lambda_function.py
-└── test_local.py
+└── tests/test_local.py
 ```
 
 ### Step 3: Prepare Function Package
