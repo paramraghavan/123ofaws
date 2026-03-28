@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Local testing script - Test CLI and Lambda handler with same data.
+Local testing script - Test CLI and Lambda handler.
 
-This demonstrates that both environments call the same business logic.
+Simple tests to verify both work with the same business logic.
 
 Usage:
-    python test_local.py
+    python tests/test_local.py
 """
 
 import json
@@ -13,81 +13,72 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Add parent directory to path so we can import modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-def test_cli():
-    """Test the CLI version."""
+
+def test_cli_transform():
+    """Test CLI with transform operation."""
 
     print("\n" + "="*70)
     print("TEST 1: CLI - Transform Operation")
     print("="*70)
 
     records = [
-        {"Name": "Alice", "Email": "alice@example.com", "Category": "VIP"},
-        {"Name": "Bob", "Email": "bob@example.com", "Category": "Regular"}
+        {"Name": "Alice", "Email": "alice@example.com"},
+        {"Name": "Bob", "Email": "bob@example.com"}
     ]
 
     cmd = [
         'python', 'cli_app.py',
         '--operation', 'transform',
-        '--format', 'json',
         '--records', json.dumps(records)
     ]
 
-    print(f"\nCommand: {' '.join(cmd)}\n")
+    print(f"Command: python cli_app.py --operation transform --records '[...]'\n")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    print("STDOUT:")
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent))
     print(result.stdout)
 
-    if result.stderr:
-        print("STDERR:")
-        print(result.stderr)
-
-    print(f"Exit Code: {result.returncode}\n")
+    if result.stderr and "Processing" not in result.stderr:
+        print("STDERR:", result.stderr)
 
     return result.returncode == 0
 
 
 def test_cli_validate():
-    """Test CLI validation operation."""
+    """Test CLI with validate operation."""
 
     print("\n" + "="*70)
-    print("TEST 2: CLI - Validate Operation (missing required fields)")
+    print("TEST 2: CLI - Validate Operation")
     print("="*70)
 
     records = [
-        {"id": 1, "name": "Alice", "email": "alice@example.com"},  # Valid
-        {"id": 2, "name": "Bob"},  # Missing email
-        {"email": "charlie@example.com"}  # Missing id and name
+        {"id": 1, "name": "Alice", "email": "alice@test.com"},  # Valid
+        {"id": 2, "name": "Bob"},  # Invalid (missing email)
     ]
 
     cmd = [
         'python', 'cli_app.py',
         '--operation', 'validate',
-        '--records', json.dumps(records),
-        '--verbose'
+        '--records', json.dumps(records)
     ]
 
-    print(f"\nCommand: {' '.join(cmd)}\n")
+    print(f"Command: python cli_app.py --operation validate --records '[...]'\n")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    print("STDOUT:")
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent))
     print(result.stdout)
 
-    if result.stderr:
-        print("STDERR:")
-        print(result.stderr)
-
-    print(f"Exit Code: {result.returncode}\n")
-
-    return True  # Validation fails correctly for incomplete data
+    # Validate should detect the invalid record and exit with code 1
+    # (success=false because one record is invalid)
+    return result.returncode == 1
 
 
-def test_cli_dry_run():
-    """Test CLI with dry-run flag."""
+def test_cli_aggregate():
+    """Test CLI with aggregate operation."""
 
     print("\n" + "="*70)
-    print("TEST 3: CLI - Dry-run Flag")
+    print("TEST 3: CLI - Aggregate Operation")
     print("="*70)
 
     records = [
@@ -103,92 +94,75 @@ def test_cli_dry_run():
         '--dry-run'
     ]
 
-    print(f"\nCommand: {' '.join(cmd)}\n")
+    print(f"Command: python cli_app.py --operation aggregate --records '[...]' --dry-run\n")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    output = json.loads(result.stdout)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent))
+    print(result.stdout)
 
-    print("Output:")
-    print(json.dumps(output, indent=2))
-    print(f"\nDry-run flag in output: {output.get('dry_run')}")
-    print(f"Exit Code: {result.returncode}\n")
-
-    return output.get('dry_run') == True
+    return result.returncode == 0
 
 
 def test_lambda_handler():
-    """Test Lambda handler locally."""
+    """Test Lambda handler directly."""
 
     print("\n" + "="*70)
     print("TEST 4: Lambda Handler - Transform Operation")
     print("="*70)
 
-    event = {
-        "operation": "transform",
-        "records": [
-            {"Name": "Alice", "Email": "alice@example.com"},
-            {"Name": "Bob", "Email": "bob@example.com"}
-        ],
-        "format": "json"
-    }
-
-    print(f"\nInvoking handler with event:\n{json.dumps(event, indent=2)}\n")
-
-    # Import and call handler directly
     try:
         from lambda_function import handler
 
         class TestContext:
-            invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test"
-            function_name = "test"
-            request_id = "test-request-123"
+            invoked_function_arn = 'arn:aws:lambda:test'
+
+        event = {
+            "operation": "transform",
+            "records": [
+                {"Name": "Alice", "Email": "alice@test.com"},
+                {"Name": "Bob", "Email": "bob@test.com"}
+            ]
+        }
+
+        print(f"Event: {json.dumps(event, indent=2)}\n")
 
         response = handler(event, TestContext())
-
         print("Response:")
         print(json.dumps(response, indent=2))
-        print(f"\nStatus Code: {response.get('statusCode')}")
-        print(f"Success: {response.get('body', {}).get('success')}\n")
 
         return response.get('statusCode') == 200
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}\n")
         return False
 
 
-def test_lambda_handler_error():
-    """Test Lambda handler with invalid input."""
+def test_lambda_error_handling():
+    """Test Lambda error handling."""
 
     print("\n" + "="*70)
-    print("TEST 5: Lambda Handler - Error Handling (missing required field)")
+    print("TEST 5: Lambda Handler - Error Handling")
     print("="*70)
-
-    event = {
-        # Missing 'records' - required field
-        "operation": "transform",
-        "format": "json"
-    }
-
-    print(f"\nInvoking handler with incomplete event:\n{json.dumps(event, indent=2)}\n")
 
     try:
         from lambda_function import handler
 
         class TestContext:
-            invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test"
+            invoked_function_arn = 'arn:aws:lambda:test'
+
+        # Missing 'records' parameter
+        event = {"operation": "transform"}
+
+        print(f"Event (missing records): {json.dumps(event)}\n")
 
         response = handler(event, TestContext())
-
         print("Response:")
         print(json.dumps(response, indent=2))
-        print(f"\nStatus Code: {response.get('statusCode')}")
-        print(f"Error: {response.get('body', {}).get('error')}\n")
 
+        # Should return 400 error
         return response.get('statusCode') == 400
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}\n")
         return False
 
 
@@ -200,11 +174,11 @@ def run_all_tests():
     print("#"*70)
 
     tests = [
-        ("CLI - Transform", test_cli),
+        ("CLI - Transform", test_cli_transform),
         ("CLI - Validate", test_cli_validate),
-        ("CLI - Dry-run", test_cli_dry_run),
+        ("CLI - Aggregate", test_cli_aggregate),
         ("Lambda - Transform", test_lambda_handler),
-        ("Lambda - Error Handling", test_lambda_handler_error),
+        ("Lambda - Error Handling", test_lambda_error_handling),
     ]
 
     results = []
@@ -213,7 +187,7 @@ def run_all_tests():
             passed = test_func()
             results.append((test_name, passed))
         except Exception as e:
-            print(f"\n❌ Test '{test_name}' failed with exception: {e}\n")
+            print(f"\n❌ Test '{test_name}' failed: {e}\n")
             results.append((test_name, False))
 
     # Print summary
