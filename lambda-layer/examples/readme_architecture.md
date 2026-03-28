@@ -20,8 +20,7 @@ Visual guide showing how CLI and Lambda share code and dependencies.
 │  │  • parse_records_from_json()                             │  │
 │  │                                                          │  │
 │  │ logger.py:                                               │  │
-│  │  • get_logger() - works on CLI and Lambda                │  │
-│  │  • LambdaJsonFormatter - for CloudWatch                  │  │
+│  │  • get_logger() - simple logging wrapper                 │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                            ▲
@@ -95,6 +94,8 @@ Added to: sys.path
 
 ### Lambda Function (Separate Deployment Package)
 
+**RECOMMENDED APPROACH:**
+
 ```
 lambda-function.zip
 └── lambda_function.py        ← ONLY your handler code
@@ -109,6 +110,45 @@ When invoked:
 - Python adds /opt/python to sys.path
 - Handler can import: from shared_lib.processor import ...
 ```
+
+**Why separate?**
+- ✅ Handler changes frequently, library code doesn't
+- ✅ Layers are immutable (v1, v2, v3) - versioning is easier
+- ✅ Can reuse same layer across multiple functions
+- ✅ Faster deployments (only update handler code)
+- ✅ Clear separation of concerns
+
+---
+
+### Alternative: Handler in Layer
+
+**If you want to put `lambda_function.py` IN the layer:**
+
+```
+Lambda Layer (my-layer.zip)
+└── python/
+    ├── requests/
+    ├── dotenv/
+    └── shared_lib/
+        ├── processor.py
+        ├── logger.py
+        ├── handler.py          ← Put lambda_function here!
+        └── __init__.py
+
+Lambda Function (minimal wrapper)
+└── lambda_function.py          ← Just imports from layer
+    # Just re-export the handler
+    from shared_lib.handler import handler
+```
+
+**Tradeoffs:**
+- ✅ Everything in one place
+- ❌ Harder to version separately
+- ❌ Must rebuild layer for handler changes
+- ❌ Can't reuse layer for multiple functions easily
+- ❌ Slower deployments
+
+**Our recommendation:** Keep them separate! ✅
 
 ---
 
@@ -452,6 +492,42 @@ Function code:        ~2 KB
 Cold start:           ~50ms
 Warm start:           ~1ms
 ```
+
+---
+
+## 🔄 Handler Location Comparison
+
+### Option 1: Handler OUTSIDE Layer (Recommended ✅)
+
+**Pros:**
+- Handler and library code version separately
+- Quick handler updates (don't rebuild layer)
+- Reuse same layer across multiple functions
+- Clear separation: library code vs. entry point
+- Smaller updates to CloudFormation/Terraform
+
+**Cons:**
+- Two deployment packages to manage
+- Slightly more complex deployment
+
+**Best for:** Production, multiple functions, frequent handler changes
+
+### Option 2: Handler IN Layer
+
+**Pros:**
+- Everything in one place
+- Single deployment package
+
+**Cons:**
+- Must rebuild layer for every handler change
+- Wastes time/space rebuilding libraries
+- Can't reuse layer for multiple functions
+- Version management is awkward
+- Slower, larger deployments
+
+**Best for:** Simple prototypes, learning, single-function projects
+
+**Recommendation:** Use Option 1 (separate handler) for production! ✅
 
 ---
 
