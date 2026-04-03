@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AWS Monitoring System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Healthy</h5>
+                <p class="card-text display-4" id="healthy-count">{{ summary.healthy }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Degraded</h5>
+                <p class="card-text display-4" id="degraded-count">{{ summary.degraded }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">Unhealthy</h5>
+                <p class="card-text display-4" id="unhealthy-count">{{ summary.unhealthy }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Unknown</h5>
+                <p class="card-text display-4" id="unknown-count">{{ summary.unknown }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h3>Services</h3>
+    </div>
+</div>
+
+<div class="row" id="services-container">
+    {% for service_name, service_data in summary.services.items() %}
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">{{ service_name.upper() }}</h5>
+                <small class="text-muted">{{ service_data.count }} resource(s)</small>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="progress">
+                        <div class="progress-bar bg-success" style="width: {{ service_data.healthy / service_data.count * 100 }}%">
+                            {{ service_data.healthy }}
+                        </div>
+                        <div class="progress-bar bg-warning" style="width: {{ service_data.degraded / service_data.count * 100 }}%">
+                            {{ service_data.degraded }}
+                        </div>
+                        <div class="progress-bar bg-danger" style="width: {{ service_data.unhealthy / service_data.count * 100 }}%">
+                            {{ service_data.unhealthy }}
+                        </div>
+                        <div class="progress-bar bg-secondary" style="width: {{ service_data.unknown / service_data.count * 100 }}%">
+                            {{ service_data.unknown }}
+                        </div>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <span class="badge bg-success">{{ service_data.healthy }} Healthy</span>
+                    <span class="badge bg-warning">{{ service_data.degraded }} Degraded</span>
+                    <span class="badge bg-danger">{{ service_data.unhealthy }} Unhealthy</span>
+                    <span class="badge bg-secondary">{{ service_data.unknown }} Unknown</span>
+                </small>
+            </div>
+            <div class="card-footer">
+                <a href="#" class="btn btn-sm btn-primary">View Details</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh every 30 seconds
+    setInterval(updateDashboard, 30000);
+
+    function updateDashboard() {
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('healthy-count').textContent = data.healthy;
+                document.getElementById('degraded-count').textContent = data.degraded;
+                document.getElementById('unhealthy-count').textContent = data.unhealthy;
+                document.getElementById('unknown-count').textContent = data.unknown;
+
+                const timestamp = new Date(data.timestamp);
+                document.getElementById('last-update').textContent = 'Last updated: ' + timestamp.toLocaleTimeString();
+            })
+            .catch(error => console.error('Error updating dashboard:', error));
+    }
+</script>
+{% endblock %}

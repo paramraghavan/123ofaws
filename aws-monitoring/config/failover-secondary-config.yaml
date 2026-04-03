@@ -1,0 +1,88 @@
+# AWS Monitoring System - Secondary Region Configuration
+# This runs in the SECONDARY region (e.g., us-west-2)
+# Watches primary's heartbeat and auto-fails over if primary goes down
+
+aws:
+  primary_region: us-east-1       # Point to primary resources
+  secondary_region: us-west-2     # This secondary region
+  profile: null
+  localstack: false
+
+monitoring:
+  check_interval: 300             # Check every 5 minutes
+  max_retries: 3
+  retry_delay: 5
+
+cloudformation:
+  enabled: true
+  stack_prefixes:
+    - uat-top
+    - uat-bot
+    - prod-
+
+services:
+  lambda:
+    enabled: true
+  ec2:
+    enabled: true
+  s3:
+    enabled: true
+  sqs:
+    enabled: true
+  sns:
+    enabled: true
+  emr:
+    enabled: true
+  asg:
+    enabled: true
+  cfn:
+    enabled: true
+  ssm:
+    enabled: true
+  iam:
+    enabled: true
+  elbv2:
+    enabled: true
+  kms:
+    enabled: true
+  transfer:
+    enabled: true
+
+# SECONDARY REGION FAILOVER CONFIGURATION
+failover:
+  enabled: true
+  mode: secondary                  # This is the secondary region
+  auto_failover: false             # MANUAL FAILOVER ONLY - user selects resources
+  manual_only: true                # Only manual, no automatic
+
+  primary_failure_timeout: 300     # Consider primary down after 5 minutes no heartbeat
+  failover_threshold: 2            # Confirm twice before alerting
+
+  # Heartbeat settings - secondary WATCHES primary's heartbeat
+  heartbeat_enabled: true
+  heartbeat_table: monitoring-heartbeat
+  heartbeat_interval: 60           # Check heartbeat every 60 seconds
+
+  # MANUAL FAILOVER WORKFLOW:
+  # 1. Monitoring system alerts ops team when primary goes down
+  # 2. Ops team logs into secondary region dashboard
+  # 3. Ops team runs: python scripts/failover.py --config config/failover-secondary-config.yaml
+  # 4. Script shows all resources and asks: "Failover this resource? (y/n)"
+  # 5. User selects which resources to failover
+  # 6. Script confirms and executes failover
+  # 7. Resources are moved to secondary region
+
+# Email alerting (for secondary region alerts)
+alerts:
+  email_enabled: true
+  email: ops-team@company.com, failover-team@company.com
+  email_from: monitoring-secondary@company.com
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  smtp_user: your-email@gmail.com
+  smtp_password: xxxx xxxx xxxx xxxx
+  smtp_tls: true
+
+state:
+  type: file
+  file_path: /tmp/monitoring-state-secondary.json

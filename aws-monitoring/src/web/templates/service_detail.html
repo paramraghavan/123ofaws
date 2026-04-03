@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ service|upper }} - AWS Monitoring System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>{{ service|upper }} Service Details</h2>
+        <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="resources-table">
+                {% if state is iterable %}
+                    {% for resource in state %}
+                    <tr>
+                        <td>{{ resource.resource_name }}</td>
+                        <td>
+                            <span class="badge bg-{% if resource.status == 'healthy' %}success{% elif resource.status == 'degraded' %}warning{% elif resource.status == 'unhealthy' %}danger{% else %}secondary{% endif %}">
+                                {{ resource.status|upper }}
+                            </span>
+                        </td>
+                        <td>{{ resource.message }}</td>
+                        <td><small class="text-muted">{{ resource.timestamp }}</small></td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

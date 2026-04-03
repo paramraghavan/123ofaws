@@ -1,0 +1,129 @@
+# AWS Monitoring System - Gmail Email Alerts Configuration
+# Copy this to config/config.yaml and customize for your setup
+
+aws:
+  primary_region: us-east-1
+  secondary_region: us-west-2
+  # AWS profile name (optional)
+  profile: null
+  localstack: false
+
+monitoring:
+  check_interval: 300
+  max_retries: 3
+  retry_delay: 5
+
+cloudformation:
+  enabled: true
+  # Specify your stack prefixes
+  stack_prefix: uat-
+
+services:
+  lambda:
+    enabled: true
+    thresholds:
+      error_rate: 5.0
+      duration: 55000
+
+  ec2:
+    enabled: true
+    thresholds:
+      cpu_utilization: 80.0
+
+  s3:
+    enabled: true
+    thresholds: {}
+
+  sqs:
+    enabled: true
+    thresholds:
+      message_count: 1000
+
+  sns:
+    enabled: true
+    thresholds: {}
+
+  emr:
+    enabled: false
+    thresholds: {}
+
+  asg:
+    enabled: true
+    thresholds: {}
+
+  cfn:
+    enabled: true
+    thresholds: {}
+
+  ssm:
+    enabled: false
+    thresholds: {}
+
+  iam:
+    enabled: false
+    thresholds: {}
+
+  elbv2:
+    enabled: true
+    thresholds: {}
+
+  kms:
+    enabled: false
+    thresholds: {}
+
+  transfer:
+    enabled: false
+    thresholds: {}
+
+  snowflake:
+    enabled: false
+    thresholds: {}
+
+  controlm:
+    enabled: false
+    thresholds: {}
+
+# EMAIL ALERTING CONFIGURATION
+alerts:
+  # Enable direct email alerts
+  email_enabled: true
+
+  # Your email address(es) - comma-separated for multiple recipients
+  email: ops-team@example.com
+
+  # Sender email address
+  email_from: aws-monitoring@company.com
+
+  # GMAIL SMTP Configuration
+  # 1. Go to https://myaccount.google.com/apppasswords
+  # 2. Generate app password for "Mail" and "Windows Computer"
+  # 3. Copy the 16-character password below
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  smtp_user: your-email@gmail.com
+  smtp_password: xxxx xxxx xxxx xxxx  # 16-char app password
+  smtp_tls: true
+
+  # To use a different mail provider, update smtp_* settings:
+  # Office 365:
+  #   smtp_host: smtp.office365.com
+  #   smtp_port: 587
+  #   smtp_user: your-email@company.com
+  #   smtp_password: your-office365-password
+  #   smtp_tls: true
+  #
+  # SendGrid:
+  #   smtp_host: smtp.sendgrid.net
+  #   smtp_port: 587
+  #   smtp_user: apikey
+  #   smtp_password: SG.xxxxxxxxxxxxx
+  #   smtp_tls: true
+
+failover:
+  enabled: false
+  secondary_region: us-west-2
+  manual_only: true
+
+state:
+  type: file
+  file_path: /tmp/monitoring-state.json

@@ -1,0 +1,197 @@
+# AWS Monitoring System Configuration
+# Copy this file to config.yaml and customize for your environment
+
+aws:
+  primary_region: us-east-1
+  secondary_region: us-west-2
+  # AWS profile name (optional, uses default credentials if not specified)
+  profile: null
+  # Use LocalStack for local testing
+  localstack: false
+
+monitoring:
+  # Check interval in seconds
+  check_interval: 300
+  # Max retries on transient failures
+  max_retries: 3
+  # Delay between retries in seconds
+  retry_delay: 5
+
+# CloudFormation stack discovery
+cloudformation:
+  enabled: true
+
+  # OPTION 1: Single stack prefix
+  stack_prefix: uat-
+
+  # OPTION 2: Multiple stack prefixes (uncomment to use)
+  # Use YAML list format:
+  # stack_prefixes:
+  #   - uat-top
+  #   - uat-bot
+  #   - prod-
+
+  # OR use comma-separated string:
+  # stack_prefixes: uat-top, uat-bot, prod-
+
+  # Note: Can be overridden with --prefix or --prefixes CLI arguments
+
+# Service monitoring configuration
+# Set enabled: true for services you want to monitor
+services:
+  lambda:
+    enabled: true
+    thresholds:
+      error_rate: 5.0        # % threshold
+      duration: 55000        # milliseconds
+    metrics:
+      - Invocations
+      - Errors
+      - Duration
+
+  ec2:
+    enabled: true
+    thresholds:
+      cpu_utilization: 80.0  # %
+      status_check_failed: 1
+    metrics:
+      - CPUUtilization
+      - StatusCheckFailed
+
+  s3:
+    enabled: true
+    thresholds:
+      versioning_enabled: false  # Optional requirement
+      encryption_enabled: false  # Optional requirement
+    metrics:
+      - BucketSize
+      - NumberOfObjects
+
+  sqs:
+    enabled: true
+    thresholds:
+      message_count: 1000
+    metrics:
+      - ApproximateNumberOfMessages
+      - ApproximateNumberOfNotVisibleMessages
+
+  sns:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - NumberOfMessagesPublished
+
+  emr:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - JobFlowCount
+
+  asg:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - GroupInServiceInstances
+      - GroupTerminatingInstances
+
+  cfn:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - StackCount
+
+  ssm:
+    enabled: true
+    thresholds: {}
+    metrics: []
+
+  iam:
+    enabled: true
+    thresholds: {}
+    metrics: []
+
+  elbv2:
+    enabled: true
+    thresholds:
+      target_health_count: 1
+    metrics:
+      - TargetResponseTime
+      - RequestCount
+
+  kms:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - UserErrorCount
+      - ThrottledOperations
+
+  transfer:
+    enabled: true
+    thresholds: {}
+    metrics:
+      - BytesIn
+      - BytesOut
+
+  snowflake:
+    enabled: false
+    # Configure Snowflake connection
+    snowflake_account: xy12345.us-east-1  # Your Snowflake account
+    snowflake_user: admin                  # Username or use SNOWFLAKE_USER env var
+    snowflake_password: null               # Use SNOWFLAKE_PASSWORD env var (recommended)
+    snowflake_warehouse: COMPUTE_WH        # Default warehouse
+    snowflake_database: null               # Optional: specific database to check
+    thresholds: {}
+    metrics:
+      - WarehouseState
+      - DatabaseAccessible
+
+  controlm:
+    enabled: false
+    # Configure Control-M API connection
+    controlm_endpoint: http://localhost:8080/ctm  # Control-M API endpoint
+    controlm_user: admin                          # Username or use CONTROLM_USER env var
+    controlm_password: null                       # Use CONTROLM_PASSWORD env var (recommended)
+    verify_ssl: true                              # Verify SSL certificates
+    thresholds: {}
+    metrics:
+      - JobStatus
+      - AgentStatus
+
+# Alert configuration
+alerts:
+  # OPTION 1: Direct Email (PREFERRED)
+  email_enabled: true
+  email: ops-team@example.com,manager@example.com  # Comma-separated for multiple
+  email_from: aws-monitoring@company.com
+
+  # Email via SMTP (Gmail, Office365, custom mail server)
+  smtp_host: smtp.gmail.com                    # e.g., smtp.gmail.com, smtp.office365.com
+  smtp_port: 587                               # 587=TLS, 465=SSL
+  smtp_user: your-email@gmail.com              # Your email or app-specific user
+  smtp_password: your-app-password             # Use app-specific password (not regular password)
+  smtp_tls: true                               # Use TLS encryption
+
+  # OPTION 2: Direct Email via AWS SES (Alternative)
+  # To use SES instead of SMTP:
+  # - Remove smtp_* settings above
+  # - SES will be auto-detected if AWS credentials are configured
+  # - Email must be verified in AWS SES
+
+  # OPTION 3: SNS to Email (Legacy - commented out by default)
+  # Uncomment to use SNS instead of direct email:
+  # sns_enabled: false
+  # sns_topic_arn: arn:aws:sns:us-east-1:123456789:aws-monitoring-alerts
+
+# Failover configuration
+failover:
+  enabled: false
+  secondary_region: us-west-2
+  # Only allow manual failover (automatic failover disabled)
+  manual_only: true
+
+# State storage configuration
+state:
+  type: file  # 'file' or 'dynamodb'
+  file_path: /tmp/monitoring-state.json
+  # DynamoDB table name (if using dynamodb type)
+  # dynamodb_table: monitoring-state

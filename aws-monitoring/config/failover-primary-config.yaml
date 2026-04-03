@@ -1,0 +1,77 @@
+# AWS Monitoring System - Primary Region Configuration
+# This runs in the PRIMARY region (e.g., us-east-1)
+# Monitors all resources and sends heartbeat
+
+aws:
+  primary_region: us-east-1
+  secondary_region: us-west-2
+  profile: null
+  localstack: false
+
+monitoring:
+  check_interval: 300  # Check every 5 minutes
+  max_retries: 3
+  retry_delay: 5
+
+cloudformation:
+  enabled: true
+  stack_prefixes:
+    - uat-top
+    - uat-bot
+    - prod-
+
+services:
+  lambda:
+    enabled: true
+  ec2:
+    enabled: true
+  s3:
+    enabled: true
+  sqs:
+    enabled: true
+  sns:
+    enabled: true
+  emr:
+    enabled: true
+  asg:
+    enabled: true
+  cfn:
+    enabled: true
+  ssm:
+    enabled: true
+  iam:
+    enabled: true
+  elbv2:
+    enabled: true
+  kms:
+    enabled: true
+  transfer:
+    enabled: true
+
+# PRIMARY REGION FAILOVER CONFIGURATION
+failover:
+  enabled: true
+  mode: primary                    # This is the primary region
+  auto_failover: false             # No auto-failover in primary (manual only)
+  manual_only: true                # Only allow manual failover
+  secondary_region: us-west-2      # Target failover region
+
+  # Heartbeat settings - primary SENDS heartbeat
+  heartbeat_enabled: true
+  heartbeat_table: monitoring-heartbeat
+  heartbeat_interval: 60           # Send heartbeat every 60 seconds
+
+# Email alerting
+alerts:
+  email_enabled: true
+  email: ops-team@company.com
+  email_from: monitoring-primary@company.com
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  smtp_user: your-email@gmail.com
+  smtp_password: xxxx xxxx xxxx xxxx
+  smtp_tls: true
+
+state:
+  type: file
+  file_path: /tmp/monitoring-state-primary.json

@@ -1,0 +1,88 @@
+# LocalStack Configuration for Local Testing
+# Use this configuration when running against LocalStack
+
+aws:
+  primary_region: us-east-1
+  secondary_region: us-west-2
+  profile: null
+  # Enable LocalStack endpoint
+  localstack: true
+
+monitoring:
+  check_interval: 60  # Check every 60 seconds for faster feedback during testing
+  max_retries: 1
+  retry_delay: 1
+
+cloudformation:
+  enabled: true
+  stack_prefix: test-
+
+# All services enabled for testing
+services:
+  lambda:
+    enabled: true
+    thresholds:
+      error_rate: 10.0
+      duration: 60000
+
+  ec2:
+    enabled: true
+    thresholds:
+      cpu_utilization: 90.0
+
+  s3:
+    enabled: true
+    thresholds: {}
+
+  sqs:
+    enabled: true
+    thresholds:
+      message_count: 100
+
+  sns:
+    enabled: true
+    thresholds: {}
+
+  emr:
+    enabled: false  # Not fully supported in LocalStack
+
+  asg:
+    enabled: true
+    thresholds: {}
+
+  cfn:
+    enabled: true
+    thresholds: {}
+
+  ssm:
+    enabled: true
+    thresholds: {}
+
+  iam:
+    enabled: true
+    thresholds: {}
+
+  elbv2:
+    enabled: true
+    thresholds: {}
+
+  kms:
+    enabled: true
+    thresholds: {}
+
+  transfer:
+    enabled: false  # Not available in LocalStack
+
+alerts:
+  sns_enabled: true
+  sns_topic_arn: arn:aws:sns:us-east-1:000000000000:local-alerts
+  email: test@example.com
+
+failover:
+  enabled: false
+  secondary_region: us-west-2
+  manual_only: true
+
+state:
+  type: file
+  file_path: /tmp/localstack-monitoring-state.json
