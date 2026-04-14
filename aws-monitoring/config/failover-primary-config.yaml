@@ -56,6 +56,11 @@ failover:
   manual_only: true                # Only allow manual failover
   secondary_region: us-west-2      # Target failover region
 
+  # Fast failover mode
+  # - true: Skip all failed stacks (speed priority) - RTO < 5 minutes
+  # - false: Attempt to redeploy failed stacks (reliability priority) - RTO < 15 minutes
+  fast_failover: true
+
   # Heartbeat settings - primary SENDS heartbeat
   heartbeat_enabled: true
   heartbeat_table: monitoring-heartbeat

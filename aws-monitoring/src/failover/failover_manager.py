@@ -33,6 +33,7 @@ class FailoverManager:
                 - primary_failure_timeout: Time before considering primary down
                 - heartbeat_enabled: Enable heartbeat detection
                 - heartbeat_table: DynamoDB table for heartbeat
+                - fast_failover: Skip stacks that already completed successfully
         """
         self.session_manager = session_manager
         self.config = config
@@ -43,6 +44,14 @@ class FailoverManager:
         self.mode = config.get('mode', 'primary')  # 'primary' or 'secondary'
         self.auto_failover = config.get('auto_failover', False)
         self.manual_only = config.get('manual_only', True)
+        self.fast_failover = config.get('fast_failover', True)  # Skip successful stacks
+
+        # Track success and errors during failover
+        self.failover_results = {
+            'success': [],
+            'errors': [],
+            'skipped': []
+        }
 
         # Heartbeat settings
         self.heartbeat_enabled = config.get('heartbeat_enabled', False)
@@ -312,23 +321,121 @@ class FailoverManager:
         # Execute automatic failover for all resources
         return self.execute_all_resources_failover()
 
+    # ===================== Stack Status Check (Fast Failover) =====================
+
+    def _check_cloudformation_stack_status(self, stack_name: str) -> Dict[str, Any]:
+        """
+        Check CloudFormation stack status.
+        Used for fast failover to skip already-successful stacks.
+
+        Returns:
+            {
+                'stack_name': str,
+                'status': str,
+                'should_skip': bool,
+                'should_redeploy': bool,  # True if stack failed and should be redeployed
+                'reason': str
+            }
+        """
+        try:
+            cfn_client = self.session_manager.get_client('cloudformation')
+            response = cfn_client.describe_stacks(StackName=stack_name)
+
+            if not response['Stacks']:
+                return {
+                    'stack_name': stack_name,
+                    'status': 'NOT_FOUND',
+                    'should_skip': False,
+                    'should_redeploy': False,
+                    'reason': 'Stack does not exist'
+                }
+
+            stack = response['Stacks'][0]
+            status = stack['StackStatus']
+
+            # Successful completion statuses - skip recreation
+            successful_statuses = [
+                'CREATE_COMPLETE',
+                'UPDATE_COMPLETE',
+                'UPDATE_ROLLBACK_COMPLETE'
+            ]
+
+            # Failed statuses - may need to redeploy (depends on fast_failover mode)
+            failed_statuses = [
+                'CREATE_FAILED',
+                'UPDATE_FAILED',
+                'UPDATE_ROLLBACK_FAILED',
+                'DELETE_FAILED',
+                'ROLLBACK_COMPLETE'
+            ]
+
+            if status in successful_statuses:
+                return {
+                    'stack_name': stack_name,
+                    'status': status,
+                    'should_skip': True,
+                    'should_redeploy': False,
+                    'reason': f'Stack already {status}, skipping'
+                }
+            elif status in failed_statuses:
+                # In fast_failover mode, skip failed stacks
+                # In normal mode, attempt to redeploy failed stacks
+                skip_failed = self.fast_failover
+                return {
+                    'stack_name': stack_name,
+                    'status': status,
+                    'should_skip': skip_failed,
+                    'should_redeploy': not skip_failed,  # Only redeploy if NOT in fast mode
+                    'reason': f'Stack {status}, {"skipping (fast mode)" if skip_failed else "will redeploy"}'
+                }
+            else:
+                return {
+                    'stack_name': stack_name,
+                    'status': status,
+                    'should_skip': False,
+                    'should_redeploy': False,
+                    'reason': f'Stack in {status}, proceeding with failover'
+                }
+
+        except Exception as e:
+            return {
+                'stack_name': stack_name,
+                'status': 'ERROR',
+                'should_skip': False,
+                'should_redeploy': False,
+                'reason': str(e)
+            }
+
     def execute_all_resources_failover(self) -> Dict[str, Any]:
         """
         Execute failover for ALL resources to secondary region.
         Called when primary region is completely down.
 
+        With fast_failover enabled: Skip stacks that already completed successfully.
+        Only recreate stacks that failed or need update.
+
         Returns:
-            Failover execution result
+            Failover execution result with detailed success/error tracking
         """
         self.logger.warning("EXECUTING AUTOMATIC FAILOVER FOR ALL RESOURCES")
+
+        # Reset result tracking
+        self.failover_results = {
+            'success': [],
+            'errors': [],
+            'skipped': []
+        }
 
         result = {
             'status': 'in_progress',
             'timestamp': datetime.utcnow().isoformat(),
             'primary_region': self.primary_region,
             'target_region': self.secondary_region,
+            'fast_failover': self.fast_failover,
             'resources_failover': [],
-            'errors': []
+            'success': [],
+            'errors': [],
+            'skipped': []
         }
 
         # Resource types to failover
@@ -340,17 +447,141 @@ class FailoverManager:
         for resource_type in resource_types:
             try:
                 self.logger.info(f"Failing over {resource_type} resources...")
-                failover_result = self._failover_resource_type(resource_type)
+
+                # Check stack status (applies to all modes, not just fast_failover)
+                stack_status = self._check_cloudformation_stack_status(resource_type)
+
+                # Skip if stack is already successful
+                if stack_status['should_skip']:
+                    self.logger.info(f"⊘ Skipping {resource_type}: {stack_status['reason']}")
+                    result['skipped'].append({
+                        'resource_type': resource_type,
+                        'reason': stack_status['reason'],
+                        'status': stack_status['status']
+                    })
+                    self.failover_results['skipped'].append(resource_type)
+                    continue
+
+                # Redeploy if stack failed and NOT in fast mode
+                if stack_status['should_redeploy']:
+                    self.logger.warning(f"🔄 Redeploying failed stack {resource_type}...")
+                    failover_result = self._redeploy_failed_stack(resource_type)
+                else:
+                    failover_result = self._failover_resource_type(resource_type)
+
                 result['resources_failover'].append(failover_result)
+                result['success'].append({
+                    'resource_type': resource_type,
+                    'status': 'completed'
+                })
+                self.failover_results['success'].append(resource_type)
+
             except Exception as e:
                 error_msg = f"Error failing over {resource_type}: {e}"
                 self.logger.error(error_msg)
                 result['errors'].append(error_msg)
+                self.failover_results['errors'].append({
+                    'resource_type': resource_type,
+                    'error': str(e)
+                })
 
         result['status'] = 'completed' if not result['errors'] else 'completed_with_errors'
+        result['summary'] = {
+            'total_resources': len(resource_types),
+            'succeeded': len(result['success']),
+            'failed': len(result['errors']),
+            'skipped': len(result['skipped'])
+        }
+
         self.logger.warning(f"Automatic failover result: {result}")
 
         return result
+
+    def _redeploy_failed_stack(self, stack_name: str) -> Dict[str, Any]:
+        """
+        Redeploy a CloudFormation stack that failed.
+
+        Attempts to recover from failed states:
+        - ROLLBACK_COMPLETE: Continue update stack
+        - CREATE_FAILED: Delete and recreate
+        - UPDATE_FAILED: Continue update stack
+
+        Args:
+            stack_name: CloudFormation stack name
+
+        Returns:
+            Result dictionary with redeployment status
+        """
+        try:
+            cfn_client = self.session_manager.get_client('cloudformation')
+
+            # Get current stack status
+            response = cfn_client.describe_stacks(StackName=stack_name)
+            if not response['Stacks']:
+                return {
+                    'resource_type': stack_name,
+                    'status': 'redeploy_failed',
+                    'reason': 'Stack not found',
+                    'target_region': self.secondary_region
+                }
+
+            stack = response['Stacks'][0]
+            status = stack['StackStatus']
+
+            self.logger.info(f"Attempting to redeploy stack {stack_name} (current status: {status})")
+
+            # Strategy 1: Continue update if in rollback state
+            if status in ['ROLLBACK_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE']:
+                self.logger.info(f"Continuing update for {stack_name} from rollback state...")
+                try:
+                    cfn_client.continue_update_rollback(StackName=stack_name)
+                    return {
+                        'resource_type': stack_name,
+                        'status': 'redeploy_initiated',
+                        'action': 'continue_update_rollback',
+                        'target_region': self.secondary_region
+                    }
+                except Exception as e:
+                    self.logger.warning(f"Continue update failed for {stack_name}: {e}")
+                    # Fall through to deletion strategy
+
+            # Strategy 2: Delete and recreate for CREATE_FAILED
+            if status == 'CREATE_FAILED':
+                self.logger.info(f"Deleting failed stack {stack_name} for recreation...")
+                try:
+                    cfn_client.delete_stack(StackName=stack_name)
+                    return {
+                        'resource_type': stack_name,
+                        'status': 'redeploy_initiated',
+                        'action': 'delete_and_recreate',
+                        'target_region': self.secondary_region
+                    }
+                except Exception as e:
+                    self.logger.error(f"Failed to delete stack {stack_name}: {e}")
+                    return {
+                        'resource_type': stack_name,
+                        'status': 'redeploy_failed',
+                        'reason': f'Failed to delete: {e}',
+                        'target_region': self.secondary_region
+                    }
+
+            # Strategy 3: Generic failover for other states
+            return {
+                'resource_type': stack_name,
+                'status': 'failover_initiated',
+                'action': 'failover',
+                'count': 0,
+                'target_region': self.secondary_region
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error redeploying stack {stack_name}: {e}")
+            return {
+                'resource_type': stack_name,
+                'status': 'redeploy_failed',
+                'reason': str(e),
+                'target_region': self.secondary_region
+            }
 
     def _failover_resource_type(self, resource_type: str) -> Dict[str, Any]:
         """

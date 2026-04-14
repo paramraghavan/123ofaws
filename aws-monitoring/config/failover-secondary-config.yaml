@@ -55,6 +55,11 @@ failover:
   auto_failover: false             # MANUAL FAILOVER ONLY - user selects resources
   manual_only: true                # Only manual, no automatic
 
+  # Fast failover mode
+  # - true: Skip all failed stacks (speed priority) - RTO < 5 minutes
+  # - false: Attempt to redeploy failed stacks (reliability priority) - RTO < 15 minutes
+  fast_failover: true
+
   primary_failure_timeout: 300     # Consider primary down after 5 minutes no heartbeat
   failover_threshold: 2            # Confirm twice before alerting
 

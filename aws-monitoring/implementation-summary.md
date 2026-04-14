@@ -44,8 +44,10 @@ The AWS Monitoring System has been fully implemented with all planned features. 
   - Thread-safe operations
   - Graceful shutdown handling
 
-✅ **Email Alerts via SNS**
+✅ **Alert System (Multiple Methods)**
+  - Direct email via SMTP (Gmail, Office 365, SendGrid, AWS SES)
   - SNS integration for email notifications
+  - **SNS FIFO queue integration** (new) for ordered alerts with deduplication
   - Alerts on resource status changes
   - Prevents duplicate alerts
   - Formatted alert messages with metrics
@@ -80,8 +82,8 @@ The AWS Monitoring System has been fully implemented with all planned features. 
 ```
 aws-monitoring/
 ├── README.md                    # Main documentation
-├── QUICK_START.md              # 5-minute setup guide
-├── IMPLEMENTATION_SUMMARY.md   # This file
+├── quick-start.md              # 5-minute setup guide
+├── implementation-summary.md   # This file
 ├── requirements.txt            # Python dependencies
 │
 ├── config/
@@ -238,7 +240,7 @@ All components are designed for testing:
 ## 📚 Documentation
 
 - **README.md**: Complete reference documentation
-- **QUICK_START.md**: Get running in 5 minutes
+- **quick-start.md**: Get running in 5 minutes
 - **Code Comments**: Inline documentation in all files
 - **Configuration Examples**: Multiple example configs
 - **API Endpoints**: Documented in README

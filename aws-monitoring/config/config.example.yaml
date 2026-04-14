@@ -189,6 +189,19 @@ failover:
   # Only allow manual failover (automatic failover disabled)
   manual_only: true
 
+  # Fast failover mode controls how to handle failed stacks during failover
+  # - true: Skip failed stacks (speed priority, RTO < 5 minutes)
+  #         Useful when primary region is down and need quick failover
+  # - false: Attempt to redeploy failed stacks (reliability priority, RTO < 15 minutes)
+  #          Useful when have time to ensure all resources recover properly
+  fast_failover: true
+
+  # Heartbeat detection for automatic primary failure detection
+  heartbeat_enabled: false
+  heartbeat_table: monitoring-heartbeat
+  heartbeat_interval: 60  # seconds
+  primary_failure_timeout: 300  # 5 minutes
+
 # State storage configuration
 state:
   type: file  # 'file' or 'dynamodb'

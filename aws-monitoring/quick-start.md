@@ -36,8 +36,18 @@ cloudformation:
   # stack_prefixes: uat-top, uat-bot, prod-
 
 alerts:
-  sns_enabled: false           # Enable for email alerts
-  sns_topic_arn: ...
+  # Option 1: Direct email (preferred)
+  email_enabled: true
+  email: ops-team@example.com
+
+  # Option 2: SNS to email (alternative)
+  # sns_enabled: true
+  # sns_topic_arn: arn:aws:sns:us-east-1:123456789012:monitoring-alerts
+
+  # Option 3: SNS FIFO queue (for ordered alerts with deduplication)
+  # sns_enabled: true
+  # sns_topic_arn: arn:aws:sns:us-east-1:123456789012:monitoring-alerts.fifo
+  # ^^ Note: .fifo suffix routes to SQS FIFO queue instead of email
 ```
 
 ## Step 2: Install Dependencies
@@ -169,7 +179,10 @@ python src/main.py --config config/localstack-config.yaml --prefix test-
 
 1. **Configure Services**: Edit `config/config.yaml` to enable specific services
 2. **Set Alert Thresholds**: Adjust `thresholds` for each service
-3. **Enable SNS Alerts**: Set `alerts.sns_enabled: true` and topic ARN
+3. **Enable Alerts**: Choose from:
+   - Direct email: `alerts.email_enabled: true` (see [email-alerting.md](email-alerting.md))
+   - SNS to email: `alerts.sns_enabled: true`
+   - **SNS FIFO queue** (new): Use topic ARN ending in `.fifo` (see [fifo-queue-alerting.md](../docs/fifo-queue-alerting.md))
 4. **Customize Interval**: Change `monitoring.check_interval` (in seconds)
 5. **Test Failover**: Configure secondary region for manual failover
 
