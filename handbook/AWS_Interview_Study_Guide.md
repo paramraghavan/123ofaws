@@ -79,35 +79,183 @@ Focus on questions that connect to your experience:
 **Key Concepts to Master:**
 
 ```python
-# Glue Context and Spark SQL optimization
+# ============================================================================
+# GLUE CONTEXT AND SPARK SQL OPTIMIZATION - EXPLAINED
+# ============================================================================
+#
+# IMPORTANT PREREQUISITES:
+# ✓ S3 bucket 's3://my-bucket/temp' MUST EXIST before running this
+# ✓ Glue database 'mydb' MUST EXIST with table 'mytable'
+# ✓ This code runs in AWS Glue environment (not local Spark)
+#
+# WHAT THIS CODE DOES:
+# 1. Creates a Glue job that reads from Glue Catalog (metadata)
+# 2. Uses bookmarks to track which files were already processed (incremental)
+# 3. Filters data at read time (push_down_predicate)
+# 4. Handles schema changes (column renames, type changes)
+# 5. Commits the job (updates bookmark for next run)
+# ============================================================================
+
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql import SparkSession
+from pyspark.context import SparkContext
 
-# Best practice: Use Glue bookmarks for incremental processing
-glueContext = GlueContext(SparkContext.getOrCreate())
+# Step 1: Initialize Spark Context
+# WHAT: Creates the Spark engine (processes data in parallel)
+# WHERE: Runs on EMR cluster created by Glue
+# NOTE: SparkContext is created automatically by Glue, we just get it
+spark_context = SparkContext.getOrCreate()
+
+# Step 2: Create Glue Context
+# WHAT: Wrapper around Spark that adds Glue-specific features
+#       - Access to Glue Catalog (data metadata)
+#       - Dynamic Frames (more flexible than DataFrames)
+#       - Bookmark support (track processed files)
+# WHY: Makes it easier to work with Glue Catalog data
+glueContext = GlueContext(spark_context)
+
+# Step 3: Initialize Job
+# WHAT: Sets up job tracking and bookmarks
+# job.init parameters:
+#   - 'job_name': Name of this Glue job (for monitoring)
+#   - TempDir: S3 location for temporary files
+#
+# TEMP DIRECTORY EXPLANATION:
+# - S3 bucket 's3://my-bucket/temp' must exist
+# - Glue uses this to store:
+#   a) Bookmark state (which files were processed)
+#   b) Temporary shuffle files (intermediate data)
+#   c) Job metadata
+# - You need S3 write permissions on this bucket
+# - This is NOT an in-memory temp storage!
 job = Job(glueContext)
-job.init('job_name', {"TempDir": "s3://my-bucket/temp"})
+job.init('customer_etl_job', {"TempDir": "s3://my-bucket/temp"})
 
-# Optimize: Use partitioning and projection
+# ============================================================================
+# READING DATA FROM GLUE CATALOG WITH FILTERING
+# ============================================================================
+
+# Step 4: Create DynamicFrame from Glue Catalog
+# WHAT: Reads table metadata from Glue Catalog, not directly from S3
+#
+# HOW IT WORKS:
+# 1. Glue Catalog stores: database name, table name, column info, S3 location
+# 2. glueContext queries the catalog for 'mydb.mytable'
+# 3. Gets the S3 location (e.g., 's3://my-bucket/data/')
+# 4. Applies filter BEFORE reading (optimization)
+# 5. Creates DynamicFrame (flexible schema handling)
+#
+# DynamicFrame vs DataFrame:
+# - DynamicFrame: Can handle schema changes, null values
+#   (Better for dirty/inconsistent data)
+# - DataFrame: Strict schema, faster
+#   (Better for clean, consistent data)
+
 dyf = glueContext.create_dynamic_frame.from_catalog(
-    database="mydb",
-    table_name="mytable",
-    push_down_predicate="year >= 2024"  # Push filters to Glue Catalog
+    database="mydb",  # Database in Glue Catalog
+    table_name="mytable",  # Table name in Glue Catalog
+    transformation_ctx="read_data",  # For bookmarks (tracks what was read)
+    push_down_predicate="year >= 2024"  # SQL filter applied BEFORE reading
+    # IMPORTANT: This filter is pushed to S3!
+    # Glue skips files where year < 2024
+    # Example: skips 's3://my-bucket/data/year=2023/' entirely
 )
 
-# Handle schema evolution
+# BOOKMARK EXPLANATION:
+# - First run: Reads ALL files in 'mytable'
+# - Second run: Only reads NEW files added since last run
+# - Bookmark stored in: s3://my-bucket/temp/job_name/
+# - Saves time and cost (don't reprocess old data)
+# - Only works if 'transformation_ctx' is specified
+
+# ============================================================================
+# HANDLING SCHEMA EVOLUTION (COLUMN CHANGES)
+# ============================================================================
+
+# Step 5: Handle Schema Changes
+# PROBLEM: What if schema changes between runs?
+#   - Column added
+#   - Column renamed (col2 → col2_new)
+#   - Column type changed (long → bigint)
+#
+# SOLUTION: Use ApplyMapping to explicitly map columns
+
 from awsglue.transforms import ApplyMapping
+
 mapped_dyf = ApplyMapping.apply(
-    frame=dyf,
+    frame=dyf,  # Input: the DynamicFrame we read
     mappings=[
-        ("col1", "string", "col1", "string"),
-        ("col2", "long", "col2_new", "bigint")  # Handle renames
+        # Format: (old_name, old_type, new_name, new_type)
+        ("col1", "string", "col1", "string"),  # No change
+        ("col2", "long", "col2_new", "bigint"),  # Rename + type change
+        # NOTE: col1 → col1 (no rename)
+        #       long → bigint (type conversion)
+        # If new columns appear, just don't map them (they're skipped)
     ],
-    transformation_ctx="mapping"
+    transformation_ctx="apply_mapping"  # For bookmarks
 )
+
+# ============================================================================
+# COMMITTING THE JOB (SAVE BOOKMARK)
+# ============================================================================
+
+# Step 6: Commit Job
+# WHAT: Writes bookmark to S3 (marks this run as complete)
+#
+# AFTER job.commit():
+# 1. Glue records which files were processed
+# 2. Next run only processes new/modified files
+# 3. Saves time and money (incremental processing)
+# 4. Bookmark stored in: s3://my-bucket/temp/
 
 job.commit()
+
+# ============================================================================
+# COMPLETE FLOW SUMMARY
+# ============================================================================
+#
+# Run 1 (Day 1):
+#   Input: s3://my-bucket/data/year=2024/month=01/data.csv (1GB)
+#   → Reads all data
+#   → Writes bookmark to s3://my-bucket/temp/
+#   Time: 5 minutes
+#
+# Run 2 (Day 2):
+#   Input: New file added: s3://my-bucket/data/year=2024/month=02/data.csv (500MB)
+#   → Reads ONLY the new file (NOT the old one)
+#   → Updates bookmark
+#   Time: 2.5 minutes (50% faster!)
+# ============================================================================
+```
+
+**KEY INTERVIEW POINTS:**
+
+```
+Q: "What's the difference between DynamicFrame and DataFrame?"
+A: "DynamicFrame can handle schema changes (columns added/removed).
+   DataFrame is strict schema, faster. Choose DynamicFrame if dealing
+   with messy data, DataFrame for clean data."
+
+Q: "What does the 's3://my-bucket/temp' directory do?"
+A: "Stores bookmark state (which files processed), shuffle files
+   during join/group operations, and job metadata.
+   Must have write permissions. Not in-memory temporary storage!"
+
+Q: "How does push_down_predicate optimize?"
+A: "Filter is applied BEFORE reading from S3.
+   Glue skips entire partitions (e.g., year=2023/).
+   Reduces data transfer and processing time significantly."
+
+Q: "What happens if bookmark is corrupted?"
+A: "Glue will re-read all files in next run.
+   Job takes longer but completes successfully.
+   Bookmark is stored in S3, not in Glue metadata."
+
+Q: "Can you use DynamicFrame and DataFrame together?"
+A: "Yes! Convert between them:
+   df = dyf.toDF()  # DynamicFrame → DataFrame
+   dyf = DynamicFrame.fromDF(df, glueContext, 'name')  # DataFrame → DynamicFrame"
 ```
 
 **Interview Q&A:**
@@ -131,37 +279,187 @@ job.commit()
 **Key Concepts:**
 
 ```python
-# Spark optimization patterns for EMR
+# ============================================================================
+# SPARK OPTIMIZATION PATTERNS FOR EMR - EXPLAINED
+# ============================================================================
+#
+# CONTEXT: This code runs on an EMR cluster (multiple computers)
+# PROBLEM: Processing 1TB+ data efficiently
+# SOLUTION: Use configurations to help Spark optimize automatically
+#
+# KEY DIFFERENCE FROM LOCAL SPARK:
+# - Local: Single computer, limited memory (16GB)
+# - EMR: Multiple computers (e.g., 10 nodes × 32GB = 320GB total)
+# ============================================================================
+
 from pyspark.sql import SparkSession
+
+# Step 1: Create Spark Session with Optimization Configs
+# WHY: Default Spark settings are conservative, we need to be aggressive
 
 spark = SparkSession.builder \
     .appName("EMR-Optimization") \
+    \
+    # ADAPTIVE QUERY EXECUTION (Spark 3.x feature)
+    # What: Spark adjusts query plan DURING execution based on real data
+    # Why: Better than pre-planning without knowing data shape
     .config("spark.sql.adaptive.enabled", "true") \
+    \
+    # AUTO-COALESCING
+    # Problem: Many small partitions = many tasks = overhead
+    # Solution: Spark combines small partitions automatically
     .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
+    \
+    # SKEW DETECTION & HANDLING
+    # Problem: Some partitions huge, some small = some workers wait
+    # Solution: Spark splits large partitions automatically
     .config("spark.sql.adaptive.skewJoin.enabled", "true") \
+    \
+    # DYNAMIC EXECUTOR ALLOCATION
+    # Problem: Cluster has fixed number of executors (workers)
+    # Solution: Add/remove workers based on demand
     .config("spark.dynamicAllocation.enabled", "true") \
-    .config("spark.dynamicAllocation.minExecutors", "4") \
-    .config("spark.dynamicAllocation.maxExecutors", "64") \
+    .config("spark.dynamicAllocation.minExecutors", "4") \  # Always keep 4
+    .config("spark.dynamicAllocation.maxExecutors", "64") \  # Scale up to 64
+    \
     .getOrCreate()
 
-# Read from S3 with partitioning
+# ============================================================================
+# READING DATA WITH PARTITION PRUNING
+# ============================================================================
+
+# Step 2: Read Partitioned Data
+# CONTEXT: Data organized by date in S3
+# S3 structure:
+#   s3://bucket/path/year=2024/month=01/day=01/data.parquet
+#   s3://bucket/path/year=2024/month=01/day=02/data.parquet
+#   s3://bucket/path/year=2024/month=02/day=01/data.parquet
+#   ... (hundreds of files)
+
 df = spark.read \
     .parquet("s3://bucket/path/year=2024/month=01/*") \
-    .where("value > 100")  # Predicate pushdown
+    # What: Read ONLY January 2024 (not February, not 2023)
+    # Why: Don't read what you don't need
+    # Benefit: 30-50% faster, 30-50% cheaper (less data transfer)
+    \
+    .where("value > 100")  # Additional filter AFTER reading
+    # Note: This filter happens AFTER reading to S3
+    # Partition pruning (year=2024/month=01) happens BEFORE reading
 
-# Optimize: Bucketing for frequent joins
+# ============================================================================
+# BUCKETING - OPTIMIZATION FOR FREQUENT JOINS
+# ============================================================================
+
+# Problem: Join customers with orders (1B rows each)
+# Without bucketing: Need to shuffle ALL data (expensive)
+# With bucketing: Data already organized by join key
+
+# Step 3: Create Bucketed Table (Do once, use many times)
 df.write \
-    .bucketBy(100, "user_id") \
+    .bucketBy(100, "user_id") \  # Split into 100 buckets based on user_id
+    # What: Rows with user_id=1 go to bucket 1
+    #       Rows with user_id=2 go to bucket 2, etc.
+    # Benefit: When joining with orders (also bucketed by user_id),
+    #          Spark knows bucket 1 from customers joins with bucket 1 from orders
+    #          No need to shuffle all data!
     .mode("overwrite") \
     .parquet("s3://bucket/bucketed_data")
+    # Mode: overwrite (replace existing, or create if not exists)
 
-# Handle skewed data
-df_skewed = spark.read.parquet("s3://bucket/skewed_data")
-df_broadcast = spark.broadcast(df_small)  # < 2GB
-result = df_skewed.join(df_broadcast, "key")
+# ============================================================================
+# BROADCAST JOIN - OPTIMIZATION FOR SMALL + LARGE JOINS
+# ============================================================================
 
-# Monitor Spark UI on EMR
+# Problem: Joining small table (5GB) with large table (500GB)
+# Without broadcast: Shuffle both (500GB + 5GB = shuffle 505GB)
+# With broadcast: Copy 5GB to each executor, join in parallel
+
+# Step 4: Broadcast Small Table
+df_large = spark.read.parquet("s3://bucket/large_data")  # 500GB
+df_small = spark.read.parquet("s3://bucket/small_data")   # 5GB
+
+# Important: df_small must be < 2GB for broadcast to work efficiently
+# Why: Each executor gets a copy, limited memory per executor
+
+df_broadcast = spark.broadcast(df_small)  # Mark for broadcast
+# What: Instead of sending small data everywhere,
+#       Spark sends it to all executors ONCE
+# Memory trade-off: 5GB × 10 executors = 50GB total (acceptable)
+
+result = df_large.join(df_broadcast, "user_id")
+# Execution: Each executor processes its portion of large data
+#            Joins with complete small data (already local)
+# Performance: 10x faster than shuffle join!
+
+# When NOT to broadcast:
+# ❌ Small table > 2GB (memory pressure)
+# ❌ Joining two large tables (use bucketing instead)
+# ✅ Use for dimension tables (products, customers, categories)
+
+# ============================================================================
+# MONITORING AND DEBUGGING
+# ============================================================================
+
+# Step 5: Enable Logging for Debugging
 spark.sparkContext.setLogLevel("INFO")
+# Levels: OFF, FATAL, ERROR, WARN (default), INFO, DEBUG, TRACE
+# Why: INFO gives useful info without overwhelming output
+# Where: Logs appear in EMR cluster logs (CloudWatch)
+
+# ACCESS SPARK UI FOR DETAILED MONITORING:
+# While job is running:
+#   http://<EMR_MASTER_IP>:4040
+#
+# What you see:
+#   - Stages: Read, Filter, Join, Write
+#   - Task duration: Which stage is slow?
+#   - Shuffle size: How much data moved?
+#   - Memory usage: Am I close to running out?
+#   - GC time: Garbage collection overhead
+
+# ============================================================================
+# COMMON PATTERNS SUMMARY
+# ============================================================================
+
+# Pattern 1: Filter while reading (partition pruning)
+df = spark.read.parquet("s3://bucket/year=2024/month=*/day=15/*")
+# Reads only day=15 data (faster)
+
+# Pattern 2: Bucketing for repeated joins
+# Write once with bucketing
+df.write.bucketBy(100, "id").parquet("s3://bucketed/")
+# Use many times without shuffle
+df.join(other_df, "id")  # Fast!
+
+# Pattern 3: Broadcast small tables
+df_large.join(spark.broadcast(df_small), "id")
+# 10x faster than regular join
+
+# Pattern 4: Select only needed columns
+df.select("col1", "col2", "col3")  # Not "df.select('*')"
+# Reduces memory usage, faster processing
+
+# Pattern 5: Filter early
+df.filter(df.price > 100).groupBy("product").sum()
+# Filters BEFORE grouping (less data to process)
+
+# ============================================================================
+```
+
+**COST IMPLICATIONS:**
+
+```
+Unoptimized:
+- Reads: 1TB from S3 = $0.02 × 1TB = $0.02
+- Processing: 10 workers × 1 hour = $10
+- Total: ~$10.02
+
+Optimized:
+- Reads: 50GB from S3 = $0.02 × 0.05TB = $0.001
+- Processing: 10 workers × 10 min = $1.67
+- Total: ~$1.67
+
+Savings: 83% ($8.35 per run)!
 ```
 
 **Interview Q&A:**
@@ -184,48 +482,263 @@ spark.sparkContext.setLogLevel("INFO")
 **Key Concepts:**
 
 ```python
-# Lambda optimization
+# ============================================================================
+# LAMBDA OPTIMIZATION STRATEGIES - EXPLAINED
+# ============================================================================
+#
+# CONTEXT: Lambda function triggered when file uploaded to S3
+# PROBLEM: Lambda has cold start (first invocation slower)
+#          and limited execution time (15 min max)
+# SOLUTION: Optimize code structure and use async processing
+#
+# LAMBDA PRICING:
+# $0.0000002 per request + $0.0000166667 per GB-second
+# Example: 100 requests/day × 512MB × 3sec = $0.0015/month (cheap!)
+# ============================================================================
+
 import json
 import boto3
 from functools import lru_cache
 
-# Initialize clients outside handler (reuse across invocations)
-s3_client = boto3.client('s3')
-dynamodb = boto3.resource('dynamodb')
+# ============================================================================
+# COLD START OPTIMIZATION - MOVE IMPORTS OUTSIDE HANDLER
+# ============================================================================
 
-@lru_cache(maxsize=128)
+# WHAT IS COLD START?
+# 1. Request comes to Lambda
+# 2. AWS spins up new container
+# 3. Python interpreter starts
+# 4. All imports execute
+# 5. Handler function runs
+# Time: 500-2000ms (slow!)
+#
+# WARM START:
+# 1. Container already running from previous request
+# 2. Handler runs immediately
+# Time: 1-10ms (fast!)
+#
+# OPTIMIZATION:
+# - Import frequently-used libraries at top (reuse)
+# - Lazy import rarely-used libraries (import inside function)
+
+# Initialize clients OUTSIDE handler (reuse across invocations)
+# WHY: Connections are expensive to create
+#      If Lambda stays warm, boto3 client is reused (fast)
+#      Cold start penalty: only happens once
+s3_client = boto3.client('s3')  # Created once per Lambda container
+dynamodb = boto3.resource('dynamodb')  # Reused for all invocations
+
+# ============================================================================
+# CACHING RESULTS TO REDUCE API CALLS
+# ============================================================================
+
+# @lru_cache decorator from functools
+# WHAT: In-memory cache for function results
+# WHY: Calling DynamoDB repeatedly is slow ($0.25 per million reads)
+#      Caching same result avoids repeated API calls
+
+@lru_cache(maxsize=128)  # Cache up to 128 different results
 def get_table_schema(table_name):
-    """Cache table schemas to reduce metadata calls"""
+    """
+    Cache table schemas to reduce metadata calls
+
+    Example:
+    - First call: get_table_schema('users')
+      → Calls DynamoDB (slow ~100ms)
+      → Stores result in cache
+    - Second call: get_table_schema('users')
+      → Returns from cache (fast <1ms)
+    - Different call: get_table_schema('orders')
+      → Not in cache, calls DynamoDB
+    """
     return dynamodb.Table(table_name).table_status
+
+# ============================================================================
+# LAMBDA HANDLER - THE MAIN FUNCTION
+# ============================================================================
 
 def lambda_handler(event, context):
     """
-    Cold start optimization:
-    - Minimal imports at top
-    - Lazy imports for rarely used libraries
-    - Reuse connections
+    AWS calls this function when Lambda is triggered
+
+    Parameters:
+    - event: Dictionary with trigger data
+      Example (S3 trigger):
+      {
+        'Records': [
+          {
+            's3': {
+              'bucket': {'name': 'my-bucket'},
+              'object': {'key': 'uploads/file.csv'}
+            }
+          }
+        ]
+      }
+    - context: Lambda context info
+      - context.invoked_function_arn: Function ARN
+      - context.aws_request_id: Unique request ID
+      - context.get_remaining_time_in_millis(): Time left
+
+    Return:
+    Must return dictionary with:
+    - statusCode: 200 (success), 4xx (client error), 5xx (server error)
+    - body: Response message (must be string, not dict)
     """
 
     try:
-        # Process S3 trigger
+        # ====================================================================
+        # STEP 1: EXTRACT DATA FROM EVENT
+        # ====================================================================
+
+        # S3 trigger sends Records array
         bucket = event['Records'][0]['s3']['bucket']['name']
+        # Example: 'my-data-lake'
+
         key = event['Records'][0]['s3']['object']['key']
+        # Example: 'uploads/2024/05/data.csv'
+
+        # ====================================================================
+        # STEP 2: EARLY RETURN FOR DUPLICATES (FAIL FAST)
+        # ====================================================================
 
         # Return fast for CloudWatch alarms
         if is_duplicate_record(key):
-            return {'statusCode': 200, 'body': 'Duplicate skipped'}
+            # IMPORTANT: Return quickly (within 15 minutes)
+            return {
+                'statusCode': 200,  # 200 = success (even though we skipped)
+                'body': json.dumps({'status': 'duplicate_skipped'})
+            }
 
-        # Async processing
+        # ====================================================================
+        # STEP 3: ASYNC PROCESSING - DON'T PROCESS IN LAMBDA
+        # ====================================================================
+
+        # PROBLEM: This file might be 1GB, takes 1 hour to process
+        #          Lambda max execution = 15 minutes (timeout!)
+        # SOLUTION: Start Step Functions workflow (handles long jobs)
+        #           Return immediately from Lambda
+
         step_functions = boto3.client('stepfunctions')
-        step_functions.start_execution(
-            stateMachineArn=f"arn:aws:states:...:{os.environ['STATE_MACHINE']}",
-            input=json.dumps({"bucket": bucket, "key": key})
+
+        # Start Step Functions execution (async workflow)
+        execution = step_functions.start_execution(
+            stateMachineArn=os.environ['STATE_MACHINE'],
+            # STATE_MACHINE = 'arn:aws:states:us-east-1:123456789:stateMachine:...'
+            # Stored in Lambda environment variable (set in AWS console)
+
+            input=json.dumps({
+                "bucket": bucket,
+                "key": key
+                # Pass file info to Step Functions (it will process)
+            })
         )
 
-        return {'statusCode': 202, 'body': 'Execution started'}
+        # ====================================================================
+        # STEP 4: RETURN IMMEDIATELY
+        # ====================================================================
+
+        return {
+            'statusCode': 202,  # 202 = accepted (async processing started)
+            'body': json.dumps({
+                'message': 'File processing started',
+                'execution_arn': execution['executionArn']
+            })
+        }
 
     except Exception as e:
         print(f"Error: {str(e)}")
+        # ALWAYS return response (even on error)
+        return {
+            'statusCode': 500,  # 500 = server error
+            'body': json.dumps({
+                'error': str(e),
+                'requestId': context.aws_request_id
+            })
+        }
+
+# ============================================================================
+# LAMBDA TIMING & ARCHITECTURE
+# ============================================================================
+#
+# EXECUTION TIMELINE:
+#
+# File uploaded to S3
+#   ↓ (S3 trigger fires)
+# Lambda cold start (500ms)
+#   ↓
+# Lambda handler (100ms)
+#   ├─ Extract bucket/key (10ms)
+#   ├─ Check duplicate (20ms)
+#   └─ Start Step Functions (70ms)
+#   ↓ (return with 202)
+# Step Functions takes over (async)
+#   ├─ Trigger EMR cluster (5 min)
+#   ├─ Process data (2 hours)
+#   └─ Write results to S3
+#   ↓ (Lambda already finished!)
+#
+# KEY POINT:
+# Lambda returns in 600ms (fast)
+# Processing happens asynchronously
+# No timeout issues!
+#
+# ============================================================================
+# ENVIRONMENT VARIABLES
+# ============================================================================
+#
+# In AWS Lambda console, set:
+# - STATE_MACHINE = arn:aws:states:region:account:stateMachine:name
+# - S3_BUCKET = my-data-lake
+# - DDB_TABLE = ProcessedFiles
+#
+# Access in code: os.environ['STATE_MACHINE']
+#
+# Why: Configuration separate from code
+#      Easy to change without redeploying
+#      Different values for dev/prod
+#
+# ============================================================================
+```
+
+**LAMBDA vs GLUE vs EMR DECISION TREE:**
+
+```
+File uploaded to S3
+│
+├─ < 5 minutes processing? → Use Lambda
+│  └─ Start async workflow (Step Functions)
+│
+├─ 5-15 minutes processing? → Use Glue
+│  └─ Serverless, billed by DPU-hour
+│
+└─ > 15 minutes OR > 1TB? → Use EMR
+   └─ Cluster-based, more control
+```
+
+**COMMON LAMBDA MISTAKES:**
+
+```
+❌ MISTAKE 1: Processing large files in Lambda
+   Problem: Timeout (15 min limit)
+   Solution: Use Lambda to trigger async (Step Functions/EMR)
+
+❌ MISTAKE 2: Creating boto3 clients inside handler
+   Problem: Connection overhead, cold start penalty
+   Solution: Create clients at module level (outside handler)
+
+❌ MISTAKE 3: Not caching repeated queries
+   Problem: Slow, expensive API calls
+   Solution: Use @lru_cache for metadata lookups
+
+❌ MISTAKE 4: Not returning quickly
+   Problem: Lambda keeps running, costs money
+   Solution: Return immediately, delegate to Step Functions
+
+✅ BEST PRACTICE: Lambda as orchestrator, not processor
+   - Lambda: <1 second (trigger workflows)
+   - Step Functions: Coordinate long jobs
+   - EMR/Glue: Do actual processing
+```
         raise
 
 # Step Functions State Machine (JSON)
