@@ -1898,6 +1898,493 @@ print(assume_prod_role())
 
 ---
 
+## Chapter 16: AWS Systems Manager (SSM) - Configuration & Secrets
+
+### 16.1 What is AWS Systems Manager?
+
+**SSM = Central place to manage AWS infrastructure, configuration, and secrets**
+
+Think of it like:
+- **Key-Value Store**: Store configuration (database URLs, API keys)
+- **Secrets Manager**: Store passwords, credentials securely
+- **Automation**: Run commands across multiple servers
+- **Session Manager**: Secure access to EC2 instances (no SSH keys!)
+
+### 16.2 SSM Parameter Store - Store Configuration
+
+**Use Case**: Store database credentials, API keys, configuration values
+
+```python
+import boto3
+import json
+
+ssm = boto3.client('ssm')
+
+# ============================================================================
+# STORING CONFIGURATION IN PARAMETER STORE
+# ============================================================================
+
+# Store database connection string
+ssm.put_parameter(
+    Name='/myapp/database/connection_string',
+    # Name: Path-like structure for organization
+    Value='postgresql://user:password@db.example.com:5432/mydb',
+    Type='SecureString',  # Encrypted with KMS
+    # Type options:
+    # - String: Plain text (not recommended for secrets)
+    # - StringList: Comma-separated values
+    # - SecureString: Encrypted (recommended for secrets)
+    Description='Database connection string',
+    Tags=[
+        {'Key': 'Environment', 'Value': 'production'},
+        {'Key': 'Application', 'Value': 'data-pipeline'}
+    ]
+)
+
+print("✓ Parameter stored securely")
+
+# Store S3 bucket names
+ssm.put_parameter(
+    Name='/myapp/s3/input_bucket',
+    Value='my-data-lake-raw',
+    Type='String',
+    Description='Input data S3 bucket'
+)
+
+# Store configuration as JSON
+config = {
+    'batch_size': 1000,
+    'timeout_seconds': 3600,
+    'retry_count': 3,
+    'max_workers': 10
+}
+
+ssm.put_parameter(
+    Name='/myapp/config/processing',
+    Value=json.dumps(config),
+    Type='String',
+    Description='Data processing configuration'
+)
+
+print("✓ Configuration parameters stored")
+
+# ============================================================================
+# RETRIEVING CONFIGURATION IN LAMBDA/GLUE
+# ============================================================================
+
+def get_database_connection():
+    """Get database credentials from SSM"""
+    try:
+        response = ssm.get_parameter(
+            Name='/myapp/database/connection_string',
+            WithDecryption=True  # Decrypt if SecureString
+        )
+        connection_string = response['Parameter']['Value']
+        return connection_string
+    except ssm.exceptions.ParameterNotFound:
+        print("Parameter not found!")
+        return None
+
+def get_config():
+    """Get configuration from SSM"""
+    response = ssm.get_parameter(Name='/myapp/config/processing')
+    config_json = response['Parameter']['Value']
+    config = json.loads(config_json)
+    return config
+
+# Use in Lambda handler
+def lambda_handler(event, context):
+    """Lambda function using SSM configuration"""
+
+    # Get config from SSM (cached in memory)
+    config = get_config()
+    batch_size = config['batch_size']
+    timeout = config['timeout_seconds']
+
+    # Get database connection
+    db_conn = get_database_connection()
+
+    # Process data using configuration
+    print(f"Processing with batch size: {batch_size}")
+
+    return {
+        'statusCode': 200,
+        'body': 'Processing complete'
+    }
+
+# ============================================================================
+# GET MULTIPLE PARAMETERS AT ONCE
+# ============================================================================
+
+def get_all_database_params():
+    """Retrieve all parameters under /myapp/database/ path"""
+    response = ssm.get_parameters_by_path(
+        Path='/myapp/database/',
+        # Recursive: Search all subpaths
+        Recursive=True,
+        # WithDecryption: Decrypt SecureString parameters
+        WithDecryption=True
+    )
+
+    params = {}
+    for param in response['Parameters']:
+        # /myapp/database/connection_string → connection_string
+        key = param['Name'].split('/')[-1]
+        params[key] = param['Value']
+
+    return params
+
+print(get_all_database_params())
+```
+
+### 16.3 Best Practice: Store Secrets in Glue Job
+
+```python
+# glue_job.py
+# ============================================================================
+# USING SSM PARAMETERS IN AWS GLUE JOB
+# ============================================================================
+
+import sys
+import boto3
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+from awsglue.job import Job
+
+# Initialize Glue
+glueContext = GlueContext(SparkContext.getOrCreate())
+job = Job(glueContext)
+job.init('my-glue-job', {})
+
+# Initialize SSM client
+ssm = boto3.client('ssm')
+
+# Get secrets from SSM Parameter Store
+def get_secrets():
+    """Retrieve all secrets needed for this job"""
+    ssm_client = boto3.client('ssm')
+
+    response = ssm_client.get_parameters(
+        Names=[
+            '/myapp/database/host',
+            '/myapp/database/port',
+            '/myapp/database/username',
+            '/myapp/database/password',
+            '/myapp/s3/output_bucket'
+        ],
+        WithDecryption=True
+    )
+
+    secrets = {}
+    for param in response['Parameters']:
+        key = param['Name'].split('/')[-1]
+        secrets[key] = param['Value']
+
+    return secrets
+
+# Get secrets
+secrets = get_secrets()
+
+# Use secrets in Glue job
+def run_etl():
+    """ETL job using SSM-stored secrets"""
+
+    # Read from RDS using SSM parameters
+    rds_host = secrets['host']
+    rds_port = secrets['port']
+    rds_user = secrets['username']
+    rds_password = secrets['password']
+
+    connection_url = f"jdbc:postgresql://{rds_host}:{rds_port}/mydb"
+
+    # Read from RDS
+    df = glueContext.create_dynamic_frame.from_options(
+        format_options={
+            "url": connection_url,
+            "user": rds_user,
+            "password": rds_password,
+            "customJdbcDriverS3Path": "s3://my-jars/postgresql.jar",
+            "customJdbcDriverClassName": "org.postgresql.Driver"
+        },
+        connection_type="postgresql",
+        format="jdbc"
+    )
+
+    # Write to S3
+    output_bucket = secrets['output_bucket']
+    df.write_dynamic_frame.from_options(
+        frame=df,
+        connection_type="s3",
+        format="parquet",
+        connection_options={"path": f"s3://{output_bucket}/output/"}
+    )
+
+    print("✓ ETL completed using SSM secrets")
+
+if __name__ == "__main__":
+    run_etl()
+    job.commit()
+```
+
+### 16.4 EMR + SSM - Secure Cluster Configuration
+
+```python
+import boto3
+import json
+
+ssm = boto3.client('ssm')
+emr = boto3.client('emr')
+
+# Store cluster configuration in SSM
+cluster_config = {
+    'spark_driver_memory': '4g',
+    'spark_executor_memory': '8g',
+    'spark_executor_cores': '4',
+    'spark_dynamicAllocation_minExecutors': '2',
+    'spark_dynamicAllocation_maxExecutors': '20'
+}
+
+ssm.put_parameter(
+    Name='/myapp/emr/spark_config',
+    Value=json.dumps(cluster_config),
+    Type='String'
+)
+
+# Retrieve in EMR bootstrap script
+def create_emr_cluster():
+    """Create EMR cluster using SSM configuration"""
+
+    # Get config from SSM
+    response = ssm.get_parameter(Name='/myapp/emr/spark_config')
+    spark_config = json.loads(response['Parameter']['Value'])
+
+    # Create cluster with dynamic configuration
+    cluster_response = emr.create_cluster(
+        Name='MyDataProcessingCluster',
+        ReleaseLabel='emr-6.14.0',
+        Instances={
+            'MasterInstanceType': 'r6g.xlarge',
+            'SlaveInstanceType': 'r6g.2xlarge',
+            'InstanceCount': 3
+        },
+        Configurations=[
+            {
+                'Classification': 'spark-defaults',
+                'Properties': {
+                    'spark.driver.memory': spark_config['spark_driver_memory'],
+                    'spark.executor.memory': spark_config['spark_executor_memory'],
+                    'spark.executor.cores': spark_config['spark_executor_cores']
+                }
+            }
+        ],
+        ServiceRole='EMR_DefaultRole',
+        JobFlowRole='EMR_EC2_DefaultRole'
+    )
+
+    return cluster_response['JobFlowId']
+```
+
+### 16.5 SSM + Lambda - Parameterized Functions
+
+```python
+import boto3
+import os
+from functools import lru_cache
+
+ssm = boto3.client('ssm')
+
+# Cache SSM parameters in memory (avoid repeated API calls)
+@lru_cache(maxsize=100)
+def get_ssm_parameter(name):
+    """Get parameter from SSM with caching"""
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
+    return response['Parameter']['Value']
+
+def lambda_handler(event, context):
+    """
+    Lambda function parameterized with SSM
+
+    Benefits:
+    1. Change configuration without redeploying Lambda
+    2. Keep secrets out of code
+    3. Reuse same Lambda across environments
+    """
+
+    # Get parameters from SSM
+    s3_bucket = get_ssm_parameter('/myapp/s3/output_bucket')
+    batch_size = int(get_ssm_parameter('/myapp/config/batch_size'))
+    api_key = get_ssm_parameter('/myapp/api/key')
+
+    # Use parameters
+    print(f"Processing with bucket: {s3_bucket}")
+    print(f"Batch size: {batch_size}")
+
+    # Call external API using key from SSM
+    import requests
+    headers = {'Authorization': f'Bearer {api_key}'}
+    response = requests.get('https://api.example.com/data', headers=headers)
+
+    return {
+        'statusCode': 200,
+        'body': f'Processed {batch_size} records'
+    }
+```
+
+### 16.6 Interview Q&A on SSM
+
+**Q1: Why use SSM instead of storing secrets in environment variables?**
+```
+A: Environment variables visible in console/logs (security risk)
+   SSM Parameter Store:
+   - Encrypted at rest (KMS)
+   - Audit trail (CloudTrail)
+   - Fine-grained IAM permissions
+   - Can rotate without redeploying
+   - Version history
+```
+
+**Q2: How do you manage secrets in a multi-environment setup?**
+```
+A: Use SSM parameter path hierarchy:
+   /prod/database/password
+   /staging/database/password
+   /dev/database/password
+
+   Lambda gets parameter based on environment variable:
+   env = os.environ['ENVIRONMENT']
+   password = ssm.get_parameter(f'/{env}/database/password')
+```
+
+**Q3: What's the difference between SSM Parameter Store and Secrets Manager?**
+```
+A: Parameter Store:
+   - Simple key-value store
+   - Standard tier: free, limited requests
+   - Advanced tier: paid, more features
+   - Good for: Config, API keys, database URLs
+
+   Secrets Manager:
+   - Specialized for secrets
+   - Auto-rotate credentials
+   - Good for: RDS passwords, API keys needing rotation
+
+   Use: Parameter Store for config, Secrets Manager for rotating secrets
+```
+
+### 16.7 Best Practices
+
+```
+✅ DO:
+- Use SecureString for sensitive data
+- Encrypt with KMS (default)
+- Use IAM to restrict access
+- Version parameters
+- Tag parameters for organization
+- Cache in memory to reduce API calls
+- Use parameter path hierarchy
+
+❌ DON'T:
+- Store secrets in environment variables (visible!)
+- Use plain String type for passwords
+- Grant everyone SSM access
+- Hard-code values in Lambda/Glue
+- Store large files (use S3 instead)
+```
+
+### 16.8 Complete Example: Data Pipeline with SSM
+
+```python
+# data_pipeline_with_ssm.py
+import boto3
+import json
+from functools import lru_cache
+
+ssm = boto3.client('ssm')
+s3 = boto3.client('s3')
+
+@lru_cache(maxsize=10)
+def get_config(param_name):
+    """Get configuration from SSM with caching"""
+    response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+    return response['Parameter']['Value']
+
+def setup_ssm_parameters():
+    """Setup all SSM parameters for data pipeline"""
+
+    # Database credentials
+    ssm.put_parameter(
+        Name='/data-pipeline/db/host',
+        Value='postgres.example.com',
+        Type='String'
+    )
+
+    ssm.put_parameter(
+        Name='/data-pipeline/db/password',
+        Value='secretpassword123',
+        Type='SecureString'
+    )
+
+    # S3 buckets
+    ssm.put_parameter(
+        Name='/data-pipeline/s3/raw',
+        Value='my-raw-data',
+        Type='String'
+    )
+
+    ssm.put_parameter(
+        Name='/data-pipeline/s3/processed',
+        Value='my-processed-data',
+        Type='String'
+    )
+
+    # Processing config
+    config = {
+        'batch_size': 5000,
+        'partition_count': 100,
+        'output_format': 'parquet'
+    }
+
+    ssm.put_parameter(
+        Name='/data-pipeline/config/processing',
+        Value=json.dumps(config),
+        Type='String'
+    )
+
+    print("✓ All SSM parameters configured")
+
+def run_data_pipeline():
+    """Run data pipeline using SSM configuration"""
+
+    # Get configuration
+    db_host = get_config('/data-pipeline/db/host')
+    db_pass = get_config('/data-pipeline/db/password')
+    raw_bucket = get_config('/data-pipeline/s3/raw')
+    processed_bucket = get_config('/data-pipeline/s3/processed')
+    config_str = get_config('/data-pipeline/config/processing')
+    config = json.loads(config_str)
+
+    print(f"Database: {db_host}")
+    print(f"Raw bucket: {raw_bucket}")
+    print(f"Processing config: {config}")
+
+    # Pipeline logic here...
+
+    return {
+        'status': 'success',
+        'records_processed': config['batch_size']
+    }
+
+if __name__ == "__main__":
+    # First time: setup parameters
+    # setup_ssm_parameters()
+
+    # Run pipeline
+    result = run_data_pipeline()
+    print(result)
+```
+
+---
+
 # Q&A SECTION
 
 ## Quick Questions & Answers

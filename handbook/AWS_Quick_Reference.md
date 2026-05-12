@@ -572,6 +572,67 @@ resource "aws_s3_bucket_replication_configuration" "replication" {
 
 ---
 
+## AWS Systems Manager (SSM) Quick Reference
+
+### Store Configuration
+```python
+import boto3
+
+ssm = boto3.client('ssm')
+
+# Store securely (encrypted)
+ssm.put_parameter(
+    Name='/myapp/database/password',
+    Value='secret123',
+    Type='SecureString'  # Encrypted
+)
+
+# Store as JSON
+ssm.put_parameter(
+    Name='/myapp/config',
+    Value='{"batch_size": 5000}',
+    Type='String'
+)
+```
+
+### Retrieve Configuration
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=100)
+def get_param(name):
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
+    return response['Parameter']['Value']
+
+# Use in Lambda
+password = get_param('/myapp/database/password')
+config = json.loads(get_param('/myapp/config'))
+```
+
+### Parameter Store vs Secrets Manager
+| Use Case | Service |
+|----------|---------|
+| Database password | Secrets Manager (auto-rotate) |
+| API keys | Parameter Store (SecureString) |
+| S3 bucket names | Parameter Store (String) |
+| Config values | Parameter Store (String) |
+| Rotating RDS password | Secrets Manager |
+
+### Best Practices
+```
+✅ Use SecureString for sensitive data
+✅ Cache parameters in memory (@lru_cache)
+✅ Use path hierarchy: /prod/db/password
+✅ Tag parameters by environment
+✅ Restrict IAM permissions
+
+❌ Don't hard-code secrets
+❌ Don't use environment variables for secrets
+❌ Don't grant everyone SSM access
+```
+
+---
+
 ## 30-Minute Interview Prep
 
 **If you have only 30 minutes before interview:**

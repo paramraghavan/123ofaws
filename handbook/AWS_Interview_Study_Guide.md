@@ -980,6 +980,177 @@ def unload_redshift_to_s3():
 
 ---
 
+### 6. AWS Systems Manager (SSM) - Configuration & Secrets
+
+**Interview Focus Areas:**
+- Parameter Store for configuration management
+- Secrets Manager for rotating credentials
+- Integration with Lambda, Glue, EMR
+- Security best practices
+- Cost optimization
+
+**Key Concepts:**
+
+```python
+# ============================================================================
+# AWS SYSTEMS MANAGER (SSM) - STORING & RETRIEVING CONFIGURATION
+# ============================================================================
+#
+# CONTEXT: Your Glue job needs database password
+# PROBLEM: How to store it securely without hard-coding?
+# SOLUTION: Use SSM Parameter Store (encrypted, auditable)
+#
+# WHY BETTER THAN ENVIRONMENT VARIABLES:
+# ❌ Environment variables visible in Lambda console (security risk!)
+# ❌ Hard-coded in source code (definitely NO!)
+# ✅ SSM Parameter Store: encrypted, versioned, auditable
+# ============================================================================
+
+import boto3
+import json
+from functools import lru_cache
+
+ssm = boto3.client('ssm')
+
+# ============================================================================
+# STORING SECRETS IN SSM PARAMETER STORE
+# ============================================================================
+
+def setup_parameters():
+    """Store configuration in SSM (run once)"""
+
+    # Store database password (encrypted)
+    ssm.put_parameter(
+        Name='/myapp/database/password',
+        Value='MySecurePassword123!',
+        Type='SecureString',  # ← Encrypted with KMS
+        Description='RDS password for production'
+    )
+
+    # Store configuration as JSON
+    config = {
+        'batch_size': 5000,
+        'max_workers': 10,
+        'timeout_seconds': 3600
+    }
+
+    ssm.put_parameter(
+        Name='/myapp/config/processing',
+        Value=json.dumps(config),
+        Type='String'
+    )
+
+    # Store S3 bucket names
+    ssm.put_parameter(
+        Name='/myapp/s3/output_bucket',
+        Value='my-data-lake-processed',
+        Type='String'
+    )
+
+# ============================================================================
+# RETRIEVING IN LAMBDA/GLUE
+# ============================================================================
+
+# IMPORTANT: Cache parameters in memory (avoid repeated API calls)
+@lru_cache(maxsize=100)
+def get_ssm_parameter(name):
+    """
+    Get parameter from SSM with caching
+
+    WHY CACHE:
+    - First call: ~50ms API call
+    - Cached calls: <1ms from memory
+    - Cost: $0.04 per 10k API calls avoided
+    - Speed: 50x faster
+    """
+    response = ssm.get_parameter(
+        Name=name,
+        WithDecryption=True  # Decrypt SecureString
+    )
+    return response['Parameter']['Value']
+
+def glue_job_with_ssm():
+    """Glue job that retrieves secrets from SSM"""
+
+    from awsglue.context import GlueContext
+    from pyspark.context import SparkContext
+    from awsglue.job import Job
+
+    glueContext = GlueContext(SparkContext.getOrCreate())
+    job = Job(glueContext)
+    job.init('my-glue-job', {})
+
+    # Get secrets from SSM
+    db_password = get_ssm_parameter('/myapp/database/password')
+    config_str = get_ssm_parameter('/myapp/config/processing')
+    config = json.loads(config_str)
+    output_bucket = get_ssm_parameter('/myapp/s3/output_bucket')
+
+    # Use in Glue job
+    print(f"Batch size: {config['batch_size']}")
+    print(f"Output bucket: {output_bucket}")
+
+    # Database connection using password from SSM
+    connection_string = f"postgresql://user:{db_password}@db.example.com:5432/mydb"
+
+    job.commit()
+
+def lambda_handler(event, context):
+    """Lambda function using SSM parameters"""
+
+    # Get configuration
+    config_str = get_ssm_parameter('/myapp/config/processing')
+    config = json.loads(config_str)
+
+    # Use configuration
+    batch_size = config['batch_size']
+    max_workers = config['max_workers']
+
+    print(f"Processing with batch_size={batch_size}")
+
+    return {
+        'statusCode': 200,
+        'body': 'Processing started'
+    }
+```
+
+**Parameter Store vs Secrets Manager:**
+
+```
+PARAMETER STORE:
+✅ Good for: Configuration, API keys, database URLs
+✅ Cost: Free tier (standard), paid (advanced)
+✅ Use when: Simple config storage needed
+❌ No automatic rotation
+❌ Limited secret management features
+
+SECRETS MANAGER:
+✅ Good for: Rotating credentials (RDS, API keys)
+✅ Auto-rotate capability
+✅ Compliance features
+❌ More expensive ($0.40/secret + API calls)
+❌ Use when: Need automatic rotation
+
+DECISION:
+- S3 bucket names? → Parameter Store (String)
+- API keys? → Parameter Store (SecureString)
+- RDS password? → Secrets Manager (auto-rotate)
+- Configuration JSON? → Parameter Store (String)
+```
+
+**Interview Q&A:**
+
+- Q: "Why not use environment variables for secrets?"
+  - A: "Visible in console, logs, and Lambda UI. SSM is encrypted, auditable, and versioned. Better for security and compliance."
+
+- Q: "How to manage secrets across dev/prod?"
+  - A: "Use parameter path hierarchy: `/prod/db/password`, `/dev/db/password`. Lambda gets environment variable for tier, retrieves appropriate secret."
+
+- Q: "Cost of SSM?"
+  - A: "Parameter Store: Free standard tier (up to 10k gets), paid advanced tier ($0.04/month per parameter). Secrets Manager: $0.40/secret + API costs. Use Parameter Store for most cases."
+
+---
+
 ## Data Engineering Patterns
 
 ### Pattern 1: Configuration-Driven ETL
