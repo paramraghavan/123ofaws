@@ -2669,8 +2669,9 @@ You now have a complete handbook covering:
 
 ✅ **Foundations** - Cloud concepts, Python, AWS basics
 ✅ **Intermediate** - Real-world pipelines, Spark, Glue
-✅ **Advanced** - EMR, optimization, governance
-✅ **Hands-on** - 15+ working code examples
+✅ **Advanced** - EMR, optimization, governance, security
+✅ **Chapter 16** - AWS Systems Manager for secrets & configuration
+✅ **Hands-on** - 20+ working code examples
 ✅ **Exercises** - With complete solutions
 
 **Next Steps:**

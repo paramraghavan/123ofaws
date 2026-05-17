@@ -733,5 +733,87 @@ Use them confidently!
 
 ---
 
+## AWS Systems Manager (SSM) - Quick Reference
+
+### Store Secrets (Parameter Store)
+
+```python
+import boto3
+
+ssm = boto3.client('ssm')
+
+# Store encrypted password
+ssm.put_parameter(
+    Name='/prod/database/password',
+    Value='secret-here',
+    Type='SecureString'  # Encrypted with KMS
+)
+
+# Store configuration
+ssm.put_parameter(
+    Name='/prod/s3/bucket',
+    Value='my-data-bucket',
+    Type='String'
+)
+```
+
+### Retrieve with Caching
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=100)
+def get_param(name):
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
+    return response['Parameter']['Value']
+
+# First call: ~50ms
+# Next calls: <1ms (cached)
+```
+
+### Multi-Environment Pattern
+
+```python
+# Same code for all environments
+env = os.environ['ENVIRONMENT']  # 'dev', 'staging', 'prod'
+
+password = get_param(f'/{env}/database/password')
+# Automatically uses correct environment's credentials
+```
+
+### Parameter Store vs Secrets Manager
+
+| Use Case | Parameter Store | Secrets Manager |
+|----------|-----------------|-----------------|
+| Configuration | ✓ Best (free) | Works |
+| API Keys (static) | ✓ Best (free) | Costly |
+| Database passwords | Works | ✓ Best (auto-rotate) |
+| Cost sensitive | ✓ Winner | ✗ Expensive |
+
+**Rule:** Use Parameter Store by default. Use Secrets Manager only for auto-rotating credentials.
+
+### Cost Comparison
+
+```
+Parameter Store:  Free (up to 10K parameters)
+Secrets Manager:  $0.40/secret/month
+
+5 secrets: $0 vs $2/month
+Winner: Parameter Store!
+```
+
+### Common Interview Questions
+
+**Q: Why not environment variables?**
+A: They're visible in Lambda console & CloudWatch logs
+
+**Q: How to manage dev/prod?**
+A: Use path hierarchy: /dev/param vs /prod/param
+
+**Q: How to optimize?**
+A: Cache with @lru_cache (50x faster)
+
+---
+
 **Last Updated:** May 2024
 **Version:** 1.0 - Quick Reference

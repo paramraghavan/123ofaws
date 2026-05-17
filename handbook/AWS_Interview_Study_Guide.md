@@ -4002,6 +4002,275 @@ Good luck with your interviews! Your hands-on production experience is your grea
 
 ---
 
+## Section 6: AWS Systems Manager (SSM)
+
+### Interview Focus Areas
+
+**Core Concept:**
+SSM Parameter Store is your answer to "Where do I store secrets and configuration?" It's secure, audited, and cost-effective.
+
+**What interviewers test:**
+1. Why not environment variables? (Security knowledge)
+2. Parameter Store vs Secrets Manager? (Decision-making)
+3. How to manage dev/staging/prod configs? (Architecture)
+4. How to optimize SSM calls? (Performance thinking)
+
+### Key Patterns
+
+**Pattern 1: Storing Secrets**
+```python
+import boto3
+
+ssm = boto3.client('ssm')
+
+# Store database password (encrypted with KMS)
+ssm.put_parameter(
+    Name='/prod/database/password',
+    Value='my-secret-password',
+    Type='SecureString',  # Encrypted at rest
+    Description='RDS password for production'
+)
+
+# Why SecureString?
+# - Encrypted with AWS KMS
+# - NOT visible in console
+# - Audit trail in CloudTrail
+# - Can rotate without redeploying
+```
+
+**Pattern 2: Retrieving Secrets (with caching)**
+```python
+from functools import lru_cache
+
+ssm = boto3.client('ssm')
+
+@lru_cache(maxsize=100)
+def get_param(name):
+    """
+    Cache parameters in memory for performance.
+
+    Why cache?
+    - First call: ~50ms (SSM API)
+    - Cached calls: <1ms (memory)
+    - 50x faster!
+    - No additional cost
+    - Auto-clears on Lambda restart
+    """
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
+    return response['Parameter']['Value']
+
+# Usage
+password = get_param('/prod/database/password')  # ~50ms
+password = get_param('/prod/database/password')  # <1ms (cached!)
+```
+
+**Pattern 3: Multi-Environment Setup**
+```python
+import os
+
+ssm = boto3.client('ssm')
+
+# Same code works for all environments
+env = os.environ.get('ENVIRONMENT', 'dev')
+
+# Automatically gets correct env's password
+password = ssm.get_parameter(
+    Name=f'/{env}/database/password',
+    WithDecryption=True
+)['Parameter']['Value']
+
+# SSM contains:
+# /dev/database/password → dev-pwd
+# /staging/database/password → staging-pwd
+# /prod/database/password → prod-pwd
+
+# Deploy same Lambda everywhere = different secrets!
+```
+
+**Pattern 4: Glue Job with SSM**
+```python
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+import boto3
+from functools import lru_cache
+
+sc = SparkContext()
+glue_context = GlueContext(sc)
+spark = glue_context.spark_session
+
+ssm = boto3.client('ssm')
+
+@lru_cache(maxsize=10)
+def get_secret(param):
+    response = ssm.get_parameter(
+        Name=f'/prod/{param}',
+        WithDecryption=True
+    )
+    return response['Parameter']['Value']
+
+# Fetch RDS credentials
+db_host = get_secret('database/host')
+db_user = get_secret('database/user')
+db_password = get_secret('database/password')
+
+# Build connection
+jdbc_url = f"jdbc:postgresql://{db_host}:5432/mydb"
+
+# Read from RDS
+df = glue_context.create_dynamic_frame.from_options(
+    connection_type="postgresql",
+    connection_options={
+        "url": jdbc_url,
+        "dbtable": "customers",
+        "user": db_user,
+        "password": db_password
+    }
+)
+
+print(f"Loaded {df.count()} records")
+```
+
+### Parameter Store vs Secrets Manager
+
+| Scenario | Parameter Store | Secrets Manager |
+|----------|-----------------|-----------------|
+| **S3 bucket names** | ✓ Best (free) | Works |
+| **RDS password** | Works | ✓ Better (auto-rotate) |
+| **API keys (static)** | ✓ Better (cheaper) | Works |
+| **OAuth tokens** | Works | ✓ Better (rotation) |
+| **Configuration** | ✓ Best (free) | Works |
+| **Cost sensitive** | ✓ Winner | More expensive |
+
+**Quick Rule:**
+- **Default**: Use Parameter Store (free up to 10K parameters)
+- **Exception**: Use Secrets Manager only when you need auto-rotation
+
+### Interview Questions
+
+**Q1: Why not just use environment variables?**
+```
+A: Environment variables have 3 security issues:
+
+Issue 1: Visible in Lambda console
+- Anyone with lambda:GetFunction sees them
+- No encryption by default
+- Risk: A developer checking logs sees production passwords
+
+Issue 2: Leak into CloudWatch logs
+- If you print env var, it appears in logs
+- Risk: DevOps searching logs finds passwords
+
+Issue 3: Hard to rotate
+- Change = Redeploy Lambda
+- All instances flip at once
+- No audit trail
+
+SSM Parameter Store advantages:
+✓ Encrypted with KMS (AWS manages keys)
+✓ NOT visible in Lambda console
+✓ Audit trail (CloudTrail logs access)
+✓ Easy rotate (Secrets Manager auto-rotates)
+✓ Version history (rollback if needed)
+✓ Free (up to 10K parameters)
+```
+
+**Q2: How to manage secrets across dev/staging/prod?**
+```
+A: Use path hierarchy in Parameter Store:
+
+/dev/database/password      → dev-password
+/staging/database/password  → staging-password
+/prod/database/password     → prod-password
+
+Same Lambda code:
+env = os.environ['ENVIRONMENT']
+password = ssm.get_parameter(
+    Name=f'/{env}/database/password',
+    WithDecryption=True
+)
+
+Benefits:
+✓ Same code for all environments
+✓ Easy to manage different values
+✓ Secure (KMS encrypted)
+✓ Auditable (CloudTrail)
+✓ Version history
+```
+
+**Q3: How to optimize SSM API calls?**
+```
+A: Cache parameters in memory using @lru_cache:
+
+@lru_cache(maxsize=100)
+def get_param(name):
+    return ssm.get_parameter(Name=name).get('Value')
+
+Performance:
+- First call: ~50ms (SSM API)
+- Next calls: <1ms (memory cache)
+- Improvement: 50x faster
+- Cost: $0 (no additional charges)
+- Auto-clear: On Lambda container restart
+
+For Lambda called 1000x/minute:
+- Without cache: 1000 × 50ms = 50 seconds latency
+- With cache: 1 × 50ms + 999 × 1ms ≈ 1 second latency
+```
+
+**Q4: Parameter Store vs Secrets Manager - cost?**
+```
+A: Parameter Store is usually cheaper:
+
+Parameter Store (Standard tier):
+- Free: 10,000 parameters + 10,000 API calls
+- For 5 parameters: $0/month
+- For 1M API calls: $40/month
+
+Secrets Manager:
+- $0.40 per secret per month
+- $0.06 per 10,000 API calls
+- For 5 secrets + 100K calls: $2.60/month
+
+Example: 5 secrets, 100K API calls/month
+Parameter Store:  $0 (free tier)
+Secrets Manager:  $2.00 + $0.60 = $2.60/month
+
+Decision:
+✓ Use Parameter Store by default (it's free!)
+✓ Use Secrets Manager only when you need rotation
+```
+
+### Real-World Scenario
+
+**Scenario: Multi-environment data pipeline**
+```python
+class DataPipeline:
+    def __init__(self, environment):
+        self.env = environment
+        self.ssm = boto3.client('ssm')
+
+    def get_secret(self, key):
+        """Fetch from SSM with implicit caching"""
+        response = self.ssm.get_parameter(
+            Name=f'/{self.env}/{key}',
+            WithDecryption=True
+        )
+        return response['Parameter']['Value']
+
+    def run(self):
+        # Get environment-specific credentials
+        db_host = self.get_secret('database/host')
+        db_password = self.get_secret('database/password')
+        s3_bucket = self.get_secret('s3/bucket')
+
+        # Pipeline logic uses these securely
+        # No hardcoding, no environment variables
+        # Fully audited through CloudTrail
+        return True
+```
+
+---
+
 **Document Version**: 1.0
 **Created**: May 2024
 **Last Updated**: May 2024
