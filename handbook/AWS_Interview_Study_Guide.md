@@ -3885,7 +3885,7 @@ You understand entire data pipeline:
 ## Study Schedule (4 weeks)
 
 ### Week 1: Foundation & Assessment
-- **Mon-Tue**: Review CLAUDE.md and your repository structure
+- **Mon-Tue**: Review your repository structure
 - **Wed**: Deep dive into your strongest area (Glue/EMR - you know this)
 - **Thu**: Identify gaps (networking, disaster recovery)
 - **Fri**: Create study plan based on interview role

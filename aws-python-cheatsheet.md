@@ -1393,6 +1393,356 @@ awslocal dynamodb scan --table-name my-table
 
 ---
 
+## 🖥️ EC2 (Compute)
+
+### Launch and Manage Instances
+
+```python
+ec2 = boto3.client('ec2', region_name='us-east-1')
+
+# Launch instance
+response = ec2.run_instances(
+    ImageId='ami-0c55b159cbfafe1f0',  # Ubuntu 22.04
+    MinCount=1,
+    MaxCount=1,
+    InstanceType='t3.micro',
+    KeyName='my-keypair',
+    TagSpecifications=[{
+        'ResourceType': 'instance',
+        'Tags': [
+            {'Key': 'Name', 'Value': 'web-server'},
+            {'Key': 'Environment', 'Value': 'dev'}
+        ]
+    }]
+)
+
+instance_id = response['Instances'][0]['InstanceId']
+print(f"Launched instance: {instance_id}")
+
+# Wait for instance to be running
+waiter = ec2.get_waiter('instance_running')
+waiter.wait(InstanceIds=[instance_id])
+
+# Describe instance
+response = ec2.describe_instances(InstanceIds=[instance_id])
+instance = response['Reservations'][0]['Instances'][0]
+print(f"Public IP: {instance.get('PublicIpAddress')}")
+print(f"State: {instance['State']['Name']}")
+
+# Stop instance
+ec2.stop_instances(InstanceIds=[instance_id])
+
+# Start instance
+ec2.start_instances(InstanceIds=[instance_id])
+
+# Terminate instance
+ec2.terminate_instances(InstanceIds=[instance_id])
+```
+
+### Security Groups
+
+```python
+# Create security group
+sg = ec2.create_security_group(
+    GroupName='web-sg',
+    Description='Security group for web servers',
+    VpcId='vpc-12345678'
+)
+
+sg_id = sg['GroupId']
+
+# Add inbound rules
+ec2.authorize_security_group_ingress(
+    GroupId=sg_id,
+    IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 80,
+            'ToPort': 80,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'HTTP'}]
+        },
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 443,
+            'ToPort': 443,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'HTTPS'}]
+        }
+    ]
+)
+
+# Add tags
+ec2.create_tags(
+    Resources=[instance_id],
+    Tags=[
+        {'Key': 'Environment', 'Value': 'production'},
+        {'Key': 'Team', 'Value': 'backend'}
+    ]
+)
+
+# Filter by tags
+response = ec2.describe_instances(
+    Filters=[
+        {'Name': 'tag:Environment', 'Values': ['production']},
+        {'Name': 'instance-state-name', 'Values': ['running']}
+    ]
+)
+```
+
+---
+
+## 🗄️ RDS (Database)
+
+### Create and Manage Databases
+
+```python
+rds = boto3.client('rds', region_name='us-east-1')
+
+# Create MySQL database
+rds.create_db_instance(
+    DBInstanceIdentifier='mydb-prod',
+    DBInstanceClass='db.t3.micro',
+    Engine='mysql',
+    MasterUsername='admin',
+    MasterUserPassword='MyPassword123!',
+    AllocatedStorage=20,
+    BackupRetentionPeriod=7,
+    MultiAZ=True,  # High availability
+    Tags=[{'Key': 'Environment', 'Value': 'production'}]
+)
+
+# Wait for database to be available
+waiter = rds.get_waiter('db_instance_available')
+waiter.wait(
+    DBInstanceIdentifier='mydb-prod',
+    WaiterConfig={'MaxAttempts': 60, 'Delay': 30}
+)
+
+# Describe database
+response = rds.describe_db_instances(DBInstanceIdentifier='mydb-prod')
+db = response['DBInstances'][0]
+print(f"Endpoint: {db['Endpoint']['Address']}")
+print(f"Port: {db['Endpoint']['Port']}")
+print(f"Status: {db['DBInstanceStatus']}")
+
+# Modify database
+rds.modify_db_instance(
+    DBInstanceIdentifier='mydb-prod',
+    AllocatedStorage=50,
+    DBInstanceClass='db.t3.small',
+    ApplyImmediately=False  # Apply during maintenance window
+)
+
+# Create snapshot
+rds.create_db_snapshot(
+    DBSnapshotIdentifier='mydb-backup-2024-05',
+    DBInstanceIdentifier='mydb-prod'
+)
+
+# Restore from snapshot
+rds.restore_db_instance_from_db_snapshot(
+    DBInstanceIdentifier='mydb-restored',
+    DBSnapshotIdentifier='mydb-backup-2024-05'
+)
+
+# Delete database
+rds.delete_db_instance(
+    DBInstanceIdentifier='mydb-prod',
+    SkipFinalSnapshot=False,
+    FinalDBSnapshotIdentifier='mydb-final-snapshot'
+)
+```
+
+---
+
+## 📊 CloudWatch (Monitoring)
+
+### Metrics and Alarms
+
+```python
+cw = boto3.client('cloudwatch', region_name='us-east-1')
+
+# Publish custom metric
+cw.put_metric_data(
+    Namespace='MyApplication',
+    MetricData=[
+        {
+            'MetricName': 'ProcessingTime',
+            'Value': 45.2,
+            'Unit': 'Milliseconds',
+            'Timestamp': datetime.utcnow(),
+            'Dimensions': [
+                {'Name': 'Environment', 'Value': 'production'},
+                {'Name': 'Service', 'Value': 'api-gateway'}
+            ]
+        },
+        {
+            'MetricName': 'RequestCount',
+            'Value': 150,
+            'Unit': 'Count',
+            'Timestamp': datetime.utcnow()
+        }
+    ]
+)
+
+# Get metric statistics
+response = cw.get_metric_statistics(
+    Namespace='AWS/EC2',
+    MetricName='CPUUtilization',
+    Dimensions=[
+        {'Name': 'InstanceId', 'Value': 'i-1234567890abcdef0'}
+    ],
+    StartTime=datetime.utcnow() - timedelta(hours=1),
+    EndTime=datetime.utcnow(),
+    Period=300,  # 5 minutes
+    Statistics=['Average', 'Maximum', 'Minimum']
+)
+
+for datapoint in response['Datapoints']:
+    print(f"{datapoint['Timestamp']}: Avg={datapoint.get('Average')}")
+
+# Create alarm
+cw.put_metric_alarm(
+    AlarmName='high-cpu-production',
+    MetricName='CPUUtilization',
+    Namespace='AWS/EC2',
+    Statistic='Average',
+    Period=300,
+    EvaluationPeriods=2,  # 10 minutes of high CPU
+    Threshold=80.0,
+    ComparisonOperator='GreaterThanThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789:alert-topic'],
+    Dimensions=[
+        {'Name': 'InstanceId', 'Value': 'i-1234567890abcdef0'}
+    ]
+)
+
+# Delete alarm
+cw.delete_alarms(AlarmNames=['high-cpu-production'])
+
+# Describe alarms
+response = cw.describe_alarms(AlarmNames=['high-cpu-production'])
+for alarm in response['MetricAlarms']:
+    print(f"Alarm: {alarm['AlarmName']}")
+    print(f"  Status: {alarm['StateValue']}")
+    print(f"  Threshold: {alarm['Threshold']} {alarm['MetricName']}")
+```
+
+---
+
+## 🐳 ECS/Fargate (Container Orchestration)
+
+### Task Definitions and Services
+
+```python
+ecs = boto3.client('ecs', region_name='us-east-1')
+
+# Register task definition
+response = ecs.register_task_definition(
+    family='web-app-task',
+    networkMode='awsvpc',  # Required for Fargate
+    requiresCompatibilities=['FARGATE'],
+    cpu='256',
+    memory='512',
+    containerDefinitions=[
+        {
+            'name': 'web-app',
+            'image': '123456789.dkr.ecr.us-east-1.amazonaws.com/my-app:latest',
+            'portMappings': [
+                {
+                    'containerPort': 8080,
+                    'hostPort': 8080,
+                    'protocol': 'tcp'
+                }
+            ],
+            'environment': [
+                {'name': 'DATABASE_URL', 'value': 'postgres://db.example.com/mydb'},
+                {'name': 'LOG_LEVEL', 'value': 'INFO'}
+            ],
+            'logConfiguration': {
+                'logDriver': 'awslogs',
+                'options': {
+                    'awslogs-group': '/ecs/web-app',
+                    'awslogs-region': 'us-east-1',
+                    'awslogs-stream-prefix': 'ecs'
+                }
+            }
+        }
+    ],
+    executionRoleArn='arn:aws:iam::123456789:role/ecsTaskExecutionRole',
+    taskRoleArn='arn:aws:iam::123456789:role/ecsTaskRole'
+)
+
+task_def_arn = response['taskDefinition']['taskDefinitionArn']
+
+# Create ECS service
+response = ecs.create_service(
+    cluster='production',
+    serviceName='web-app-service',
+    taskDefinition='web-app-task:1',
+    desiredCount=3,
+    launchType='FARGATE',
+    networkConfiguration={
+        'awsvpcConfiguration': {
+            'subnets': ['subnet-12345678', 'subnet-87654321'],
+            'securityGroups': ['sg-12345678'],
+            'assignPublicIp': 'ENABLED'
+        }
+    },
+    loadBalancers=[
+        {
+            'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:123456789:targetgroup/web-app/abc123',
+            'containerName': 'web-app',
+            'containerPort': 8080
+        }
+    ]
+)
+
+# Update service
+ecs.update_service(
+    cluster='production',
+    service='web-app-service',
+    desiredCount=5,
+    forceNewDeployment=True
+)
+
+# Run task (one-off)
+response = ecs.run_task(
+    cluster='production',
+    taskDefinition='web-app-task:1',
+    launchType='FARGATE',
+    networkConfiguration={
+        'awsvpcConfiguration': {
+            'subnets': ['subnet-12345678'],
+            'securityGroups': ['sg-12345678']
+        }
+    },
+    overrides={
+        'containerOverrides': [
+            {
+                'name': 'web-app',
+                'environment': [
+                    {'name': 'COMMAND', 'value': 'migrate_database'}
+                ]
+            }
+        ]
+    }
+)
+
+# List tasks
+response = ecs.list_tasks(cluster='production', serviceName='web-app-service')
+for task_arn in response['taskArns']:
+    print(f"Task: {task_arn}")
+
+# Delete service
+ecs.delete_service(
+    cluster='production',
+    service='web-app-service',
+    force=True
+)
+```
+
+---
+
 ## 🎯 Best Practices Summary
 
 | Area                  | Best Practice                                     |
