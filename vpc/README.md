@@ -669,17 +669,170 @@ Outbound Rules:
 
 **Purpose**: Subnet-level firewall
 
-```
-NACL Rules (evaluated in order):
-Rule #100: Allow port 80, source 0.0.0.0/0
-Rule #110: Allow port 443, source 0.0.0.0/0
-Rule #120: Allow ephemeral (response traffic), source 0.0.0.0/0
-Rule #32767: Deny all (catch-all)
+**Critical Concept**: NACLs are **STATELESS** - you MUST define BOTH INGRESS (inbound) AND EGRESS (outbound) rules separately!
 
-First matching rule wins!
+#### Why Both Ingress AND Egress Rules?
+
+Because NACLs don't remember connections (stateless), every traffic direction needs explicit rules:
+
+```
+Client Request/Response Flow (HTTP):
+
+Client (203.0.113.45:54321)
+    │
+    ├─ Sends HTTP request on port 80
+    │  → Check INGRESS Rule #100: Allow TCP 80 from 0.0.0.0/0? ✅ YES
+    │  → Request enters subnet
+    │
+    ├─ Server processes request
+    │
+    ├─ Server sends response back on port 80
+    │  → Check EGRESS Rule #100: Allow TCP 80 to 0.0.0.0/0? ✅ YES
+    │  → Response leaves subnet
+    │
+    └─ Client receives response ✅
+
+WITHOUT EGRESS RULE: Response gets blocked! ❌
 ```
 
-**Important**: NACLs are **stateless** (need separate inbound AND outbound rules)
+#### Complete NACL Example: Web Server Subnet
+
+```
+VPC: 10.0.0.0/16
+Public Subnet: 10.0.1.0/24 (Web servers)
+
+═══════════════════════════════════════════════════════════
+
+INGRESS RULES (Traffic Coming INTO the subnet):
+
+Rule #100: Allow HTTP (port 80)
+├─ Protocol: TCP
+├─ Port Range: 80-80
+├─ Source: 0.0.0.0/0 (from anywhere)
+└─ Action: ALLOW
+
+Rule #110: Allow HTTPS (port 443)
+├─ Protocol: TCP
+├─ Port Range: 443-443
+├─ Source: 0.0.0.0/0 (from anywhere)
+└─ Action: ALLOW
+
+Rule #120: Allow SSH (port 22)
+├─ Protocol: TCP
+├─ Port Range: 22-22
+├─ Source: 10.0.0.0/16 (from VPC only - bastion)
+└─ Action: ALLOW
+
+Rule #130: Allow Ephemeral Responses (1024-65535)
+├─ Protocol: TCP
+├─ Port Range: 1024-65535
+├─ Source: 0.0.0.0/0 (from anywhere)
+└─ Action: ALLOW
+   Note: Clients connect FROM random high ports
+
+Rule #32767: Deny All (catch-all default)
+├─ Protocol: All
+├─ Port: All
+└─ Action: DENY
+
+═══════════════════════════════════════════════════════════
+
+EGRESS RULES (Traffic Going OUT of the subnet):
+
+Rule #100: Allow HTTP (port 80)
+├─ Protocol: TCP
+├─ Port Range: 80-80
+├─ Destination: 0.0.0.0/0 (to anywhere)
+└─ Action: ALLOW
+
+Rule #110: Allow HTTPS (port 443)
+├─ Protocol: TCP
+├─ Port Range: 443-443
+├─ Destination: 0.0.0.0/0 (to anywhere)
+└─ Action: ALLOW
+
+Rule #120: Allow SSH (port 22)
+├─ Protocol: TCP
+├─ Port Range: 22-22
+├─ Destination: 10.0.0.0/16 (to VPC only - bastion)
+└─ Action: ALLOW
+
+Rule #130: Allow Ephemeral Responses (1024-65535)
+├─ Protocol: TCP
+├─ Port Range: 1024-65535
+├─ Destination: 0.0.0.0/0 (to anywhere)
+└─ Action: ALLOW
+   Note: Servers respond ON random high ports
+
+Rule #32767: Deny All (catch-all default)
+├─ Protocol: All
+├─ Port: All
+└─ Action: DENY
+```
+
+#### Why You Need All 4 Rules (Not Just 2)
+
+```
+Misconception: "Just allow port 80, that's it!"
+
+❌ WRONG - Only 2 rules (incomplete):
+├─ INGRESS #100: Allow TCP 80 from 0.0.0.0/0
+└─ EGRESS #100: Allow TCP 80 to 0.0.0.0/0
+   Problem: Clients can't receive responses on ephemeral ports!
+
+✅ CORRECT - 4 rules (complete):
+├─ INGRESS #100: Allow TCP 80 (requests come in)
+├─ INGRESS #130: Allow TCP 1024-65535 (client ACKs/responses)
+├─ EGRESS #100: Allow TCP 80 (server responds to port 80)
+└─ EGRESS #130: Allow TCP 1024-65535 (server responses on ephemeral)
+
+Why? Because of stateless traffic flow:
+
+Request: Client:54321 → Server:80 (uses high port on client side)
+         INGRESS #100 allows this ✅
+
+Response: Server:80 → Client:54321 (goes back to high port)
+          EGRESS #130 allows this ✅
+
+ACK from Client: Client:54321 → Server:80 (sends ACK on high port)
+                 INGRESS #130 allows this ✅
+```
+
+#### Real-World Scenario: Why Databases Need Both Directions
+
+```
+Example: Web Server (10.0.1.0/24) needs to connect to Database (10.0.3.0/24)
+
+Web Server needs BOTH:
+
+EGRESS (Web Server sending):
+├─ Rule #100: Allow TCP 5432 TO 10.0.3.0/24
+│  └─ Web server initiates connection to database
+│
+└─ Rule #110: Allow TCP 1024-65535 TO 10.0.3.0/24
+   └─ Web server uses random high port for connection
+
+INGRESS (Web Server receiving):
+├─ Rule #100: Allow TCP 5432 FROM 10.0.3.0/24
+│  └─ Database responses on port 5432
+│
+└─ Rule #110: Allow TCP 1024-65535 FROM 10.0.3.0/24
+   └─ Database responses on web server's high port
+
+All 4 rules REQUIRED!
+Without them, database connection fails.
+```
+
+#### NACL Rules Summary (Always 4 for bidirectional traffic)
+
+| Direction | Port | Rule Type | Source/Dest | Purpose |
+|-----------|------|-----------|---|---|
+| **Inbound** | 80 | INGRESS | 0.0.0.0/0 | Client request comes IN on port 80 |
+| **Inbound** | 1024-65535 | INGRESS | 0.0.0.0/0 | Client response comes IN on high port |
+| **Outbound** | 80 | EGRESS | 0.0.0.0/0 | Server response goes OUT on port 80 |
+| **Outbound** | 1024-65535 | EGRESS | 0.0.0.0/0 | Server response goes OUT on high port |
+
+---
 
 ### Multiple NACLs Per VPC (Advanced)
 
