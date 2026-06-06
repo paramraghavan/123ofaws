@@ -10,10 +10,11 @@
 6. [Build & Deploy Workflow](#build--deploy-workflow)
 7. [Variables: Input, Output & Local](#variables-input-output--local)
 8. [State Management](#state-management)
-9. [Common Patterns & Use Cases](#common-patterns--use-cases)
-10. [Best Practices](#best-practices)
-11. [Troubleshooting](#troubleshooting)
-12. [Advanced Topics](#advanced-topics)
+9. [Deleting Resources & Importing Existing Infrastructure](#deleting-resources--importing-existing-infrastructure)
+10. [Common Patterns & Use Cases](#common-patterns--use-cases)
+11. [Best Practices](#best-practices)
+12. [Troubleshooting](#troubleshooting)
+13. [Advanced Topics](#advanced-topics)
 
 ---
 
@@ -384,6 +385,164 @@ resource "aws_security_group" "web" {
 
   tags = local.common_tags
 }
+```
+
+### Understanding VPC CIDR vs Security Group CIDR Blocks
+
+**Common Question:** "Why do we allow `0.0.0.0/0` (anywhere) in a security group when it's inside a VPC with a specific CIDR block like `10.0.0.0/16`?"
+
+**Answer:** These are two **independent concepts**:
+
+#### The Key Difference
+
+```
+VPC CIDR Block (10.0.0.0/16)
+└─ WHERE instances are LOCATED
+   └─ "The house's address range"
+   └─ Defines IP addresses available inside the VPC
+
+Security Group CIDR Block (0.0.0.0/0)
+└─ WHERE TRAFFIC COMES FROM (for ingress)
+   └─ "Who can knock on the door"
+   └─ Defines who can access your instance
+```
+
+#### Real-World Analogy
+
+Your house:
+```
+Your House Address: 123 Main St (10.0.0.0/16 VPC)
+                    └─ You live in a specific neighborhood
+
+Your Front Door Rules:
+├─ Allow packages from ANYWHERE in the WORLD (0.0.0.0/0)
+│  └─ FedEx, Amazon, UPS from any address
+│
+├─ Allow visitors from your neighborhood only (10.0.0.0/16)
+│  └─ Friends who live nearby
+│
+└─ Allow guests from specific address (203.0.113.45/32)
+   └─ Your boss from their office
+
+These are INDEPENDENT!
+Your house is in ONE place, but you accept from MANY places.
+```
+
+#### Complete Example: Different Rules for Different Purposes
+
+```hcl
+resource "aws_security_group" "web_server" {
+  name   = "web-server-sg"
+  vpc_id = aws_vpc.main.id  # VPC CIDR: 10.0.0.0/16
+
+  # HTTP: Allow from ANYWHERE (public web server)
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # ← From internet (public!)
+  }
+
+  # HTTPS: Allow from ANYWHERE (public web server)
+  ingress {
+    description = "HTTPS from internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # ← From internet (public!)
+  }
+
+  # SSH: Allow from VPC ONLY (admin access - more secure)
+  ingress {
+    description = "SSH from VPC only"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]  # ← From VPC only!
+  }
+
+  # SSH: Allow from specific office IP (additional admin access)
+  ingress {
+    description = "SSH from office"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["203.0.113.45/32"]  # ← From specific office!
+  }
+
+  # Allow all outbound
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+#### How Traffic Flows to Your Instance
+
+```
+Internet User (203.0.113.100)
+    │
+    ├─ Sends HTTP request to: 52.1.2.3:80 (public IP)
+    │
+    ├─→ Internet Gateway (entry point to VPC)
+    │
+    ├─→ Routes to instance at 10.0.1.42 (inside VPC CIDR)
+    │
+    ├─→ Security Group checks:
+    │   ├─ Is traffic on port 80? YES ✅
+    │   ├─ Is it TCP? YES ✅
+    │   ├─ Is source in 0.0.0.0/0? YES ✅
+    │   └─ Decision: ALLOW ✅
+    │
+    └─→ Request reaches instance at 10.0.1.42:80 ✅
+
+Note: The instance lives in 10.0.0.0/16 (VPC CIDR)
+      But it accepts traffic from 0.0.0.0/0 (anywhere)
+      These are independent decisions!
+```
+
+#### Why Use Different CIDR Blocks for Different Rules?
+
+| Rule | Security Group CIDR | Why? |
+|------|---|---|
+| **HTTP (port 80)** | `0.0.0.0/0` | Public web server - needs internet access |
+| **HTTPS (port 443)** | `0.0.0.0/0` | Public web server - needs internet access |
+| **SSH (port 22)** | `10.0.0.0/16` | Admin access - internal only, more secure |
+| **Database (port 5432)** | `10.0.1.0/24` | Only app tier subnet needs access |
+| **Admin API (port 8080)** | `203.0.113.0/24` | Only office network needs access |
+
+#### What If You Restricted HTTP to VPC Only?
+
+```hcl
+# ❌ BAD: Restricts HTTP to VPC only
+ingress {
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["10.0.0.0/16"]  # ← Only VPC!
+}
+```
+
+**Result:** Internet users cannot access your web server! Your website would be invisible to the internet. ❌
+
+#### Key Takeaway
+
+```
+VPC CIDR:              "Where does my instance live?"
+                       Answer: 10.0.0.0/16
+
+Security Group CIDR:   "Who can talk to my instance?"
+                       Answer: Depends on the port!
+                       - HTTP: 0.0.0.0/0 (anyone)
+                       - SSH: 10.0.0.0/16 (VPC only)
+                       - DB: 10.0.1.0/24 (app tier only)
+
+✅ These are INDEPENDENT decisions!
 ```
 
 ---
@@ -2005,6 +2164,445 @@ terraform plan
 # Or do both in one:
 terraform plan -refresh=true
 ```
+
+---
+
+## Deleting Resources & Importing Existing Infrastructure
+
+### How to Delete AWS Resources Using Terraform
+
+There are different ways to delete resources depending on your needs:
+
+#### Method 1: Remove from Code & Apply (Recommended)
+
+**Step 1: Delete the resource definition from your .tf file**
+
+```hcl
+# main.tf - BEFORE
+resource "aws_instance" "web_server" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+}
+
+# main.tf - AFTER (remove the resource)
+# (resource completely deleted)
+```
+
+**Step 2: Plan to see what will be deleted**
+
+```bash
+terraform plan
+
+# Output shows:
+# Plan: 0 to add, 0 to change, 1 to destroy
+# - aws_instance.web_server
+```
+
+**Step 3: Apply the deletion**
+
+```bash
+terraform apply
+
+# AWS EC2 instance is now DELETED
+```
+
+#### Method 2: Selective Deletion (Delete One Resource Only)
+
+Delete a specific resource without removing others:
+
+```bash
+# See what will be deleted
+terraform plan -target=aws_instance.web_server
+
+# Actually delete it
+terraform apply -target=aws_instance.web_server
+
+# This deletes ONLY that resource, leaves others untouched
+```
+
+#### Method 3: Remove from Terraform Without Deleting from AWS
+
+Keep the resource in AWS but stop managing it with Terraform:
+
+```bash
+# Remove from Terraform state (AWS resource stays!)
+terraform state rm aws_instance.web_server
+
+# Now Terraform forgets about it
+# The EC2 instance still exists in AWS
+# You can manage it manually or re-import later
+```
+
+#### Method 4: Destroy Everything
+
+Delete ALL resources managed by this Terraform configuration:
+
+```bash
+terraform destroy
+
+# Shows list of everything to be destroyed
+# Type: yes to confirm deletion
+# All resources are destroyed
+```
+
+---
+
+### Synchronizing Existing Resources with Terraform
+
+**The Problem:** You have infrastructure created outside Terraform (manually in AWS console, by CloudFormation, etc.), but you want to manage it with Terraform now.
+
+**Example Scenario:**
+```
+Existing AWS Resources (created manually):
+├─ EC2 instance (i-0123456789abcdef0)
+├─ S3 bucket (my-data-bucket)
+├─ RDS database (my-db)
+└─ VPC (vpc-12345678)
+
+Your Terraform Code:
+├─ (nothing - no resources defined)
+
+Problem: Terraform doesn't know about these resources!
+If you write code to create them, Terraform will:
+1. Try to create NEW instances (conflict!)
+2. Or fail because names are taken
+```
+
+### Solution: Import Existing Resources into Terraform State
+
+**Process Overview:**
+```
+Step 1: Get resource ID from AWS (CLI or console)
+        ↓
+Step 2: Write resource definition in Terraform code
+        (Don't apply yet!)
+        ↓
+Step 3: Import the existing resource: terraform import <id>
+        ↓
+Step 4: Verify state matches: terraform plan
+        ↓
+Step 5: Now Terraform manages it!
+```
+
+### Complete Example: Import Existing EC2 Instance
+
+#### Step 1: Find the EC2 Instance ID
+
+```bash
+# List EC2 instances
+aws ec2 describe-instances \
+  --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==`Name`].Value|[0]]' \
+  --output table
+
+# Output:
+# InstanceId                    | Name
+# i-0123456789abcdef0          | web-server
+```
+
+#### Step 2: Define Resource in Terraform (Don't Apply!)
+
+```hcl
+# main.tf
+resource "aws_instance" "web_server" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "web-server"
+  }
+}
+```
+
+⚠️ **IMPORTANT:** Don't run `terraform apply` yet! State is empty - it will try to create a NEW instance!
+
+#### Step 3: Import the Existing Instance
+
+```bash
+terraform import aws_instance.web_server i-0123456789abcdef0
+
+# Output:
+# aws_instance.web_server: Importing from ID "i-0123456789abcdef0"...
+# aws_instance.web_server: Import complete!
+# Resource 'aws_instance.web_server' successfully imported 1 item(s)
+```
+
+**What happened:** Terraform state now knows "aws_instance.web_server = i-0123456789abcdef0"
+
+#### Step 4: Verify State Matches Reality
+
+```bash
+terraform plan
+
+# Output should show:
+# No changes. Your infrastructure matches the configuration.
+# ✅ Success!
+```
+
+### Real-World Workflow: Import Multiple Resources
+
+**Scenario:** You have existing VPC with subnets and security group created manually. You want Terraform to manage them.
+
+**Step 1: Get All Resource IDs**
+
+```bash
+# Get VPC ID
+aws ec2 describe-vpcs --filters "Name=tag:Name,Values=my-vpc" \
+  --query 'Vpcs[0].VpcId' --output text
+# vpc-0123456789abcdef0
+
+# Get Subnet IDs
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-0123456789abcdef0" \
+  --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`].Value|[0]]' \
+  --output table
+
+# Get Security Group ID
+aws ec2 describe-security-groups --filters "Name=vpc-id,Values=vpc-0123456789abcdef0" \
+  --query 'SecurityGroups[0].GroupId' --output text
+```
+
+**Step 2: Write Terraform Code**
+
+```hcl
+# main.tf
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  tags = { Name = "my-vpc" }
+}
+
+resource "aws_subnet" "subnet1" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-east-1a"
+  tags = { Name = "subnet-1" }
+}
+
+resource "aws_subnet" "subnet2" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = "us-east-1b"
+  tags = { Name = "subnet-2" }
+}
+
+resource "aws_security_group" "main" {
+  vpc_id = aws_vpc.main.id
+  name   = "main-sg"
+  tags = { Name = "main-sg" }
+}
+```
+
+**Step 3: Import All Resources**
+
+```bash
+# Import VPC
+terraform import aws_vpc.main vpc-0123456789abcdef0
+
+# Import Subnets
+terraform import aws_subnet.subnet1 subnet-abcd1234
+terraform import aws_subnet.subnet2 subnet-efgh5678
+
+# Import Security Group
+terraform import aws_security_group.main sg-0123456789abcdef0
+```
+
+**Step 4: Verify**
+
+```bash
+terraform plan
+
+# Output:
+# No changes. Your infrastructure matches the configuration.
+# ✅ All 4 resources successfully imported!
+```
+
+### Import Examples for Common AWS Resources
+
+#### S3 Bucket
+
+```bash
+# Add to Terraform
+resource "aws_s3_bucket" "data" {
+  bucket = "my-existing-bucket"
+}
+
+# Import it
+terraform import aws_s3_bucket.data my-existing-bucket
+```
+
+#### RDS Database
+
+```bash
+# Find DB instance ID
+aws rds describe-db-instances \
+  --query 'DBInstances[0].DBInstanceIdentifier' --output text
+
+# Add to Terraform
+resource "aws_db_instance" "main" {
+  identifier = "my-database"
+  engine     = "postgres"
+  # ... other config
+}
+
+# Import it
+terraform import aws_db_instance.main my-database
+```
+
+#### IAM Role
+
+```bash
+# Find role name
+aws iam list-roles --query 'Roles[0].RoleName' --output text
+
+# Add to Terraform
+resource "aws_iam_role" "lambda_role" {
+  name = "my-lambda-role"
+}
+
+# Import it
+terraform import aws_iam_role.lambda_role my-lambda-role
+```
+
+#### Lambda Function
+
+```bash
+# Add to Terraform
+resource "aws_lambda_function" "my_function" {
+  function_name = "my-function"
+  # ... other config
+}
+
+# Import it
+terraform import aws_lambda_function.my_function my-function
+```
+
+### Handling Import Challenges
+
+#### Challenge 1: Resource Requires Additional Arguments
+
+**Problem:** Terraform imports the resource but needs information AWS doesn't return.
+
+```bash
+# Verify what AWS actually has
+aws ec2 describe-security-groups --group-ids sg-123456 \
+  --query 'SecurityGroups[0]' --output json
+
+# Update Terraform code to match AWS reality
+resource "aws_security_group" "main" {
+  name = "actual-name-from-aws"  # ← Match AWS exactly
+  # ... other fields from AWS
+}
+
+# Then re-import
+terraform import aws_security_group.main sg-123456
+```
+
+#### Challenge 2: Computed Attributes
+
+Some attributes are **computed by AWS** (you can't set them, only read):
+
+```hcl
+resource "aws_instance" "web" {
+  ami           = "ami-123"
+  instance_type = "t3.micro"
+
+  # These are COMPUTED (set by AWS after creation):
+  # private_ip   = "10.0.1.42"      ← Don't define these!
+  # public_ip    = "52.1.2.3"       ← Terraform reads them
+  # vpc_id       = "vpc-123"        ← from state file
+}
+```
+
+After import, Terraform's state has these values - they just won't be in your code.
+
+#### Challenge 3: Imported Resource Has Different Config
+
+**Problem:** You write Terraform code, but the existing AWS resource was configured differently.
+
+```bash
+# 1. Import the resource first
+terraform import aws_instance.web i-0123456789
+
+# 2. Check what Terraform stored in state
+terraform state show aws_instance.web
+
+# 3. Update your Terraform code to match what AWS actually has
+# Edit main.tf to match the state
+
+# 4. Verify
+terraform plan
+# (should show "No changes")
+```
+
+### Best Practices: Avoid Import Issues
+
+#### The Prevention Approach (Best)
+
+**Don't create resources outside Terraform!**
+
+```
+✅ CORRECT WORKFLOW:
+1. Write Terraform code FIRST
+2. Run terraform apply
+3. Resources created through Terraform
+4. Everything in sync from the start
+
+❌ WRONG WORKFLOW:
+1. Create EC2 in console manually
+2. Create S3 bucket manually
+3. Months later: Write Terraform code
+4. Try to import everything
+5. Fix mismatches (time-consuming!)
+```
+
+#### The Remediation Approach (If Needed)
+
+**If you inherit existing infrastructure:**
+
+```bash
+# 1. Document all existing resources
+aws ec2 describe-instances --output json > instances.json
+aws s3api list-buckets --output json > buckets.json
+
+# 2. Write complete Terraform code for everything
+# (copy from aws-provider docs examples)
+
+# 3. Import each resource carefully
+terraform import <type>.<name> <aws-id>
+
+# 4. Verify with terraform plan
+# (should show "No changes")
+
+# 5. From now on: manage ONLY via Terraform
+```
+
+### Useful State Commands for Import/Delete
+
+```bash
+# List all resources in state
+terraform state list
+
+# Show details of one resource
+terraform state show aws_instance.web_server
+
+# Remove resource from Terraform (keeps it in AWS)
+terraform state rm aws_instance.web_server
+
+# View state as JSON (advanced debugging)
+terraform state pull | jq '.resources'
+
+# Verify state matches current code
+terraform plan
+```
+
+### Summary: Delete vs Import
+
+| Task | Command | Result |
+|------|---------|--------|
+| **Delete resource from AWS** | Remove from .tf, `terraform apply` | Resource destroyed in AWS |
+| **Keep AWS resource, remove Terraform management** | `terraform state rm <resource>` | AWS resource survives, Terraform forgets |
+| **Delete only one resource** | `terraform destroy -target=<resource>` | Only that resource deleted |
+| **Delete everything** | `terraform destroy` | All resources destroyed |
+| **Import existing resource** | `terraform import <type>.<name> <id>` | Terraform now manages it |
+| **Import multiple resources** | Multiple `terraform import` commands | Terraform manages all of them |
 
 ---
 
