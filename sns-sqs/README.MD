@@ -39,7 +39,7 @@
 
 ## AWS Limits & Constraints
 
-As a tutor, it's important to understand the limits of AWS services. Here are the key constraints you'll encounter:
+The limits of AWS services. Here are the key constraints you'll encounter:
 
 ### Message Size Limits
 
@@ -862,6 +862,319 @@ Consumer B deletes at 10:00:40
 ├ Uses: ReceiptHandle: new-handle-111 ✅ WORKS
 ├ Message finally deleted
 ```
+
+---
+
+## Batch Message Processing with receive_message
+
+### Understanding MaxNumberOfMessages
+
+One of the most common questions: **When you call `receive_message()` with `MaxNumberOfMessages=10`, does it pull all 10 messages at once, or one at a time?**
+
+**Answer: It makes ONE API call that returns UP TO 10 messages** (if available). This is much more efficient than fetching messages one at a time!
+
+### How It Works
+
+```python
+response = sqs.receive_message(
+    QueueUrl=queue_url,
+    MaxNumberOfMessages=10,
+    WaitTimeSeconds=20
+)
+
+# This single API call returns:
+# - 0 to 10 messages (depends on queue)
+# - ALL messages in the 'Messages' list
+# - ONE round trip to AWS (efficient!)
+```
+
+**Key points:**
+- **Single API call** makes the request once
+- **Up to 10 messages** returned in one response
+- **Not exactly 10** - depends on what's in the queue
+- **WaitTimeSeconds=20** means "wait up to 20 seconds if queue is empty" (long polling)
+- **Much cheaper** than calling receive_message 10 times
+
+### Processing Multiple Messages
+
+The response contains a list of messages. You iterate through each one:
+
+```python
+response = sqs.receive_message(
+    QueueUrl=queue_url,
+    MaxNumberOfMessages=10,
+    WaitTimeSeconds=20
+)
+
+# Check if any messages were returned
+if 'Messages' in response:
+    # Loop through all messages (could be 1 to 10)
+    for message in response['Messages']:
+        # Process each message individually
+        message_id = message['MessageId']
+        receipt_handle = message['ReceiptHandle']
+        body = json.loads(message['Body'])
+
+        print(f"Processing message: {message_id}")
+        # Do your work here
+
+else:
+    print("No messages in queue")
+```
+
+### Real-World Example: Order Processing
+
+```python
+import boto3
+import json
+
+sqs = boto3.client('sqs')
+queue_url = 'https://sqs.us-east-1.amazonaws.com/123456789012/orders'
+
+def process_order_batch():
+    """
+    Receive UP TO 10 orders in one API call,
+    then process each one
+    """
+
+    # Step 1: Get up to 10 messages in ONE API call
+    response = sqs.receive_message(
+        QueueUrl=queue_url,
+        MaxNumberOfMessages=10,
+        WaitTimeSeconds=20
+    )
+
+    # Step 2: Check if we got any messages
+    if 'Messages' not in response:
+        print("Queue is empty")
+        return
+
+    print(f"Received {len(response['Messages'])} orders")
+
+    # Step 3: Process each message in the list
+    for message in response['Messages']:
+        try:
+            # Parse the order
+            order = json.loads(message['Body'])
+            order_id = order['order_id']
+
+            print(f"Processing order: {order_id}")
+
+            # Do your processing
+            charge_payment(order)
+            ship_item(order)
+            send_confirmation(order)
+
+            # Step 4: Delete message after successful processing
+            sqs.delete_message(
+                QueueUrl=queue_url,
+                ReceiptHandle=message['ReceiptHandle']
+            )
+            print(f"✓ Order {order_id} completed and message deleted")
+
+        except Exception as e:
+            print(f"✗ Error processing order: {e}")
+            # Don't delete on error - message will retry
+
+# Run the batch processor
+process_order_batch()
+```
+
+### API Call Comparison
+
+#### ❌ Inefficient: Fetch one at a time
+
+```python
+for i in range(10):
+    response = sqs.receive_message(
+        QueueUrl=queue_url,
+        MaxNumberOfMessages=1  # Get just 1 message
+    )
+
+    if 'Messages' in response:
+        message = response['Messages'][0]
+        process(message)
+        sqs.delete_message(...)
+
+# Result: 10 API calls (expensive!)
+```
+
+#### ✅ Efficient: Fetch batch of 10
+
+```python
+response = sqs.receive_message(
+    QueueUrl=queue_url,
+    MaxNumberOfMessages=10  # Get up to 10 messages
+)
+
+if 'Messages' in response:
+    for message in response['Messages']:
+        process(message)
+        sqs.delete_message(...)
+
+# Result: 1 API call (very cheap!)
+```
+
+### Batch Deletion for Efficiency
+
+When processing multiple messages, use **batch delete** instead of deleting one at a time:
+
+```python
+import boto3
+import json
+
+sqs = boto3.client('sqs')
+
+# Receive messages
+response = sqs.receive_message(
+    QueueUrl=queue_url,
+    MaxNumberOfMessages=10,
+    WaitTimeSeconds=20
+)
+
+if 'Messages' in response:
+    messages_to_delete = []
+
+    # Process all messages
+    for message in response['Messages']:
+        try:
+            body = json.loads(message['Body'])
+            process_order(body)
+
+            # Collect for batch delete
+            messages_to_delete.append({
+                'Id': message['MessageId'],
+                'ReceiptHandle': message['ReceiptHandle']
+            })
+
+        except Exception as e:
+            print(f"Error: {e}")
+            # Don't add to delete list - will retry
+
+    # Delete all successfully processed messages in ONE batch
+    if messages_to_delete:
+        sqs.delete_message_batch(
+            QueueUrl=queue_url,
+            Entries=messages_to_delete
+        )
+        print(f"✓ Deleted {len(messages_to_delete)} messages")
+```
+
+**Cost comparison:**
+```
+Scenario: Process 1000 messages
+
+Option 1 (Delete one at a time):
+  - 1000 receive_message calls
+  - 1000 delete_message calls
+  - = 2000 API calls
+
+Option 2 (Batch operations):
+  - 100 receive_message calls (10 messages each)
+  - 100 delete_message_batch calls (10 messages each)
+  - = 200 API calls
+
+SAVINGS: 10x fewer API calls!
+```
+
+### Complete Production Pattern
+
+```python
+import boto3
+import json
+import logging
+
+sqs = boto3.client('sqs')
+logger = logging.getLogger()
+
+def process_messages_efficiently(queue_url, batch_size=10):
+    """
+    Production-ready message processor
+    - Receives batches of up to 10 messages
+    - Processes each message
+    - Batch deletes successful ones
+    """
+
+    while True:
+        # Receive batch (up to 10 messages)
+        response = sqs.receive_message(
+            QueueUrl=queue_url,
+            MaxNumberOfMessages=batch_size,
+            WaitTimeSeconds=20,
+            VisibilityTimeout=300  # 5 minutes to process
+        )
+
+        if 'Messages' not in response:
+            logger.info("Queue empty - waiting...")
+            continue
+
+        messages_processed = 0
+        messages_to_delete = []
+
+        # Process each message in the batch
+        for message in response['Messages']:
+            try:
+                # Parse message
+                body = json.loads(message['Body'])
+                message_id = message['MessageId']
+
+                # Process
+                result = do_work(body)
+                logger.info(f"Processed: {message_id}")
+
+                # Mark for deletion
+                messages_to_delete.append({
+                    'Id': message_id,
+                    'ReceiptHandle': message['ReceiptHandle']
+                })
+                messages_processed += 1
+
+            except ValueError as e:
+                # Invalid message - delete to avoid infinite retry
+                logger.error(f"Invalid message: {e}")
+                sqs.delete_message(
+                    QueueUrl=queue_url,
+                    ReceiptHandle=message['ReceiptHandle']
+                )
+
+            except Exception as e:
+                # Temporary error - keep in queue for retry
+                logger.error(f"Processing error: {e}")
+                # Don't delete - message will retry
+
+        # Batch delete all successful messages
+        if messages_to_delete:
+            delete_response = sqs.delete_message_batch(
+                QueueUrl=queue_url,
+                Entries=messages_to_delete
+            )
+
+            if 'Failed' in delete_response and delete_response['Failed']:
+                logger.error(f"Delete failures: {delete_response['Failed']}")
+            else:
+                logger.info(f"✓ Batch deleted {len(messages_to_delete)} messages")
+
+def do_work(data):
+    """Your business logic here"""
+    print(f"Processing: {data}")
+    return True
+
+# Run the processor
+process_messages_efficiently('https://sqs.us-east-1.amazonaws.com/123456789012/orders')
+```
+
+### Key Insights
+
+| Aspect | Detail |
+|--------|--------|
+| **API Calls** | `receive_message()` makes 1 call, returns 0-10 messages |
+| **Processing** | Loop through `response['Messages']` list |
+| **Deletion** | Use `delete_message_batch()` for efficiency |
+| **Efficiency** | Batch operations reduce API calls 10x |
+| **Cost** | Fewer API calls = lower costs |
+| **Receive ≠ Delete** | Receiving is just reading; must delete after success |
+| **Visibility Timeout** | Message hidden from others while you process |
+| **Long Polling** | `WaitTimeSeconds=20` saves API calls |
 
 ---
 
