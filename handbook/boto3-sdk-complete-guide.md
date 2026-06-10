@@ -1,709 +1,737 @@
-# Boto3 SDK Complete Guide: Master the AWS Python SDK
+# Boto3 SDK: Complete Guide
+## From Basics to Production Patterns
 
-> **From zero to production-ready**: Comprehensive guide to Boto3 covering everything from client/resource selection to advanced production patterns. 2,500+ lines of explanation and code.
-
----
-
-## Table of Contents
-
-### PART 1: FOUNDATIONS (Chapters 1-2)
-- Chapter 1: Boto3 Architecture
-- Chapter 2: Core Patterns
-
-### PART 2: SERVICE DEEP DIVES (Chapters 3-7)
-- Chapter 3: EC2 with Boto3
-- Chapter 4: RDS with Boto3
-- Chapter 5: CloudWatch with Boto3
-- Chapter 6: ECS/Fargate with Boto3
-- Chapter 7: Advanced S3 Patterns
-
-### PART 3: ADVANCED PATTERNS (Chapters 8-10)
-- Chapter 8: Multi-Account & Cross-Region
-- Chapter 9: Performance Optimization
-- Chapter 10: Production Best Practices
+### Table of Contents
+1. **Part 1: Foundations** - Understand the fundamentals
+   - Chapter 1: Boto3 Architecture
+   - Chapter 2: Core Patterns
+2. **Part 2: Service Deep Dives** - Master individual AWS services
+   - Chapter 3: EC2 with Boto3
+   - Chapter 4: RDS with Boto3
+   - Chapter 5: CloudWatch with Boto3
+   - Chapter 6: ECS/Fargate with Boto3
+   - Chapter 7: Advanced S3 Patterns
+3. **Part 3: Advanced Patterns** - Production-grade implementations
+   - Chapter 8: Multi-Account & Cross-Region
+   - Chapter 9: Performance Optimization
+   - Chapter 10: Production Best Practices
 
 ---
 
-# PART 1: FOUNDATIONS
+## PART 1: FOUNDATIONS
 
-## Chapter 1: Boto3 Architecture
+### Chapter 1: Boto3 Architecture
 
-### What is Boto3?
+#### The Basics: What is Boto3?
 
-Boto3 is the **Amazon Web Services (AWS) SDK for Python**. It allows Python developers to write software that uses AWS services like S3, EC2, CloudWatch, and more.
+Boto3 is the AWS SDK for Python. It allows you to write Python code that interacts with AWS services like S3, EC2, Lambda, and 200+ other services.
 
-**Key facts:**
-- Official AWS SDK maintained by AWS
-- Works with Python 3.7+
-- Comprehensive API coverage for 200+ AWS services
-- Used in production by thousands of companies
+**History Note**: Boto derives its name from the Portuguese word for a type of dolphin native to the Amazon River. The name stuck because it swims in the Amazon (AWS), and someone thought it was clever.
 
-### Installation
+**Official Resources**:
+- [AWS SDK for Python Documentation](https://docs.aws.amazon.com/pythonsdk/)
+- [Boto3 API Reference](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/index.html)
 
-```bash
-# Basic installation
-pip install boto3
+#### Mental Model: Boto3 = Phone Line to AWS
 
-# With AWS CLI (recommended)
-pip install boto3 awscli
+Think of Boto3 as a phone line to AWS:
+- **AWS Services** = People at AWS offices (S3, EC2, Lambda, etc.)
+- **Boto3 Client** = Direct phone line - you speak to the person directly (technical, low-level)
+- **Boto3 Resource** = Phone receptionist - they handle details for you (simpler, higher-level)
+- **Session** = Your phone account - credentials + region configuration
 
-# For data science workloads
-pip install boto3 pandas numpy
+#### Client vs Resource: The Core Decision
 
-# For advanced use cases
-pip install boto3 botocore retrying
-```
+This is THE most important decision you'll make when using Boto3. Choose wrong, and you'll write verbose or awkward code.
 
-**Check installation:**
-```python
-import boto3
-print(boto3.__version__)  # Should be 1.26+
-```
+##### When to Use Client (Low-Level)
 
----
+**Use Client when you need**:
+- Complete control over AWS API parameters
+- Access to ALL service operations
+- Direct mapping to AWS API documentation
+- Building custom abstractions
+- Services without Resource support
 
-### Client vs Resource: The Core Decision
+**Client Characteristics**:
+- Maps 1:1 to AWS API
+- More verbose
+- More powerful and flexible
+- Returns dictionaries
+- Required for less common operations
 
-This is THE most important concept in Boto3. Most confusion comes from not understanding when to use each.
-
-#### What is a Client?
-
-**Definition**: A client is a **low-level interface** that maps 1:1 with the AWS service API.
-
-**Characteristics:**
-- Provides ALL available operations
-- Explicit control - you control every parameter
-- Returns raw responses as dictionaries
-- Requires understanding AWS API details
-
-**When to use Client:**
+**Example: S3 Client**:
 ```python
 import boto3
 
-# Use client when:
-# 1. You need ALL operations
-# 2. You want explicit control
-# 3. You're integrating with AWS APIs
-# 4. You need advanced features (pagination, filtering)
+client = boto3.client('s3')
 
-s3_client = boto3.client('s3', region_name='us-east-1')
+# Upload a file
+response = client.put_object(
+    Bucket='my-bucket',
+    Key='data.txt',
+    Body=b'Hello, World!'
+)
 
-# Client returns raw dictionaries
-response = s3_client.list_objects_v2(Bucket='my-bucket', MaxKeys=10)
-print(response['Contents'])  # Raw API response
+# List objects
+response = client.list_objects_v2(Bucket='my-bucket')
+for obj in response.get('Contents', []):
+    print(obj['Key'])
 ```
 
-#### What is a Resource?
+**When This is Better**:
+- Uploading to S3 with specific metadata
+- Configuring advanced options (SSE, ACLs, etc.)
+- Building automation tools
+- Accessing every AWS API parameter
 
-**Definition**: A resource is a **high-level, object-oriented interface** that abstracts AWS services.
+##### When to Use Resource (High-Level)
 
-**Characteristics:**
-- Simplified, Pythonic API
-- Common operations only (not all)
-- Returns objects with methods and properties
-- Hides low-level API details
+**Use Resource when you want**:
+- Simpler, more Pythonic code
+- Object-oriented interface
+- Less boilerplate
+- Quick prototyping
+- Clear relationships (Bucket → Object → Content)
 
-**When to use Resource:**
+**Resource Characteristics**:
+- Higher abstraction level
+- Cleaner code
+- Manages pagination automatically
+- Returns objects (not just dicts)
+- Simpler learning curve
+
+**Example: S3 Resource**:
 ```python
 import boto3
 
-# Use resource when:
-# 1. You want cleaner code
-# 2. You need basic operations
-# 3. You're building applications
-# 4. You want Pythonic syntax
-
-s3_resource = boto3.resource('s3', region_name='us-east-1')
-
-# Resource returns objects with methods
-bucket = s3_resource.Bucket('my-bucket')
-for obj in bucket.objects.all():
-    print(obj.key)  # Clean, Pythonic
-```
-
-#### Client vs Resource: Detailed Comparison
-
-| Aspect | Client | Resource |
-|--------|--------|----------|
-| **Syntax** | `response = client.list_objects(...)` | `bucket.objects.all()` |
-| **Returns** | Dictionary | Python object |
-| **Code Style** | Procedural | Object-oriented |
-| **Operations** | All AWS operations | Common operations |
-| **Complexity** | More verbose | Cleaner |
-| **Control** | Full control | Abstracted |
-| **Learning Curve** | Moderate | Easy |
-| **Performance** | Same | Same |
-| **Use Case** | Complex workflows | Simple apps |
-
-#### Practical Examples: When to Use Each
-
-**Scenario 1: Simple S3 upload**
-```python
-# ❌ WRONG: Too verbose with client
-import boto3
-s3 = boto3.client('s3')
-with open('file.txt', 'rb') as f:
-    s3.put_object(Bucket='bucket', Key='file.txt', Body=f)
-
-# ✅ RIGHT: Cleaner with resource
-import boto3
 s3 = boto3.resource('s3')
-s3.Bucket('bucket').upload_file('file.txt', 'file.txt')
+
+# Upload a file
+bucket = s3.Bucket('my-bucket')
+bucket.put_object(Key='data.txt', Body=b'Hello, World!')
+
+# List objects
+for obj in bucket.objects.all():
+    print(obj.key)
 ```
 
-**Scenario 2: Advanced EC2 filtering**
+**When This is Better**:
+- Quick scripts and prototyping
+- Standard operations (upload, download, list)
+- Learning AWS with Boto3
+- Working with related objects (iterate bucket → objects)
+
+##### Quick Comparison Table
+
+| Feature | Client | Resource |
+|---------|--------|----------|
+| **API Mapping** | 1:1 with AWS | Higher abstraction |
+| **Code Length** | Verbose | Concise |
+| **Learning Curve** | Steeper | Gentle |
+| **Operations** | All AWS operations | Common operations |
+| **Return Type** | Dictionary | Python objects |
+| **Flexibility** | Maximum | Good |
+| **Best For** | Production, automation | Learning, prototyping |
+| **Example** | `put_object()` | `bucket.put_object()` |
+
+**Real Example: EC2**:
 ```python
-# ✅ RIGHT: Must use client for complex filters
-import boto3
-ec2 = boto3.client('ec2', region_name='us-east-1')
-instances = ec2.describe_instances(
-    Filters=[
-        {'Name': 'instance-state-name', 'Values': ['running']},
-        {'Name': 'tag:Environment', 'Values': ['production']},
-        {'Name': 'instance-type', 'Values': ['t3.medium', 't3.large']}
-    ]
+# CLIENT: List instances by state
+client = boto3.client('ec2')
+response = client.describe_instances(
+    Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
 )
+for reservation in response['Reservations']:
+    for instance in reservation['Instances']:
+        print(instance['InstanceId'])
 
-# ❌ WRONG: Resource doesn't support these filters
-# ec2_resource = boto3.resource('ec2')
-# Can't use advanced filters with resource
-```
-
-**Scenario 3: DynamoDB operations**
-```python
-# For complex queries, use client
-import boto3
-dynamodb = boto3.client('dynamodb')
-response = dynamodb.query(
-    TableName='users',
-    KeyConditionExpression='user_id = :uid AND created_at > :date',
-    ExpressionAttributeValues={
-        ':uid': {'S': 'user_123'},
-        ':date': {'N': '1699999999'}
-    }
+# RESOURCE: List instances by state
+ec2 = boto3.resource('ec2')
+running_instances = ec2.instances.filter(
+    Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
 )
-
-# For simple operations, resource is cleaner
-import boto3
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('users')
-response = table.query(
-    KeyConditionExpression='user_id = :uid',
-    ExpressionAttributeValues={':uid': 'user_123'}
-)
+for instance in running_instances:
+    print(instance.id)
 ```
 
----
+#### Sessions: Your AWS Identity
 
-### Session Management: Credentials and Configuration
+A Session stores AWS credentials and configuration. It's how Boto3 knows WHO you are and WHERE (region) you're accessing.
 
-A **Session** represents your AWS credentials and configuration.
-
-#### Default Session (Implicit)
-
+**Default Session** (easiest):
 ```python
 import boto3
 
-# Uses default credentials from:
-# 1. AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY env vars
-# 2. ~/.aws/credentials file (default profile)
-# 3. IAM role (if running on EC2/Lambda/ECS)
-
-s3 = boto3.client('s3')  # Uses default session implicitly
-```
-
-#### Custom Session (Explicit)
-
-```python
-import boto3
-from boto3 import Session
-
-# Create explicit session
-session = Session(
-    aws_access_key_id='YOUR_ACCESS_KEY',
-    aws_secret_access_key='YOUR_SECRET_KEY',
-    region_name='us-east-1'
-)
-
-# Use session to create clients
-s3 = session.client('s3')
-ec2 = session.client('ec2')
-```
-
-#### Using Named Profiles
-
-```python
-import boto3
-from boto3 import Session
-
-# Use a specific AWS CLI profile
-# Assumes you've run: aws configure --profile production
-session = Session(profile_name='production')
-s3 = session.client('s3')
-
-# List all available profiles
-import os
-aws_config = os.path.expanduser('~/.aws/credentials')
-```
-
-#### Environment Variables
-
-```bash
-# Set credentials via environment
-export AWS_ACCESS_KEY_ID='your_access_key'
-export AWS_SECRET_ACCESS_KEY='your_secret_key'
-export AWS_DEFAULT_REGION='us-east-1'
-
-# Optional: set profile
-export AWS_PROFILE='production'
-```
-
-```python
-import boto3
-
-# Now boto3 uses environment variables automatically
+# Uses default AWS credentials automatically
 s3 = boto3.client('s3')
+ec2 = boto3.client('ec2')
 ```
 
----
-
-### Configuration Options
-
-#### Custom Configuration
-
+**Custom Session** (explicit control):
 ```python
 import boto3
-from botocore.config import Config
 
-# Create custom configuration
-config = Config(
-    region_name='us-east-1',
-    signature_version='s3v4',  # For S3
-    retries={'max_attempts': 3, 'mode': 'standard'},
-    connect_timeout=5,
-    read_timeout=60,
-    max_pool_connections=10
-)
+# Create explicit session with specific profile
+session = boto3.Session(profile_name='my-profile')
+s3 = session.client('s3')
+ec2 = session.client('ec2', region_name='us-west-2')
+```
 
-# Apply to client
-s3 = boto3.client('s3', config=config)
+**Session Configuration Sources** (checked in order):
+1. Parameters passed to Session()
+2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN)
+3. ~/.aws/credentials (AWS credentials file)
+4. ~/.aws/config (AWS configuration file)
+5. IAM role (if running on EC2)
+
+**Session Attributes**:
+```python
+session = boto3.Session()
+
+print(session.get_credentials())      # AccessKey, SecretKey, Token
+print(session.get_config_variable('region'))  # Current region
+print(session.available_services)     # All available AWS services
+```
+
+#### Configuration: Where Credentials Come From
+
+Boto3 looks for credentials in this order:
+1. **Passed to Session/Client**: `boto3.client('s3', aws_access_key_id='...', aws_secret_access_key='...')`
+2. **Environment Variables**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`
+3. **Credentials File**: `~/.aws/credentials`
+4. **Config File**: `~/.aws/config`
+5. **IAM Role**: If running on EC2, ECS, Lambda, etc.
+
+**Best Practice**:
+```python
+# DON'T: Hardcode credentials
+client = boto3.client('s3', aws_access_key_id='...', aws_secret_access_key='...')
+
+# DO: Use environment variables or IAM role
+client = boto3.client('s3')
+
+# DO: Use profiles for multiple accounts
+session = boto3.Session(profile_name='prod-account')
+client = session.client('s3')
 ```
 
 #### Regions and Endpoints
 
+Every AWS service runs in multiple regions. You specify which region you want to use.
+
+**Standard Region Specification**:
+```python
+# Region in client call
+s3_client = boto3.client('s3', region_name='us-east-1')
+
+# Region in session
+session = boto3.Session(region_name='eu-west-1')
+s3 = session.client('s3')
+
+# Environment variable
+import os
+os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-1'
+client = boto3.client('s3')
+```
+
+**Region Naming**:
+- `us-east-1` = N. Virginia (oldest, often cheapest)
+- `us-west-2` = Oregon
+- `eu-west-1` = Ireland
+- `ap-southeast-1` = Singapore
+- See [AWS Regions](https://docs.aws.amazon.com/general/latest/gr/rande.html) for complete list
+
+**Get All Available Regions for a Service**:
 ```python
 import boto3
 
-# Use specific region
-s3_us_east = boto3.client('s3', region_name='us-east-1')
-s3_eu_west = boto3.client('s3', region_name='eu-west-1')
-
-# Custom endpoint (LocalStack example)
-s3_local = boto3.client(
-    's3',
-    endpoint_url='http://localhost:4566',  # LocalStack
-    region_name='us-east-1',
-    aws_access_key_id='test',
-    aws_secret_access_key='test'
-)
+client = boto3.client('ec2', region_name='us-east-1')
+response = client.describe_regions()
+for region in response['Regions']:
+    print(f"{region['RegionName']}: {region['RegionEndpoint']}")
 ```
 
 ---
 
-## Chapter 2: Core Patterns
+### Chapter 2: Core Patterns
 
-### Error Handling: Boto Exceptions
+#### Error Handling: Expect Things to Fail
 
-Boto3 uses botocore exceptions. Understanding them is crucial for production.
+AWS operations can fail for many reasons: invalid credentials, rate limiting, resource not found, etc. Always handle errors gracefully.
 
-#### Common Exceptions
-
-```python
-import boto3
-from botocore.exceptions import (
-    NoCredentialsError,
-    ClientError,
-    ConnectionError,
-    Waiter,
-    WaiterError
-)
-
-# Example 1: NoCredentialsError
-s3 = boto3.client('s3')
-
-try:
-    s3.list_buckets()
-except NoCredentialsError:
-    print("AWS credentials not found. Configure with: aws configure")
-
-# Example 2: ClientError (most common)
-try:
-    s3.get_object(Bucket='non-existent-bucket', Key='file.txt')
-except ClientError as e:
-    error_code = e.response['Error']['Code']
-    error_message = e.response['Error']['Message']
-
-    if error_code == 'NoSuchBucket':
-        print(f"Bucket not found: {error_message}")
-    elif error_code == 'NoSuchKey':
-        print(f"File not found: {error_message}")
-    elif error_code == 'AccessDenied':
-        print(f"Permission denied: {error_message}")
-    else:
-        print(f"Unexpected error: {error_code} - {error_message}")
-
-# Example 3: ConnectionError
-try:
-    ec2 = boto3.client('ec2', region_name='us-east-1')
-    ec2.describe_instances()
-except ConnectionError:
-    print("Network error. Check your connection and AWS endpoint.")
+**Exception Hierarchy**:
+```
+botocore.exceptions.BotoCoreError (base exception)
+├── ClientError (most common - something went wrong with your AWS call)
+├── NoCredentialsError (can't find AWS credentials)
+├── PartialCredentialsError (incomplete credentials)
+├── InvalidConfigError (bad config)
+└── ... (20+ other exceptions)
 ```
 
-#### Error Handling Best Practices
-
+**Catching ClientError** (99% of what you need):
 ```python
 import boto3
 from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3')
+
+try:
+    s3.head_object(Bucket='my-bucket', Key='data.txt')
+    print("File exists")
+except ClientError as e:
+    error_code = e.response['Error']['Code']
+    if error_code == '404':
+        print("File not found")
+    elif error_code == 'AccessDenied':
+        print("No permission to access bucket")
+    else:
+        print(f"Unexpected error: {error_code}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+**Common Error Codes**:
+| Code | Meaning | Your Action |
+|------|---------|------------|
+| `NoCredentialsError` | AWS credentials not found | Check AWS_ACCESS_KEY_ID, ~/.aws/credentials |
+| `AccessDenied` | IAM policy blocks operation | Check IAM permissions |
+| `NoSuchBucket` | S3 bucket doesn't exist | Verify bucket name and region |
+| `ThrottlingException` | Too many requests | Implement exponential backoff |
+| `RequestLimitExceeded` | Service limit hit | Add delays, use async |
+| `InvalidParameterValue` | Bad parameter | Check API docs for valid values |
+
+**Retry Pattern with Exponential Backoff**:
+```python
 import time
+from botocore.exceptions import ClientError
 
-def robust_s3_get(bucket, key, max_retries=3):
-    """
-    Get S3 object with retry logic.
-
-    Demonstrates:
-    - Exponential backoff
-    - Selective error handling
-    - Logging
-    """
-    s3 = boto3.client('s3')
-
-    for attempt in range(max_retries):
+def retry_operation(operation, max_attempts=3):
+    """Retry an operation with exponential backoff"""
+    for attempt in range(max_attempts):
         try:
-            response = s3.get_object(Bucket=bucket, Key=key)
-            return response['Body'].read()
-
+            return operation()
         except ClientError as e:
-            error_code = e.response['Error']['Code']
-
-            # Retryable errors (temporary issues)
-            if error_code in ['ServiceUnavailable', 'RequestLimitExceeded', 'ThrottlingException']:
-                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
-                if attempt < max_retries - 1:
-                    print(f"Retryable error {error_code}. Waiting {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise Exception(f"Failed after {max_retries} attempts: {error_code}")
-
-            # Non-retryable errors
-            elif error_code == 'NoSuchBucket':
-                raise ValueError(f"Bucket '{bucket}' does not exist")
-            elif error_code == 'NoSuchKey':
-                raise ValueError(f"Key '{key}' does not exist in bucket '{bucket}'")
-            elif error_code == 'AccessDenied':
-                raise PermissionError(f"Access denied to bucket '{bucket}' or key '{key}'")
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                wait_time = 2 ** attempt  # 1, 2, 4 seconds
+                print(f"Throttled. Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
             else:
-                raise Exception(f"AWS error: {error_code}")
+                raise
+    raise Exception(f"Failed after {max_attempts} attempts")
 
 # Usage
-try:
-    data = robust_s3_get('my-bucket', 'important-file.csv')
-    print(f"Retrieved {len(data)} bytes")
-except Exception as e:
-    print(f"Error: {e}")
+response = retry_operation(
+    lambda: s3.list_objects_v2(Bucket='my-bucket')
+)
 ```
 
----
-
-### Pagination: Handling Large Result Sets
-
-When AWS returns results, sometimes there are too many to fit in one response. Pagination handles this.
-
-#### Manual Pagination
-
+**Better: Use Boto3's Built-in Retries**:
 ```python
-import boto3
+from botocore.config import Config
 
+# Configure automatic retries
+config = Config(retries={'max_attempts': 3, 'mode': 'adaptive'})
+s3 = boto3.client('s3', config=config)
+
+# Now automatic retries happen internally
+response = s3.list_objects_v2(Bucket='my-bucket')
+```
+
+#### Pagination: Handling Large Result Sets
+
+AWS limits response sizes to prevent overload. Use pagination to fetch all results.
+
+**Without Pagination** (Wrong):
+```python
+# This only gets first 1000 objects!
 s3 = boto3.client('s3')
+response = s3.list_objects_v2(Bucket='my-bucket')
+for obj in response.get('Contents', []):
+    print(obj['Key'])
+# Stops after 1000 if bucket has more
+```
 
-# Manual pagination (verbose)
-marker = None
-all_objects = []
+**Manual Pagination** (Works but tedious):
+```python
+s3 = boto3.client('s3')
+continuation_token = None
 
 while True:
-    if marker:
-        response = s3.list_objects(Bucket='my-bucket', Marker=marker)
+    if continuation_token:
+        response = s3.list_objects_v2(
+            Bucket='my-bucket',
+            ContinuationToken=continuation_token
+        )
     else:
-        response = s3.list_objects(Bucket='my-bucket')
+        response = s3.list_objects_v2(Bucket='my-bucket')
 
-    # Collect objects
-    if 'Contents' in response:
-        all_objects.extend(response['Contents'])
+    for obj in response.get('Contents', []):
+        print(obj['Key'])
 
-    # Check if there are more results
     if response.get('IsTruncated'):
-        marker = response.get('NextMarker')
+        continuation_token = response['NextContinuationToken']
     else:
         break
-
-print(f"Total objects: {len(all_objects)}")
 ```
 
-#### Paginator: The Clean Way
-
+**Using Paginator** (Recommended):
 ```python
-import boto3
-
 s3 = boto3.client('s3')
 
-# Using paginator (recommended)
+# Get paginator for this operation
 paginator = s3.get_paginator('list_objects_v2')
 
-# Configure pagination
-page_iterator = paginator.paginate(
-    Bucket='my-bucket',
-    Prefix='data/',
-    PaginationConfig={
-        'PageSize': 100,  # Items per request
-        'MaxItems': 1000   # Total items to fetch
-    }
-)
-
-# Iterate through all pages
-for page in page_iterator:
-    if 'Contents' not in page:
-        continue
-
-    for obj in page['Contents']:
-        print(f"{obj['Key']} - {obj['Size']} bytes")
-
-# Alternative: iterate directly (even cleaner)
-paginator = s3.get_paginator('list_objects_v2')
+# Create page iterator
 pages = paginator.paginate(Bucket='my-bucket')
 
-all_objects = []
+# Iterate through all pages
 for page in pages:
-    if 'Contents' in page:
-        all_objects.extend(page['Contents'])
+    for obj in page.get('Contents', []):
+        print(obj['Key'])
 ```
 
-#### Available Paginators
-
+**Even Cleaner: build_full_result**:
 ```python
-import boto3
-
-# Check available paginators for a service
 s3 = boto3.client('s3')
-available_paginators = s3.can_paginate
-print(available_paginators)
+paginator = s3.get_paginator('list_objects_v2')
 
-# Common paginators
-ec2 = boto3.client('ec2')
-print(ec2.can_paginate)  # List all EC2 paginators
+# Automatically handles pagination
+for obj in paginator.paginate(Bucket='my-bucket').build_full_result().get('Contents', []):
+    print(obj['Key'])
 ```
 
----
-
-### Waiters: Waiting for Resource State Changes
-
-Waiters poll a resource until it reaches a desired state.
-
-#### Common Waiters
-
+**Available Paginators** (check which operations support pagination):
 ```python
-import boto3
-import time
-
-# Example 1: Wait for S3 bucket to exist
 s3 = boto3.client('s3')
+print(s3.can_paginate('list_objects_v2'))  # True
+print(s3.can_paginate('put_object'))       # False (single operation)
 
-# Create bucket
-s3.create_bucket(Bucket='my-new-bucket')
+# List all paginatable operations
+print(s3.meta.service_model.operation_names)
+```
 
-# Wait for it to be available
-waiter = s3.get_waiter('bucket_exists')
-waiter.wait(Bucket='my-new-bucket')
-print("Bucket is ready!")
+**Pagination with Filtering**:
+```python
+paginator = s3.get_paginator('list_objects_v2')
 
-# Example 2: Wait for EC2 instance to be running
+# Filter only .txt files
+pages = paginator.paginate(Bucket='my-bucket')
+txt_files = []
+for page in pages:
+    for obj in page.get('Contents', []):
+        if obj['Key'].endswith('.txt'):
+            txt_files.append(obj['Key'])
+```
+
+#### Waiters: Waiting for Async Operations
+
+Many AWS operations are asynchronous. Waiters poll the service until an operation completes.
+
+**Mental Model**: Waiter = Automated "are we done yet?" polling
+
+**Common Wait Scenarios**:
+- EC2 instance starting up
+- RDS database becoming available
+- S3 object existing after creation
+- Lambda function updating
+
+**Using Waiters**:
+```python
 ec2 = boto3.client('ec2')
 
-# Launch instance
-response = ec2.run_instances(ImageId='ami-0c55b159cbfafe1f0', MinCount=1, MaxCount=1)
+# Start instances
+response = ec2.run_instances(ImageId='ami-12345', MinCount=1, MaxCount=1)
 instance_id = response['Instances'][0]['InstanceId']
-
-# Wait for instance to run
-waiter = ec2.get_waiter('instance_running')
-waiter.wait(InstanceIds=[instance_id])
-print(f"Instance {instance_id} is running!")
-
-# Example 3: Wait for RDS database to be available
-rds = boto3.client('rds')
-
-# Create database
-rds.create_db_instance(
-    DBInstanceIdentifier='mydb',
-    DBInstanceClass='db.t3.micro',
-    Engine='mysql',
-    MasterUsername='admin',
-    MasterUserPassword='password123'
-)
-
-# Wait for it to be available
-waiter = rds.get_waiter('db_instance_available')
-waiter.wait(DBInstanceIdentifier='mydb')
-print("Database is ready!")
-```
-
-#### Custom Waiter Configuration
-
-```python
-import boto3
-
-ec2 = boto3.client('ec2')
-
-# Wait with custom configuration
-waiter = ec2.get_waiter('instance_running')
-waiter.wait(
-    InstanceIds=['i-1234567890abcdef0'],
-    WaiterConfig={
-        'Delay': 5,      # Check every 5 seconds
-        'MaxAttempts': 40  # Try for up to 200 seconds (40 * 5)
-    }
-)
-```
-
----
-
-### Batch Operations: Processing Multiple Items
-
-Efficiently process multiple items using batch operations.
-
-#### SQS Batch Example
-
-```python
-import boto3
-import json
-
-sqs = boto3.client('sqs')
-
-# Send batch of messages (up to 10)
-entries = []
-for i in range(25):
-    entries.append({
-        'Id': str(i),
-        'MessageBody': json.dumps({'item_id': i, 'action': 'process'})
-    })
-
-    # SQS has a limit of 10 messages per batch
-    if len(entries) == 10:
-        sqs.send_message_batch(
-            QueueUrl='https://sqs.us-east-1.amazonaws.com/123456789/myqueue',
-            Entries=entries
-        )
-        entries = []
-
-# Send remaining
-if entries:
-    sqs.send_message_batch(QueueUrl=queue_url, Entries=entries)
-```
-
-#### EC2 Tag Batch Example
-
-```python
-import boto3
-
-ec2 = boto3.client('ec2')
-
-# Tag multiple instances at once
-instance_ids = ['i-1234567890abcdef0', 'i-0987654321fedcba0']
-ec2.create_tags(
-    Resources=instance_ids,
-    Tags=[
-        {'Key': 'Environment', 'Value': 'production'},
-        {'Key': 'Team', 'Value': 'data-engineering'}
-    ]
-)
-```
-
----
-
-# PART 2: SERVICE DEEP DIVES
-
-## Chapter 3: EC2 with Boto3
-
-### Instance Lifecycle Management
-
-```python
-import boto3
-import time
-
-ec2 = boto3.client('ec2', region_name='us-east-1')
-
-# Launch instance
-response = ec2.run_instances(
-    ImageId='ami-0c55b159cbfafe1f0',  # Ubuntu 22.04
-    MinCount=1,
-    MaxCount=1,
-    InstanceType='t3.micro',
-    TagSpecifications=[
-        {
-            'ResourceType': 'instance',
-            'Tags': [
-                {'Key': 'Name', 'Value': 'my-web-server'},
-                {'Key': 'Environment', 'Value': 'development'}
-            ]
-        }
-    ]
-)
-
-instance_id = response['Instances'][0]['InstanceId']
-print(f"Launched instance: {instance_id}")
 
 # Wait for instance to be running
 waiter = ec2.get_waiter('instance_running')
+print("Waiting for instance to start...")
 waiter.wait(InstanceIds=[instance_id])
-print("Instance is running")
+print("Instance is running!")
+```
 
-# Describe instance to get details
+**Available Waiters** (service specific):
+```python
+ec2 = boto3.client('ec2')
+print(ec2.waiter_names)
+# ['bundle_task_complete', 'conversion_task_cancelled', 'conversion_task_completed', ...]
+
+# For S3
+s3 = boto3.client('s3')
+print(s3.waiter_names)
+# ['bucket_exists', 'bucket_not_exists', 'object_exists', 'object_not_exists']
+```
+
+**Waiter Example: S3 Object Upload**:
+```python
+s3 = boto3.client('s3')
+
+# Upload file
+s3.put_object(Bucket='my-bucket', Key='data.txt', Body=b'Hello')
+
+# Wait for object to be accessible
+waiter = s3.get_waiter('object_exists')
+waiter.wait(Bucket='my-bucket', Key='data.txt')
+print("Object is now accessible!")
+```
+
+**Waiter Configuration** (timeout, delay):
+```python
+ec2 = boto3.client('ec2')
+waiter = ec2.get_waiter('instance_running')
+
+# Configure waiter behavior
+waiter.wait(
+    InstanceIds=['i-123456'],
+    WaiterConfig={
+        'Delay': 15,        # Check every 15 seconds (default: 15)
+        'MaxAttempts': 40   # Max 40 checks = 10 minutes (default: 40)
+    }
+)
+```
+
+**Handling Waiter Timeouts**:
+```python
+from botocore.exceptions import WaiterError
+
+ec2 = boto3.client('ec2')
+waiter = ec2.get_waiter('instance_running')
+
+try:
+    waiter.wait(InstanceIds=['i-123456'])
+except WaiterError as e:
+    print(f"Instance failed to start: {e}")
+    # Check instance status
+    response = ec2.describe_instances(InstanceIds=['i-123456'])
+    state = response['Reservations'][0]['Instances'][0]['State']
+    print(f"Current state: {state['Name']}")
+```
+
+#### Response Structure Navigation
+
+AWS API responses are dictionaries (for clients) or objects (for resources). Learning to navigate them is essential.
+
+**Understanding Response Structure**:
+```python
+s3 = boto3.client('s3')
+response = s3.list_objects_v2(Bucket='my-bucket')
+
+# Response is a dictionary
+print(type(response))  # <class 'dict'>
+print(response.keys()) # dict_keys(['ResponseMetadata', 'Contents', ...])
+
+# Access nested data
+for obj in response.get('Contents', []):  # Use .get() to avoid KeyError
+    print(f"Key: {obj['Key']}, Size: {obj['Size']} bytes")
+
+# ResponseMetadata is always present
+print(response['ResponseMetadata']['HTTPStatusCode'])  # 200
+print(response['ResponseMetadata']['RequestId'])       # AWS request ID
+```
+
+**Safe Navigation Pattern** (always use .get()):
+```python
+# BAD: KeyError if 'Contents' doesn't exist
+for obj in response['Contents']:
+    print(obj['Key'])
+
+# GOOD: .get() returns [] if Contents doesn't exist
+for obj in response.get('Contents', []):
+    print(obj['Key'])
+```
+
+**Resource Objects** (cleaner):
+```python
+s3 = boto3.resource('s3')
+bucket = s3.Bucket('my-bucket')
+
+# Objects are accessed as attributes
+for obj in bucket.objects.all():
+    print(f"Key: {obj.key}, Size: {obj.size}")
+
+# Compare to client (dictionary access)
+client = boto3.client('s3')
+response = client.list_objects_v2(Bucket='my-bucket')
+for obj in response['Contents']:
+    print(f"Key: {obj['Key']}, Size: {obj['Size']}")
+```
+
+#### Batch Operations
+
+Perform multiple operations efficiently using batch patterns.
+
+**Batch Upload** (S3):
+```python
+s3 = boto3.client('s3')
+import os
+
+# Upload all files from directory
+for filename in os.listdir('/path/to/files'):
+    filepath = os.path.join('/path/to/files', filename)
+    if os.path.isfile(filepath):
+        with open(filepath, 'rb') as f:
+            s3.put_object(
+                Bucket='my-bucket',
+                Key=f'uploads/{filename}',
+                Body=f
+            )
+        print(f"Uploaded {filename}")
+```
+
+**Batch Download** (S3):
+```python
+import boto3
+import os
+
+s3 = boto3.client('s3')
+
+response = s3.list_objects_v2(Bucket='my-bucket', Prefix='data/')
+for obj in response.get('Contents', []):
+    # Download object
+    filename = obj['Key'].split('/')[-1]
+    s3.download_file('my-bucket', obj['Key'], f'/local/path/{filename}')
+    print(f"Downloaded {filename}")
+```
+
+**Batch Delete**:
+```python
+s3 = boto3.client('s3')
+
+# Delete up to 1000 objects in one call
+objects_to_delete = [
+    {'Key': 'file1.txt'},
+    {'Key': 'file2.txt'},
+    {'Key': 'file3.txt'}
+]
+
+response = s3.delete_objects(
+    Bucket='my-bucket',
+    Delete={'Objects': objects_to_delete}
+)
+
+# Check results
+for deleted in response['Deleted']:
+    print(f"Deleted {deleted['Key']}")
+
+for error in response.get('Errors', []):
+    print(f"Failed to delete {error['Key']}: {error['Message']}")
+```
+
+**Batch with Threading** (parallel operations):
+```python
+import boto3
+from concurrent.futures import ThreadPoolExecutor
+
+s3 = boto3.client('s3')
+
+def upload_file(filepath):
+    filename = os.path.basename(filepath)
+    with open(filepath, 'rb') as f:
+        s3.put_object(Bucket='my-bucket', Key=filename, Body=f)
+    return filename
+
+files = ['/path/file1.txt', '/path/file2.txt', '/path/file3.txt']
+
+# Upload 5 files in parallel
+with ThreadPoolExecutor(max_workers=5) as executor:
+    results = executor.map(upload_file, files)
+    for filename in results:
+        print(f"Uploaded {filename}")
+```
+
+---
+
+## PART 2: SERVICE DEEP DIVES
+
+### Chapter 3: EC2 with Boto3
+
+#### Instance Lifecycle
+
+EC2 instances go through several states. Understanding this is key to managing them.
+
+**States**: pending → running → stopping → stopped → terminated
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+# 1. LAUNCH instances
+response = ec2.run_instances(
+    ImageId='ami-0c55b159cbfafe1f0',  # Amazon Linux 2
+    MinCount=1,
+    MaxCount=1,
+    InstanceType='t2.micro',
+    TagSpecifications=[{
+        'ResourceType': 'instance',
+        'Tags': [
+            {'Key': 'Name', 'Value': 'my-server'},
+            {'Key': 'Environment', 'Value': 'dev'}
+        ]
+    }]
+)
+instance_id = response['Instances'][0]['InstanceId']
+print(f"Launched instance {instance_id}")
+
+# 2. WAIT for instance to be running
+waiter = ec2.get_waiter('instance_running')
+waiter.wait(InstanceIds=[instance_id])
+print(f"Instance {instance_id} is running")
+
+# 3. DESCRIBE instance details
 response = ec2.describe_instances(InstanceIds=[instance_id])
 instance = response['Reservations'][0]['Instances'][0]
 print(f"Public IP: {instance.get('PublicIpAddress')}")
 print(f"Private IP: {instance['PrivateIpAddress']}")
+print(f"State: {instance['State']['Name']}")
 
-# Stop instance (doesn't delete)
+# 4. STOP instance (can restart later)
 ec2.stop_instances(InstanceIds=[instance_id])
-print("Instance stopped")
+waiter = ec2.get_waiter('instance_stopped')
+waiter.wait(InstanceIds=[instance_id])
+print(f"Instance {instance_id} stopped")
 
-# Start it again
+# 5. START instance again
 ec2.start_instances(InstanceIds=[instance_id])
-print("Instance started")
+waiter = ec2.get_waiter('instance_running')
+waiter.wait(InstanceIds=[instance_id])
+print(f"Instance {instance_id} restarted")
 
-# Terminate instance (deletes it)
+# 6. TERMINATE instance (permanent delete)
 ec2.terminate_instances(InstanceIds=[instance_id])
-print("Instance terminated")
+print(f"Instance {instance_id} terminated")
 ```
 
-### Security Groups
+#### Working with Security Groups
+
+Security groups are like firewalls for EC2 instances.
 
 ```python
-import boto3
+ec2 = boto3.client('ec2')
 
-ec2 = boto3.client('ec2', region_name='us-east-1')
-
-# Create security group
-sg_response = ec2.create_security_group(
+# CREATE security group
+vpc_id = 'vpc-12345'  # Use your VPC ID
+response = ec2.create_security_group(
     GroupName='web-server-sg',
     Description='Security group for web servers',
-    VpcId='vpc-12345678'  # Use your VPC ID
+    VpcId=vpc_id
 )
-sg_id = sg_response['GroupId']
+sg_id = response['GroupId']
+print(f"Created security group {sg_id}")
 
-# Add inbound rule: Allow HTTP
+# ADD INGRESS RULES (inbound traffic)
+# Allow SSH from anywhere (not recommended for prod)
 ec2.authorize_security_group_ingress(
     GroupId=sg_id,
     IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 22,
+            'ToPort': 22,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'SSH from anywhere'}]
+        },
         {
             'IpProtocol': 'tcp',
             'FromPort': 80,
@@ -715,43 +743,77 @@ ec2.authorize_security_group_ingress(
             'FromPort': 443,
             'ToPort': 443,
             'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'HTTPS from anywhere'}]
-        },
+        }
+    ]
+)
+print("Added ingress rules")
+
+# LIST current rules
+response = ec2.describe_security_groups(GroupIds=[sg_id])
+sg = response['SecurityGroups'][0]
+print("\nIngress Rules:")
+for rule in sg['IpPermissions']:
+    protocol = rule['IpProtocol']
+    from_port = rule.get('FromPort', 'N/A')
+    to_port = rule.get('ToPort', 'N/A')
+    ip_ranges = rule.get('IpRanges', [])
+    for ip in ip_ranges:
+        print(f"  {protocol} {from_port}-{to_port} from {ip['CidrIp']}")
+
+# REVOKE rule (remove)
+ec2.revoke_security_group_ingress(
+    GroupId=sg_id,
+    IpPermissions=[
         {
             'IpProtocol': 'tcp',
             'FromPort': 22,
             'ToPort': 22,
-            'IpRanges': [{'CidrIp': '203.0.113.0/24', 'Description': 'SSH from office'}]
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
         }
     ]
 )
+print("Removed SSH rule")
 
-print(f"Security group {sg_id} created and rules added")
-
-# Describe security groups
-response = ec2.describe_security_groups(GroupIds=[sg_id])
-for rule in response['SecurityGroups'][0]['IpPermissions']:
-    print(f"Allow {rule['IpProtocol']} port {rule.get('FromPort')}")
+# DELETE security group
+ec2.delete_security_group(GroupId=sg_id)
+print(f"Deleted security group {sg_id}")
 ```
 
-### Tagging and Filtering
+#### Instance Tags and Filtering
+
+Tags are key-value pairs for organizing and finding instances.
 
 ```python
-import boto3
+ec2 = boto3.client('ec2')
 
-ec2 = boto3.client('ec2', region_name='us-east-1')
+# LAUNCH instance with tags
+response = ec2.run_instances(
+    ImageId='ami-0c55b159cbfafe1f0',
+    MinCount=1,
+    MaxCount=1,
+    TagSpecifications=[{
+        'ResourceType': 'instance',
+        'Tags': [
+            {'Key': 'Name', 'Value': 'production-server'},
+            {'Key': 'Environment', 'Value': 'production'},
+            {'Key': 'Team', 'Value': 'backend'},
+            {'Key': 'CostCenter', 'Value': 'engineering'}
+        ]
+    }]
+)
 
-# Tag instances
-instance_ids = ['i-1234567890abcdef0']
+instance_id = response['Instances'][0]['InstanceId']
+
+# CREATE tags on existing instance
 ec2.create_tags(
-    Resources=instance_ids,
+    Resources=[instance_id],
     Tags=[
-        {'Key': 'Environment', 'Value': 'production'},
-        {'Key': 'CostCenter', 'Value': 'engineering'},
-        {'Key': 'Backup', 'Value': 'daily'}
+        {'Key': 'Backup', 'Value': 'daily'},
+        {'Key': 'Owner', 'Value': 'alice@company.com'}
     ]
 )
 
-# Filter instances by tags
+# FIND instances by tag
 response = ec2.describe_instances(
     Filters=[
         {'Name': 'tag:Environment', 'Values': ['production']},
@@ -759,133 +821,194 @@ response = ec2.describe_instances(
     ]
 )
 
-print(f"Found {len(response['Reservations'])} instances")
+print("Production servers that are running:")
 for reservation in response['Reservations']:
     for instance in reservation['Instances']:
-        print(f"Instance: {instance['InstanceId']}")
-        for tag in instance.get('Tags', []):
-            print(f"  {tag['Key']}: {tag['Value']}")
+        tags = {t['Key']: t['Value'] for t in instance.get('Tags', [])}
+        print(f"  {instance['InstanceId']}: {tags.get('Name', 'No Name')}")
+
+# DELETE a tag
+ec2.delete_tags(
+    Resources=[instance_id],
+    Tags=[{'Key': 'Backup'}]  # Value not needed for deletion
+)
 ```
 
 ---
 
-## Chapter 4: RDS with Boto3
+### Chapter 4: RDS with Boto3
 
-### Database Instance Management
+#### Creating and Managing DB Instances
 
 ```python
 import boto3
+from botocore.exceptions import ClientError
 
-rds = boto3.client('rds', region_name='us-east-1')
+rds = boto3.client('rds')
 
-# Create RDS instance
-response = rds.create_db_instance(
-    DBInstanceIdentifier='mydb-prod',
-    DBInstanceClass='db.t3.small',
-    Engine='mysql',  # or 'postgres', 'mariadb', 'oracle-se2'
-    MasterUsername='admin',
-    MasterUserPassword='SecurePassword123!',
-    AllocatedStorage=20,  # GB
-    StorageType='gp2',  # General Purpose SSD
-    BackupRetentionPeriod=7,  # Keep 7 days of backups
-    MultiAZ=True,  # High availability
-    Tags=[
-        {'Key': 'Environment', 'Value': 'production'},
-        {'Key': 'Application', 'Value': 'web-app'}
-    ]
-)
+# CREATE database instance
+try:
+    response = rds.create_db_instance(
+        DBInstanceIdentifier='my-postgres-db',
+        DBInstanceClass='db.t2.micro',
+        Engine='postgres',
+        MasterUsername='admin',
+        MasterUserPassword='MySecurePassword123',
+        AllocatedStorage=20,
+        StorageType='gp2',
+        VpcSecurityGroupIds=['sg-12345'],
+        AvailabilityZone='us-east-1a',
+        BackupRetentionPeriod=7,
+        Tags=[
+            {'Key': 'Name', 'Value': 'my-postgres-db'},
+            {'Key': 'Environment', 'Value': 'development'}
+        ]
+    )
+    print("Creating database instance...")
+except ClientError as e:
+    print(f"Error creating instance: {e}")
 
-print(f"Creating database: mydb-prod")
-
-# Wait for database to be available
+# WAIT for instance to be available
 waiter = rds.get_waiter('db_instance_available')
-waiter.wait(
-    DBInstanceIdentifier='mydb-prod',
-    WaiterConfig={'Delay': 30, 'MaxAttempts': 60}  # Up to 30 minutes
-)
-print("Database is available!")
+print("Waiting for DB instance to be available...")
+waiter.wait(DBInstanceIdentifier='my-postgres-db')
+print("DB instance is available!")
 
-# Describe database instance
-response = rds.describe_db_instances(DBInstanceIdentifier='mydb-prod')
+# DESCRIBE instance details
+response = rds.describe_db_instances(DBInstanceIdentifier='my-postgres-db')
 db = response['DBInstances'][0]
 print(f"Endpoint: {db['Endpoint']['Address']}")
 print(f"Port: {db['Endpoint']['Port']}")
-print(f"Engine: {db['Engine']} {db['EngineVersion']}")
 print(f"Status: {db['DBInstanceStatus']}")
+print(f"Storage: {db['AllocatedStorage']} GB")
+
+# MODIFY instance (e.g., increase storage)
+rds.modify_db_instance(
+    DBInstanceIdentifier='my-postgres-db',
+    AllocatedStorage=50,
+    ApplyImmediately=False  # Apply during maintenance window
+)
+print("Modification scheduled")
+
+# CREATE snapshot (backup)
+response = rds.create_db_snapshot(
+    DBSnapshotIdentifier='my-postgres-db-backup-2024-01-15',
+    DBInstanceIdentifier='my-postgres-db'
+)
+print("Snapshot creation started...")
+
+# WAIT for snapshot
+snapshot_waiter = rds.get_waiter('db_snapshot_available')
+snapshot_waiter.wait(DBSnapshotIdentifier='my-postgres-db-backup-2024-01-15')
+print("Snapshot available!")
+
+# RESTORE from snapshot
+try:
+    rds.restore_db_instance_from_db_snapshot(
+        DBInstanceIdentifier='my-postgres-db-restored',
+        DBSnapshotIdentifier='my-postgres-db-backup-2024-01-15'
+    )
+    print("Restoration started...")
+except ClientError as e:
+    print(f"Restore error: {e}")
+
+# DELETE instance
+rds.delete_db_instance(
+    DBInstanceIdentifier='my-postgres-db',
+    SkipFinalSnapshot=False,
+    FinalDBSnapshotIdentifier='final-snapshot'
+)
+print("Deletion started...")
 ```
 
-### Snapshots and Backup
+#### Parameter Groups
+
+Parameter groups control database configuration.
 
 ```python
-import boto3
+rds = boto3.client('rds')
 
-rds = boto3.client('rds', region_name='us-east-1')
-
-# Create manual snapshot
-snapshot_response = rds.create_db_snapshot(
-    DBSnapshotIdentifier='mydb-backup-2024-05',
-    DBInstanceIdentifier='mydb-prod'
+# CREATE parameter group
+response = rds.create_db_parameter_group(
+    DBParameterGroupName='custom-postgres-params',
+    DBParameterGroupFamily='postgres14',
+    Description='Custom parameters for production'
 )
-print("Snapshot creation initiated...")
+print(f"Created parameter group: {response['DBParameterGroup']['DBParameterGroupName']}")
 
-# Wait for snapshot
-waiter = rds.get_waiter('db_snapshot_available')
-waiter.wait(DBSnapshotIdentifier='mydb-backup-2024-05')
-print("Snapshot complete!")
-
-# List snapshots
-response = rds.describe_db_snapshots(DBInstanceIdentifier='mydb-prod')
-for snapshot in response['DBSnapshots']:
-    print(f"Snapshot: {snapshot['DBSnapshotIdentifier']}")
-    print(f"  Created: {snapshot['SnapshotCreateTime']}")
-    print(f"  Size: {snapshot['AllocatedStorage']} GB")
-
-# Restore from snapshot
-restore_response = rds.restore_db_instance_from_db_snapshot(
-    DBInstanceIdentifier='mydb-restored',
-    DBSnapshotIdentifier='mydb-backup-2024-05'
+# MODIFY parameters
+rds.modify_db_parameter_group(
+    DBParameterGroupName='custom-postgres-params',
+    Parameters=[
+        {
+            'ParameterName': 'max_connections',
+            'ParameterValue': '500',
+            'ApplyMethod': 'pending-reboot'
+        },
+        {
+            'ParameterName': 'shared_buffers',
+            'ParameterValue': '16384',
+            'ApplyMethod': 'pending-reboot'
+        }
+    ]
 )
-print("Restore initiated...")
+print("Parameters modified")
+
+# DESCRIBE current parameters
+response = rds.describe_db_parameters(
+    DBParameterGroupName='custom-postgres-params'
+)
+print("\nCustom Parameters:")
+for param in response['Parameters']:
+    if param.get('ParameterValue'):
+        print(f"  {param['ParameterName']} = {param['ParameterValue']}")
+
+# ASSOCIATE parameter group with instance
+rds.modify_db_instance(
+    DBInstanceIdentifier='my-postgres-db',
+    DBParameterGroupName='custom-postgres-params',
+    ApplyImmediately=False
+)
+print("Parameter group associated (pending reboot)")
 ```
 
 ---
 
-## Chapter 5: CloudWatch with Boto3
+### Chapter 5: CloudWatch with Boto3
 
-### Metrics and Custom Metrics
+#### Metrics and Alarms
 
 ```python
 import boto3
 from datetime import datetime, timedelta
 
-cloudwatch = boto3.client('cloudwatch', region_name='us-east-1')
+cloudwatch = boto3.client('cloudwatch')
 
-# Put custom metric
+# PUT custom metric (application sends data)
 cloudwatch.put_metric_data(
     Namespace='MyApplication',
     MetricData=[
         {
             'MetricName': 'ProcessingTime',
-            'Value': 45.2,
+            'Value': 45.5,
             'Unit': 'Milliseconds',
             'Timestamp': datetime.utcnow(),
             'Dimensions': [
                 {'Name': 'Environment', 'Value': 'production'},
-                {'Name': 'Service', 'Value': 'api-gateway'}
+                {'Name': 'Service', 'Value': 'api-server'}
             ]
         },
         {
             'MetricName': 'ErrorCount',
-            'Value': 2,
+            'Value': 3,
             'Unit': 'Count',
             'Timestamp': datetime.utcnow()
         }
     ]
 )
+print("Metrics published")
 
-print("Metrics published to CloudWatch")
-
-# Get metric statistics
+# GET metric statistics
 response = cloudwatch.get_metric_statistics(
     Namespace='MyApplication',
     MetricName='ProcessingTime',
@@ -894,75 +1017,124 @@ response = cloudwatch.get_metric_statistics(
     ],
     StartTime=datetime.utcnow() - timedelta(hours=1),
     EndTime=datetime.utcnow(),
-    Period=60,  # 1 minute
-    Statistics=['Average', 'Maximum', 'Minimum', 'SampleCount']
+    Period=300,  # 5-minute buckets
+    Statistics=['Average', 'Maximum', 'Minimum', 'Sum', 'SampleCount']
 )
 
-print(f"Data points: {len(response['Datapoints'])}")
-for datapoint in response['Datapoints']:
-    print(f"{datapoint['Timestamp']}: Avg={datapoint.get('Average', 'N/A')}")
+print("\nProcessing Time Statistics (last hour):")
+for point in sorted(response['Datapoints'], key=lambda x: x['Timestamp']):
+    print(f"  {point['Timestamp']}: Avg={point['Average']:.1f}ms, Max={point['Maximum']:.1f}ms")
+
+# CREATE alarm (notify when threshold exceeded)
+cloudwatch.put_metric_alarm(
+    AlarmName='HighProcessingTime',
+    MetricName='ProcessingTime',
+    Namespace='MyApplication',
+    Statistic='Average',
+    Period=300,
+    EvaluationPeriods=2,
+    Threshold=100.0,
+    ComparisonOperator='GreaterThanThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789:alerts']
+)
+print("Alarm created")
+
+# DESCRIBE alarms
+response = cloudwatch.describe_alarms(AlarmNames=['HighProcessingTime'])
+for alarm in response['MetricAlarms']:
+    print(f"\nAlarm: {alarm['AlarmName']}")
+    print(f"  State: {alarm['StateValue']}")
+    print(f"  Metric: {alarm['MetricName']}")
+    print(f"  Threshold: {alarm['Threshold']}")
+    print(f"  Last updated: {alarm['StateUpdatedTimestamp']}")
+
+# DELETE alarm
+cloudwatch.delete_alarms(AlarmNames=['HighProcessingTime'])
+print("Alarm deleted")
 ```
 
-### Alarms
+#### Logs and Log Insights
 
 ```python
-import boto3
+logs = boto3.client('logs')
 
-cloudwatch = boto3.client('cloudwatch', region_name='us-east-1')
+# CREATE log group
+logs.create_log_group(logGroupName='/aws/my-application')
+print("Log group created")
 
-# Create alarm
-cloudwatch.put_metric_alarm(
-    AlarmName='high-cpu-production',
-    MetricName='CPUUtilization',
-    Namespace='AWS/EC2',
-    Statistic='Average',
-    Period=300,  # 5 minutes
-    EvaluationPeriods=2,  # Evaluate last 10 minutes
-    Threshold=80.0,
-    ComparisonOperator='GreaterThanThreshold',
-    AlarmActions=['arn:aws:sns:us-east-1:123456789:alert-topic'],
-    Dimensions=[
-        {'Name': 'AutoScalingGroupName', 'Value': 'web-server-asg'}
+# PUT log events
+logs.put_log_events(
+    logGroupName='/aws/my-application',
+    logStreamName='server-1',
+    logEvents=[
+        {
+            'timestamp': int(datetime.utcnow().timestamp() * 1000),
+            'message': '2024-01-15 10:15:32 INFO Application started'
+        },
+        {
+            'timestamp': int((datetime.utcnow() + timedelta(seconds=1)).timestamp() * 1000),
+            'message': '2024-01-15 10:15:33 INFO Connected to database'
+        }
     ]
 )
+print("Log events written")
 
-print("Alarm created: high-cpu-production")
+# QUERY logs (CloudWatch Insights)
+response = logs.start_query(
+    logGroupName='/aws/my-application',
+    startTime=int((datetime.utcnow() - timedelta(hours=1)).timestamp()),
+    endTime=int(datetime.utcnow().timestamp()),
+    queryString='fields @timestamp, @message | filter @message like /ERROR/'
+)
 
-# Describe alarms
-response = cloudwatch.describe_alarms(AlarmNames=['high-cpu-production'])
-for alarm in response['MetricAlarms']:
-    print(f"Alarm: {alarm['AlarmName']}")
-    print(f"  Status: {alarm['StateValue']}")
-    print(f"  Threshold: {alarm['Threshold']} {alarm['MetricName']}")
+query_id = response['queryId']
+print(f"Query started: {query_id}")
 
-# Delete alarm
-cloudwatch.delete_alarms(AlarmNames=['high-cpu-production'])
-print("Alarm deleted")
+# WAIT for query to complete
+import time
+while True:
+    response = logs.get_query_results(queryId=query_id)
+    if response['status'] == 'Complete':
+        print(f"\nFound {len(response['results'])} errors:")
+        for result in response['results']:
+            print(f"  {result}")
+        break
+    elif response['status'] == 'Failed':
+        print(f"Query failed: {response.get('statistics')}")
+        break
+    time.sleep(0.5)
+
+# DESCRIBE log groups
+response = logs.describe_log_groups()
+print("\nLog groups:")
+for group in response['logGroups']:
+    print(f"  {group['logGroupName']} ({group['storedBytes']} bytes)")
 ```
 
 ---
 
-## Chapter 6: ECS/Fargate with Boto3
+### Chapter 6: ECS/Fargate with Boto3
 
-### Task Definitions
+#### Task Definitions and Services
 
 ```python
 import boto3
 import json
 
-ecs = boto3.client('ecs', region_name='us-east-1')
+ecs = boto3.client('ecs')
 
-# Register task definition
-response = ecs.register_task_definition(
-    family='web-app-task',
-    networkMode='awsvpc',
-    requiresCompatibilities=['FARGATE'],
-    cpu='256',  # vCPU in Fargate: 256, 512, 1024, 2048, 4096
-    memory='512',  # Memory in MB: depends on CPU
-    containerDefinitions=[
+# REGISTER task definition
+task_def = {
+    'family': 'my-app',
+    'networkMode': 'awsvpc',
+    'requiresCompatibilities': ['FARGATE'],
+    'cpu': '256',
+    'memory': '512',
+    'containerDefinitions': [
         {
-            'name': 'web-app',
+            'name': 'my-app-container',
             'image': '123456789.dkr.ecr.us-east-1.amazonaws.com/my-app:latest',
+            'essential': True,
             'portMappings': [
                 {
                     'containerPort': 8080,
@@ -970,768 +1142,538 @@ response = ecs.register_task_definition(
                     'protocol': 'tcp'
                 }
             ],
-            'environment': [
-                {'name': 'DATABASE_URL', 'value': 'postgres://db.example.com/mydb'},
-                {'name': 'LOG_LEVEL', 'value': 'INFO'}
-            ],
             'logConfiguration': {
                 'logDriver': 'awslogs',
                 'options': {
-                    'awslogs-group': '/ecs/web-app',
+                    'awslogs-group': '/ecs/my-app',
                     'awslogs-region': 'us-east-1',
                     'awslogs-stream-prefix': 'ecs'
                 }
-            }
+            },
+            'environment': [
+                {'name': 'ENV', 'value': 'production'},
+                {'name': 'LOG_LEVEL', 'value': 'info'}
+            ]
         }
-    ],
-    executionRoleArn='arn:aws:iam::123456789:role/ecsTaskExecutionRole',
-    taskRoleArn='arn:aws:iam::123456789:role/ecsTaskRole'
-)
+    ]
+}
 
-task_def_arn = response['taskDefinition']['taskDefinitionArn']
-print(f"Task definition registered: {task_def_arn}")
-```
+response = ecs.register_task_definition(**task_def)
+print(f"Registered task definition: {response['taskDefinition']['taskDefinitionArn']}")
 
-### ECS Services and Tasks
-
-```python
-import boto3
-
-ecs = boto3.client('ecs', region_name='us-east-1')
-
-# Create ECS service
+# CREATE service
 response = ecs.create_service(
-    cluster='production',
-    serviceName='web-app-service',
-    taskDefinition='web-app-task:1',
-    desiredCount=3,
+    cluster='my-cluster',
+    serviceName='my-app-service',
+    taskDefinition='my-app:1',
+    desiredCount=2,
     launchType='FARGATE',
     networkConfiguration={
         'awsvpcConfiguration': {
-            'subnets': ['subnet-12345678', 'subnet-87654321'],
-            'securityGroups': ['sg-12345678'],
+            'subnets': ['subnet-12345', 'subnet-67890'],
+            'securityGroups': ['sg-12345'],
             'assignPublicIp': 'ENABLED'
         }
     },
     loadBalancers=[
         {
-            'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:123456789:targetgroup/web-app/abc123',
-            'containerName': 'web-app',
+            'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:123:targetgroup/my-app/abc123',
+            'containerName': 'my-app-container',
             'containerPort': 8080
         }
     ]
 )
+print(f"Service created: {response['service']['serviceArn']}")
 
-service_arn = response['service']['serviceArn']
-print(f"Service created: {service_arn}")
+# LIST services
+response = ecs.list_services(cluster='my-cluster')
+print(f"\nServices: {response['serviceArns']}")
 
-# Run one-off task
+# DESCRIBE service
+response = ecs.describe_services(
+    cluster='my-cluster',
+    services=['my-app-service']
+)
+service = response['services'][0]
+print(f"\nService: {service['serviceName']}")
+print(f"  Status: {service['status']}")
+print(f"  Running: {service['runningCount']}/{service['desiredCount']}")
+print(f"  Pending: {len(service['deployments'])} deployments")
+
+# RUN task (one-time execution)
 response = ecs.run_task(
-    cluster='production',
-    taskDefinition='web-app-task:1',
+    cluster='my-cluster',
+    taskDefinition='my-app:1',
     launchType='FARGATE',
     networkConfiguration={
         'awsvpcConfiguration': {
-            'subnets': ['subnet-12345678'],
-            'securityGroups': ['sg-12345678']
+            'subnets': ['subnet-12345'],
+            'securityGroups': ['sg-12345']
         }
-    },
-    overrides={
-        'containerOverrides': [
-            {
-                'name': 'web-app',
-                'environment': [
-                    {'name': 'COMMAND', 'value': 'migrate_database'}
-                ]
-            }
-        ]
     }
 )
-
 task_arn = response['tasks'][0]['taskArn']
-print(f"Task started: {task_arn}")
+print(f"\nTask started: {task_arn}")
+
+# WAIT for task completion
+waiter = ecs.get_waiter('tasks_stopped')
+waiter.wait(cluster='my-cluster', tasks=[task_arn])
+print("Task completed")
+
+# STOP service (gracefully)
+ecs.update_service(
+    cluster='my-cluster',
+    service='my-app-service',
+    desiredCount=0
+)
+print("Service scaling down")
 ```
 
 ---
 
-## Chapter 7: Advanced S3 Patterns
+### Chapter 7: Advanced S3 Patterns
 
-### Multipart Upload for Large Files
+#### Multipart Uploads
 
 ```python
 import boto3
 import os
 
-s3 = boto3.client('s3', region_name='us-east-1')
+s3 = boto3.client('s3')
 
-def upload_large_file(bucket, key, file_path):
-    """Upload large file using multipart upload."""
+# INITIATE multipart upload
+response = s3.create_multipart_upload(
+    Bucket='my-bucket',
+    Key='large-file.zip'
+)
+upload_id = response['UploadId']
+print(f"Started multipart upload: {upload_id}")
 
-    # Initiate multipart upload
-    response = s3.create_multipart_upload(Bucket=bucket, Key=key)
-    upload_id = response['UploadId']
+# UPLOAD parts
+parts = []
+chunk_size = 10 * 1024 * 1024  # 10MB chunks
 
-    parts = []
-    part_size = 5 * 1024 * 1024  # 5 MB minimum
+with open('/path/to/large-file.zip', 'rb') as f:
+    part_number = 1
+    while True:
+        chunk = f.read(chunk_size)
+        if not chunk:
+            break
 
-    with open(file_path, 'rb') as f:
-        part_number = 1
+        response = s3.upload_part(
+            Bucket='my-bucket',
+            Key='large-file.zip',
+            PartNumber=part_number,
+            UploadId=upload_id,
+            Body=chunk
+        )
 
-        while True:
-            data = f.read(part_size)
-            if not data:
-                break
+        parts.append({
+            'ETag': response['ETag'],
+            'PartNumber': part_number
+        })
 
-            # Upload part
-            part_response = s3.upload_part(
-                Bucket=bucket,
-                Key=key,
-                PartNumber=part_number,
-                UploadId=upload_id,
-                Body=data
-            )
+        print(f"  Uploaded part {part_number}/{parts}")
+        part_number += 1
 
-            parts.append({
-                'ETag': part_response['ETag'],
-                'PartNumber': part_number
-            })
+# COMPLETE upload
+response = s3.complete_multipart_upload(
+    Bucket='my-bucket',
+    Key='large-file.zip',
+    UploadId=upload_id,
+    MultipartUpload={'Parts': parts}
+)
 
-            print(f"Uploaded part {part_number}")
-            part_number += 1
-
-    # Complete multipart upload
-    s3.complete_multipart_upload(
-        Bucket=bucket,
-        Key=key,
-        UploadId=upload_id,
-        MultipartUpload={'Parts': parts}
-    )
-
-    print(f"Upload complete: {key}")
-
-# Usage
-upload_large_file('my-bucket', 'videos/movie.mp4', '/path/to/large-file.mp4')
+print(f"\nUpload complete!")
+print(f"  Location: {response['Location']}")
+print(f"  ETag: {response['ETag']}")
 ```
 
-### Presigned URLs
+#### Presigned URLs
 
 ```python
 import boto3
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-s3 = boto3.client('s3', region_name='us-east-1')
+s3 = boto3.client('s3')
 
-# Generate presigned URL for download (expires in 1 hour)
-download_url = s3.generate_presigned_url(
-    'get_object',
-    Params={'Bucket': 'my-bucket', 'Key': 'data/report.pdf'},
-    ExpiresIn=3600  # 1 hour
-)
-
-print(f"Download link (valid for 1 hour):\n{download_url}")
-
-# Generate presigned URL for upload
-upload_url = s3.generate_presigned_url(
-    'put_object',
-    Params={'Bucket': 'my-bucket', 'Key': 'uploads/user-file.csv'},
-    ExpiresIn=1800  # 30 minutes
-)
-
-print(f"Upload link (valid for 30 minutes):\n{upload_url}")
-
-# Generate presigned URL for POST (HTML form upload)
-post_data = s3.generate_presigned_post(
-    Bucket='my-bucket',
-    Key='uploads/form-file.txt',
+# GENERATE presigned URL for download (expires in 1 hour)
+url = s3.generate_presigned_url(
+    ClientMethod='get_object',
+    Params={'Bucket': 'my-bucket', 'Key': 'report.pdf'},
     ExpiresIn=3600
 )
+print(f"Download link (1 hour): {url}")
 
-print("HTML Form for upload:")
-print(f"<form action='{post_data['url']}' method='post' enctype='multipart/form-data'>")
-for key, value in post_data['fields'].items():
-    print(f"  <input type='hidden' name='{key}' value='{value}' />")
-print("  <input type='file' name='file' />")
-print("  <input type='submit' value='Upload' />")
-print("</form>")
-```
+# GENERATE presigned URL for upload
+url = s3.generate_presigned_url(
+    ClientMethod='put_object',
+    Params={'Bucket': 'my-bucket', 'Key': 'user-upload.jpg'},
+    ExpiresIn=3600
+)
+print(f"Upload link (1 hour): {url}")
 
-### S3 Select: Query Data in S3
-
-```python
-import boto3
-import json
-
-s3 = boto3.client('s3', region_name='us-east-1')
-
-# Query CSV data directly in S3 (no need to download)
-response = s3.select_object_content(
-    Bucket='data-lake',
-    Key='raw-data/sales.csv',
-    ExpressionType='SQL',
-    Expression='SELECT name, amount FROM s3object WHERE amount > 1000',
-    InputSerialization={
-        'CSV': {
-            'FileHeaderInfo': 'Use',  # First row is header
-            'Comments': '#',
-            'QuoteEscapeCharacter': '"',
-            'RecordDelimiter': '\n',
-            'FieldDelimiter': ','
-        }
+# CUSTOM response headers
+url = s3.generate_presigned_url(
+    ClientMethod='get_object',
+    Params={
+        'Bucket': 'my-bucket',
+        'Key': 'document.pdf',
+        'ResponseContentDisposition': 'attachment; filename="report.pdf"',
+        'ResponseContentType': 'application/pdf'
     },
-    OutputSerialization={'CSV': {}}
+    ExpiresIn=3600
 )
-
-# Process results as they stream
-with open('filtered-results.csv', 'w') as f:
-    for event in response['Payload']:
-        if 'Records' in event:
-            records = event['Records']['Payload'].decode('utf-8')
-            f.write(records)
-
-print("Filtered data written to filtered-results.csv")
-
-# Query Parquet data
-response = s3.select_object_content(
-    Bucket='data-lake',
-    Key='processed/sales.parquet',
-    ExpressionType='SQL',
-    Expression='SELECT * FROM s3object s WHERE s.date > \'2024-01-01\'',
-    InputSerialization={'Parquet': {}},
-    OutputSerialization={'JSON': {}}
-)
-
-# Process JSON results
-results = []
-for event in response['Payload']:
-    if 'Records' in event:
-        records = event['Records']['Payload'].decode('utf-8')
-        results.extend(records.strip().split('\n'))
-
-print(f"Found {len(results)} records")
+print(f"Download with filename: {url}")
 ```
 
 ---
 
-# PART 3: ADVANCED PATTERNS
+## PART 3: ADVANCED PATTERNS
 
-## Chapter 8: Multi-Account & Cross-Region
+### Chapter 8: Multi-Account & Cross-Region Access
 
-### STS AssumeRole for Cross-Account Access
-
-```python
-import boto3
-import os
-from datetime import datetime, timedelta
-
-def assume_role_cross_account(role_arn, session_name, duration_seconds=3600):
-    """
-    Assume a role in another AWS account.
-
-    Args:
-        role_arn: ARN of role to assume (e.g., arn:aws:iam::ACCOUNT-B:role/MyRole)
-        session_name: Session name for audit trail
-        duration_seconds: How long credentials are valid (900-3600 seconds)
-
-    Returns:
-        Credentials dict with AccessKeyId, SecretAccessKey, SessionToken
-    """
-    sts = boto3.client('sts')
-
-    response = sts.assume_role(
-        RoleArn=role_arn,
-        RoleSessionName=session_name,
-        DurationSeconds=duration_seconds
-    )
-
-    credentials = response['Credentials']
-    return {
-        'aws_access_key_id': credentials['AccessKeyId'],
-        'aws_secret_access_key': credentials['SecretAccessKey'],
-        'aws_session_token': credentials['SessionToken'],
-        'expiration': credentials['Expiration']
-    }
-
-# Example usage
-creds = assume_role_cross_account(
-    role_arn='arn:aws:iam::999999999999:role/CrossAccountAccessRole',
-    session_name='data-pipeline-job',
-    duration_seconds=3600
-)
-
-print(f"Assumed role! Credentials valid until {creds['expiration']}")
-
-# Create S3 client with assumed role credentials
-s3 = boto3.client(
-    's3',
-    aws_access_key_id=creds['aws_access_key_id'],
-    aws_secret_access_key=creds['aws_secret_access_key'],
-    aws_session_token=creds['aws_session_token']
-)
-
-# Now you can access resources in the other account
-buckets = s3.list_buckets()
-print(f"Buckets in other account: {len(buckets['Buckets'])}")
-```
-
-### Multi-Account Class Pattern
-
-```python
-import boto3
-from boto3 import Session
-
-class CrossAccountAccessor:
-    """
-    Manages cross-account access through STS AssumeRole.
-
-    This pattern is from production systems with 100+ accounts.
-    See: aws-monitoring/src/monitors/base_monitor.py for details.
-    """
-
-    def __init__(self, principal_account, principal_role, target_account, target_role):
-        """
-        Initialize cross-account accessor.
-
-        Args:
-            principal_account: Source account ID
-            principal_role: Role in source account to use
-            target_account: Destination account ID
-            target_role: Role in destination account to assume
-        """
-        self.principal_account = principal_account
-        self.target_account = target_account
-        self.target_role_arn = f'arn:aws:iam::{target_account}:role/{target_role}'
-        self._credentials_cache = {}
-
-    def get_credentials(self, service_name, session_name):
-        """Get temporary credentials for service in target account."""
-        cache_key = f"{service_name}:{session_name}"
-
-        if cache_key in self._credentials_cache:
-            creds, expiry = self._credentials_cache[cache_key]
-            if datetime.utcnow() < expiry - timedelta(minutes=5):
-                return creds
-
-        # Assume role
-        sts = boto3.client('sts')
-        response = sts.assume_role(
-            RoleArn=self.target_role_arn,
-            RoleSessionName=session_name,
-            DurationSeconds=3600
-        )
-
-        credentials = response['Credentials']
-        creds_dict = {
-            'aws_access_key_id': credentials['AccessKeyId'],
-            'aws_secret_access_key': credentials['SecretAccessKey'],
-            'aws_session_token': credentials['SessionToken']
-        }
-
-        # Cache credentials
-        self._credentials_cache[cache_key] = (creds_dict, credentials['Expiration'])
-        return creds_dict
-
-    def get_client(self, service_name, region='us-east-1'):
-        """Get AWS client in target account."""
-        creds = self.get_credentials(service_name, f'{service_name}-client')
-        return boto3.client(
-            service_name,
-            region_name=region,
-            **creds
-        )
-
-    def list_s3_buckets(self):
-        """List all S3 buckets in target account."""
-        s3 = self.get_client('s3')
-        response = s3.list_buckets()
-        return [bucket['Name'] for bucket in response['Buckets']]
-
-# Usage
-accessor = CrossAccountAccessor(
-    principal_account='111111111111',
-    principal_role='CrossAccountRole',
-    target_account='222222222222',
-    target_role='DataAccessRole'
-)
-
-buckets = accessor.list_s3_buckets()
-print(f"Buckets in target account: {buckets}")
-
-# Get client for specific service
-dynamodb = accessor.get_client('dynamodb')
-tables = dynamodb.list_tables()
-print(f"DynamoDB tables: {tables['TableNames']}")
-```
-
-### Cross-Region Resource Access
-
-```python
-import boto3
-
-def list_resources_all_regions(service_name, operation_name, operation_params):
-    """List resources across all regions."""
-
-    # Get all regions
-    ec2 = boto3.client('ec2', region_name='us-east-1')
-    regions_response = ec2.describe_regions()
-    regions = [region['RegionName'] for region in regions_response['Regions']]
-
-    all_results = {}
-
-    for region in regions:
-        try:
-            client = boto3.client(service_name, region_name=region)
-            operation = getattr(client, operation_name)
-            response = operation(**operation_params)
-            all_results[region] = response
-        except Exception as e:
-            print(f"Error in {region}: {e}")
-            all_results[region] = None
-
-    return all_results
-
-# Example: Find all Lambda functions in all regions
-results = list_resources_all_regions(
-    service_name='lambda',
-    operation_name='list_functions',
-    operation_params={}
-)
-
-for region, response in results.items():
-    if response and 'Functions' in response:
-        print(f"{region}: {len(response['Functions'])} functions")
-```
-
----
-
-## Chapter 9: Performance Optimization
-
-### Connection Pooling and Concurrency
-
-```python
-import boto3
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from botocore.config import Config
-
-# Configure connection pooling
-config = Config(
-    max_pool_connections=50,  # Default is 10
-    retries={'max_attempts': 3}
-)
-
-s3 = boto3.client('s3', config=config)
-
-def upload_file(bucket, key, data):
-    """Upload single file."""
-    try:
-        s3.put_object(Bucket=bucket, Key=key, Body=data)
-        return f"✓ {key}"
-    except Exception as e:
-        return f"✗ {key}: {e}"
-
-# Upload 100 files in parallel using thread pool
-files_to_upload = [
-    (f'file-{i}.txt', f'Content of file {i}'.encode())
-    for i in range(100)
-]
-
-with ThreadPoolExecutor(max_workers=10) as executor:
-    futures = [
-        executor.submit(upload_file, 'my-bucket', key, data)
-        for key, data in files_to_upload
-    ]
-
-    results = []
-    for future in as_completed(futures):
-        results.append(future.result())
-
-    for result in results:
-        print(result)
-```
-
-### Batch Operations with Efficient Resource Use
-
-```python
-import boto3
-from collections import defaultdict
-
-def batch_tag_instances(instance_ids, tags, batch_size=50):
-    """
-    Tag many EC2 instances efficiently.
-
-    AWS has rate limits, so we batch in groups of 50.
-    """
-    ec2 = boto3.client('ec2')
-
-    batches = [instance_ids[i:i+batch_size] for i in range(0, len(instance_ids), batch_size)]
-
-    for batch in batches:
-        ec2.create_tags(
-            Resources=batch,
-            Tags=[{'Key': k, 'Value': v} for k, v in tags.items()]
-        )
-        print(f"Tagged {len(batch)} instances")
-
-# Usage
-instance_ids = [f'i-{i}' for i in range(500)]
-batch_tag_instances(instance_ids, {'Environment': 'production', 'Team': 'data'})
-```
-
----
-
-## Chapter 10: Production Best Practices
-
-### Comprehensive Error Handling and Retry Logic
-
-```python
-import boto3
-from botocore.exceptions import ClientError, ConnectionError
-from botocore.config import Config
-import time
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-class RobustAWSClient:
-    """
-    Production-grade AWS client with comprehensive error handling.
-    Based on patterns from: aws-monitoring/src/monitors/base_monitor.py
-    """
-
-    def __init__(self, service_name, region='us-east-1'):
-        config = Config(
-            retries={'max_attempts': 3, 'mode': 'adaptive'},
-            connect_timeout=5,
-            read_timeout=60
-        )
-        self.client = boto3.client(service_name, region_name=region, config=config)
-        self.service_name = service_name
-
-    def call_with_retry(self, operation_name, **kwargs):
-        """Call AWS operation with intelligent retry logic."""
-        operation = getattr(self.client, operation_name)
-        max_attempts = 3
-        backoff_base = 2
-
-        for attempt in range(max_attempts):
-            try:
-                logger.info(f"Calling {self.service_name}.{operation_name} (attempt {attempt + 1})")
-                return operation(**kwargs)
-
-            except ClientError as e:
-                error_code = e.response['Error']['Code']
-                error_msg = e.response['Error']['Message']
-
-                # Retryable errors
-                retryable = [
-                    'ServiceUnavailable',
-                    'RequestLimitExceeded',
-                    'ThrottlingException',
-                    'InternalServerError'
-                ]
-
-                if error_code in retryable and attempt < max_attempts - 1:
-                    wait_time = backoff_base ** attempt
-                    logger.warning(f"Retryable error: {error_code}. Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
-
-                # Non-retryable errors
-                logger.error(f"Non-retryable error: {error_code} - {error_msg}")
-                raise
-
-            except ConnectionError as e:
-                if attempt < max_attempts - 1:
-                    wait_time = backoff_base ** attempt
-                    logger.warning(f"Connection error: {e}. Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
-                logger.error(f"Connection failed after {max_attempts} attempts")
-                raise
-
-        raise Exception(f"Operation failed after {max_attempts} attempts")
-
-# Usage
-s3_client = RobustAWSClient('s3')
-try:
-    response = s3_client.call_with_retry('list_buckets')
-    print(f"Buckets: {[b['Name'] for b in response['Buckets']]}")
-except Exception as e:
-    logger.error(f"Failed to list buckets: {e}")
-```
-
-### Logging and Monitoring
-
-```python
-import boto3
-import logging
-from datetime import datetime
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Enable boto3 debug logging (very verbose)
-# boto3.set_stream_logger(name='boto3.resources', level=logging.DEBUG)
-
-class MonitoredAWSOperation:
-    """
-    Track AWS API calls with CloudWatch metrics.
-    Pattern from: aws-monitoring/src/monitors/base_monitor.py
-    """
-
-    def __init__(self, service_name):
-        self.service_client = boto3.client(service_name)
-        self.cloudwatch = boto3.client('cloudwatch')
-        self.service_name = service_name
-
-    def execute_and_monitor(self, operation_name, **kwargs):
-        """Execute operation and publish metrics to CloudWatch."""
-        import time
-
-        start_time = time.time()
-        success = False
-        error = None
-
-        try:
-            logger.info(f"Starting {self.service_name}.{operation_name}")
-            operation = getattr(self.service_client, operation_name)
-            result = operation(**kwargs)
-            success = True
-            logger.info(f"Completed {self.service_name}.{operation_name}")
-            return result
-
-        except Exception as e:
-            error = str(e)
-            logger.error(f"Failed {self.service_name}.{operation_name}: {error}")
-            raise
-
-        finally:
-            # Publish metrics
-            duration_ms = (time.time() - start_time) * 1000
-            self._publish_metrics(operation_name, success, duration_ms)
-
-    def _publish_metrics(self, operation_name, success, duration_ms):
-        """Publish operation metrics to CloudWatch."""
-        self.cloudwatch.put_metric_data(
-            Namespace=f'AWS/{self.service_name}',
-            MetricData=[
-                {
-                    'MetricName': 'OperationDuration',
-                    'Value': duration_ms,
-                    'Unit': 'Milliseconds',
-                    'Dimensions': [
-                        {'Name': 'Operation', 'Value': operation_name},
-                        {'Name': 'Status', 'Value': 'Success' if success else 'Failure'}
-                    ]
-                }
-            ]
-        )
-
-# Usage
-monitor = MonitoredAWSOperation('s3')
-try:
-    monitor.execute_and_monitor('list_buckets')
-except Exception as e:
-    print(f"Operation failed: {e}")
-```
-
----
-
-## Quick Reference: Common Patterns
-
-### Create Session and Multiple Clients
-
-```python
-from boto3 import Session
-
-# Create session once, use for multiple services
-session = Session(profile_name='production', region_name='us-east-1')
-
-s3 = session.client('s3')
-ec2 = session.client('ec2')
-lambda_client = session.client('lambda')
-dynamodb = session.resource('dynamodb')  # Can mix client and resource
-```
-
-### Template: Production AWS Function
+#### STS AssumeRole
 
 ```python
 import boto3
 from botocore.exceptions import ClientError
-import logging
 
-logger = logging.getLogger(__name__)
+# ASSUME role in different AWS account
+sts = boto3.client('sts')
 
-def get_s3_object(bucket: str, key: str, region: str = 'us-east-1') -> bytes:
-    """
-    Production-ready S3 get_object with error handling.
-
-    Args:
-        bucket: S3 bucket name
-        key: Object key
-        region: AWS region
-
-    Returns:
-        Object content as bytes
-
-    Raises:
-        ValueError: If bucket or key doesn't exist
-        PermissionError: If access is denied
-    """
-    s3 = boto3.client('s3', region_name=region)
-
-    try:
-        response = s3.get_object(Bucket=bucket, Key=key)
-        return response['Body'].read()
-
-    except ClientError as e:
-        error_code = e.response['Error']['Code']
-
-        if error_code == 'NoSuchBucket':
-            raise ValueError(f"Bucket '{bucket}' not found")
-        elif error_code == 'NoSuchKey':
-            raise ValueError(f"Key '{key}' not found in '{bucket}'")
-        elif error_code == 'AccessDenied':
-            raise PermissionError(f"Access denied to '{bucket}/{key}'")
-        else:
-            logger.error(f"AWS error: {error_code}")
-            raise
-
-# Usage
 try:
-    data = get_s3_object('my-bucket', 'data.csv')
-    print(f"Retrieved {len(data)} bytes")
-except ValueError as e:
-    logger.error(f"Invalid request: {e}")
-except PermissionError as e:
-    logger.error(f"Permission issue: {e}")
+    response = sts.assume_role(
+        RoleArn='arn:aws:iam::987654321:role/CrossAccountRole',
+        RoleSessionName='data-analysis-session',
+        DurationSeconds=3600
+    )
+
+    # Extract temporary credentials
+    credentials = response['Credentials']
+    access_key = credentials['AccessKeyId']
+    secret_key = credentials['SecretAccessKey']
+    session_token = credentials['SessionToken']
+
+    # CREATE new session with temporary credentials
+    cross_account_session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        aws_session_token=session_token
+    )
+
+    # USE cross-account session
+    s3 = cross_account_session.client('s3')
+    response = s3.list_buckets()
+
+    print("Buckets in cross-account:")
+    for bucket in response['Buckets']:
+        print(f"  {bucket['Name']}")
+
+except ClientError as e:
+    error_code = e.response['Error']['Code']
+    if error_code == 'AccessDenied':
+        print("Access denied - verify trust relationship")
+    else:
+        print(f"Error: {error_code}")
+```
+
+#### Multi-Region Operations
+
+```python
+import boto3
+from concurrent.futures import ThreadPoolExecutor
+
+regions = ['us-east-1', 'eu-west-1', 'ap-southeast-1']
+
+def check_instances_in_region(region):
+    ec2 = boto3.client('ec2', region_name=region)
+    response = ec2.describe_instances()
+
+    total = 0
+    for reservation in response['Reservations']:
+        total += len(reservation['Instances'])
+
+    return region, total
+
+# CHECK instances across regions in parallel
+with ThreadPoolExecutor(max_workers=3) as executor:
+    results = executor.map(check_instances_in_region, regions)
+
+    print("Instances by region:")
+    for region, count in results:
+        print(f"  {region}: {count} instances")
 ```
 
 ---
 
-## Key Takeaways
+### Chapter 9: Performance Optimization
 
-1. **Client vs Resource**: Use client for complex operations, resource for simple ones
-2. **Error Handling**: Always catch `ClientError` and handle retryable vs non-retryable errors
-3. **Pagination**: Use paginators for large result sets
-4. **Waiters**: Use waiters to wait for resource state changes
-5. **Batch Operations**: Group operations to reduce API calls
-6. **Session Management**: Create sessions for credentials, not clients
-7. **Configuration**: Customize retries, timeouts, connection pooling
-8. **Cross-Account**: Use STS AssumeRole for cross-account access
-9. **Monitoring**: Publish metrics to CloudWatch for visibility
-10. **Production**: Always implement comprehensive error handling and retry logic
+#### Connection Pooling
+
+```python
+import boto3
+from botocore.config import Config
+
+# CONFIGURE connection pooling
+config = Config(
+    max_pool_connections=20,  # Default is 10
+    retries={'max_attempts': 3, 'mode': 'adaptive'},
+    connect_timeout=5,
+    read_timeout=60
+)
+
+s3 = boto3.client('s3', config=config)
+
+# Now handles up to 20 concurrent connections
+# Better for batch operations
+```
+
+#### Parallel Operations
+
+```python
+import boto3
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+s3 = boto3.client('s3')
+
+def download_file(bucket, key, local_path):
+    try:
+        s3.download_file(bucket, key, local_path)
+        return key, 'success'
+    except Exception as e:
+        return key, f'error: {e}'
+
+# DOWNLOAD 50 files in parallel (10 workers)
+files_to_download = [
+    ('my-bucket', f'file-{i}.txt', f'/local/file-{i}.txt')
+    for i in range(50)
+]
+
+with ThreadPoolExecutor(max_workers=10) as executor:
+    futures = {
+        executor.submit(download_file, bucket, key, path): (bucket, key)
+        for bucket, key, path in files_to_download
+    }
+
+    for future in as_completed(futures):
+        key, result = future.result()
+        print(f"{key}: {result}")
+```
 
 ---
 
-## Further Resources
+### Chapter 10: Production Best Practices
 
-- **AWS SDK Documentation**: https://boto3.amazonaws.com/v1/documentation/api/latest/
-- **Botocore Documentation**: https://botocore.amazonaws.com/v1/documentation/api/latest/
-- **AWS Python Code Examples**: https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/python
-- **AWS Well-Architected Framework**: https://aws.amazon.com/architecture/well-architected/
+#### Logging and Monitoring
 
+```python
+import boto3
+import logging
+from botocore.exceptions import ClientError
+
+# CONFIGURE logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Enable Boto3 debug logging (verbose)
+# boto3.set_stream_logger('', logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+
+class S3Manager:
+    def __init__(self):
+        self.s3 = boto3.client('s3')
+        self.logger = logger
+
+    def upload_with_logging(self, bucket, key, filepath):
+        try:
+            self.logger.info(f"Uploading {filepath} to s3://{bucket}/{key}")
+
+            file_size = os.path.getsize(filepath)
+            with open(filepath, 'rb') as f:
+                self.s3.put_object(
+                    Bucket=bucket,
+                    Key=key,
+                    Body=f
+                )
+
+            self.logger.info(f"Upload successful: {bucket}/{key} ({file_size} bytes)")
+            return True
+
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            self.logger.error(f"Upload failed: {error_code} - {bucket}/{key}")
+            return False
+        except Exception as e:
+            self.logger.exception(f"Unexpected error uploading {filepath}")
+            return False
+
+# USAGE
+s3_mgr = S3Manager()
+s3_mgr.upload_with_logging('my-bucket', 'data.txt', '/path/data.txt')
+```
+
+#### Error Handling Strategies
+
+```python
+import boto3
+import time
+from botocore.exceptions import ClientError, ConnectionError
+
+def robust_operation(operation, max_retries=3, backoff_factor=2):
+    """
+    Execute operation with retry logic and exponential backoff
+    """
+    for attempt in range(max_retries):
+        try:
+            return operation()
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+
+            # Retryable errors
+            if error_code in ['ThrottlingException', 'RequestLimitExceeded', 'InternalError']:
+                if attempt < max_retries - 1:
+                    wait_time = backoff_factor ** attempt
+                    print(f"Retrying after {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+
+            # Non-retryable errors
+            raise
+        except ConnectionError as e:
+            if attempt < max_retries - 1:
+                wait_time = backoff_factor ** attempt
+                print(f"Connection error, retrying after {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            raise
+
+# USAGE
+s3 = boto3.client('s3')
+
+def list_objects():
+    return s3.list_objects_v2(Bucket='my-bucket')
+
+try:
+    response = robust_operation(list_objects)
+    print(f"Found {len(response.get('Contents', []))} objects")
+except ClientError as e:
+    print(f"Operation failed: {e}")
+```
+
+#### Configuration Management
+
+```python
+import os
+import boto3
+from dataclasses import dataclass
+
+@dataclass
+class AWSConfig:
+    region: str
+    profile: str = None
+    max_retries: int = 3
+
+    @classmethod
+    def from_env(cls):
+        return cls(
+            region=os.getenv('AWS_REGION', 'us-east-1'),
+            profile=os.getenv('AWS_PROFILE'),
+            max_retries=int(os.getenv('AWS_MAX_RETRIES', '3'))
+        )
+
+class AWSClientFactory:
+    def __init__(self, config: AWSConfig):
+        self.config = config
+        self.session = boto3.Session(
+            profile_name=config.profile,
+            region_name=config.region
+        )
+
+    def get_s3_client(self):
+        from botocore.config import Config
+        config = Config(retries={'max_attempts': self.config.max_retries})
+        return self.session.client('s3', config=config)
+
+    def get_ec2_client(self):
+        return self.session.client('ec2')
+
+    def get_client(self, service_name):
+        return self.session.client(service_name)
+
+# USAGE
+config = AWSConfig.from_env()
+factory = AWSClientFactory(config)
+
+s3 = factory.get_s3_client()
+ec2 = factory.get_ec2_client()
+```
+
+---
+
+## Summary
+
+This guide covers Boto3 from fundamentals to production patterns:
+
+**Key Takeaways**:
+1. **Client vs Resource** - Choose based on your needs (control vs simplicity)
+2. **Sessions** - They hold your credentials and region configuration
+3. **Error Handling** - Always use try/except with ClientError
+4. **Pagination** - Use paginators for large result sets
+5. **Waiters** - Poll for async operations instead of sleep
+6. **Services** - Master 2-3 services deeply (S3, EC2, Lambda) before breadth
+7. **Production** - Logging, retries, configuration management are non-negotiable
+8. **Testing** - Use LocalStack or moto for local development
+
+**Next Steps**:
+- Pick one service and build something with it
+- Review [AWS Documentation](https://docs.aws.amazon.com/pythonsdk/)
+- Check out [Boto3 Examples](https://github.com/aws/aws-sdk-examples) repo
+- Learn [CloudFormation](https://aws.amazon.com/cloudformation/) for infrastructure-as-code
+
+---
+
+## Appendix: Common Services Reference
+
+### Available Paginators by Service
+
+```python
+# Check if a service supports pagination
+client = boto3.client('s3')
+paginator_names = client.waiter_names  # Also list waiter names
+
+# Common paginatable operations:
+# S3: list_objects_v2, list_multipart_uploads
+# EC2: describe_instances, describe_images, describe_volumes
+# DynamoDB: scan, query
+# Lambda: list_functions, list_layers
+```
+
+### Common Error Codes
+
+| Service | Code | Meaning |
+|---------|------|---------|
+| **General** | NoCredentialsError | AWS credentials not configured |
+| **General** | ClientError | Service returned error (check Code in response) |
+| **S3** | NoSuchBucket | Bucket doesn't exist |
+| **S3** | NoSuchKey | Object doesn't exist |
+| **EC2** | InvalidInstanceID.NotFound | Instance doesn't exist |
+| **Lambda** | ResourceNotFoundException | Function doesn't exist |
+| **RDS** | DBInstanceNotFound | Database doesn't exist |
+| **IAM** | NoSuchEntity | Role/user/policy doesn't exist |
+
+### Resources for Learning
+
+- **Official**: [AWS Boto3 Documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+- **Interactive**: [AWS SDK Examples](https://github.com/aws/aws-sdk-examples)
+- **Testing**: [LocalStack](https://localstack.cloud/) - Local AWS emulation
+- **Practice**: [AWS Hands-On Labs](https://aws.amazon.com/training/hands-on-labs/)
+
+---
+
+**Last Updated**: 2024
+**Target Audience**: Beginners to Intermediate Python developers
+**Estimated Reading Time**: 3-4 hours for complete guide

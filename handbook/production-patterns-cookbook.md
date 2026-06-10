@@ -1,45 +1,41 @@
-# Production Patterns Cookbook: Real-World AWS Solutions
+# Production Patterns Cookbook
+## Real-World AWS Solutions from Battle-Tested Code
 
-> **8 production-tested patterns** extracted from the 123ofaws repository. Each pattern is complete, production-ready, and includes error handling.
-
----
-
-## Table of Contents
-
-1. [Pattern 1: Multi-Service Monitoring System](#pattern-1-multi-service-monitoring-system)
-2. [Pattern 2: Cost Management & Chargeback](#pattern-2-cost-management--chargeback)
-3. [Pattern 3: Cross-Account Resource Access](#pattern-3-cross-account-resource-access)
-4. [Pattern 4: CloudFormation Stack Discovery](#pattern-4-cloudformation-stack-discovery)
-5. [Pattern 5: SSM Remote Execution](#pattern-5-ssm-remote-execution)
-6. [Pattern 6: S3 SQL Query Engine](#pattern-6-s3-sql-query-engine)
-7. [Pattern 7: Lambda Layer Deployment](#pattern-7-lambda-layer-deployment)
-8. [Pattern 8: Step Functions Orchestration](#pattern-8-step-functions-orchestration)
+### Table of Contents
+1. Pattern 1: Multi-Service Monitoring System
+2. Pattern 2: Cost Management & Chargeback
+3. Pattern 3: Cross-Account Resource Access
+4. Pattern 4: CloudFormation Stack Discovery
+5. Pattern 5: SSM Remote Execution
+6. Pattern 6: S3 SQL Query Engine
+7. Pattern 7: Lambda Layer Deployment
+8. Pattern 8: Step Functions Orchestration
 
 ---
 
 ## Pattern 1: Multi-Service Monitoring System
 
-**Use Case**: Monitor 20+ AWS services for health/errors. Send alerts to CloudWatch/SNS.
+### Mental Model
+Watching 17+ AWS services for health problems. Like a hospital that checks patients across multiple departments (Emergency, Cardiology, Neurology, etc.) and sends alerts when something's wrong.
 
-**Key Features**:
-- Extensible monitor architecture
-- Health status tracking
-- CloudWatch integration
-- Retry logic and error handling
+### Problem
+You need to:
+- Monitor Lambda, EC2, S3, SQS, SNS, RDS, DynamoDB, and 10+ other services
+- Check health status for each resource
+- Compare actual values against thresholds
+- Send alerts when problems occur
+- Log all checks for auditing
 
-**Source**: `aws-monitoring/src/monitors/base_monitor.py`
+### Solution: Base Monitor Pattern
+
+**Architecture**: Abstract base class + service-specific implementations
 
 ```python
 from abc import ABC, abstractmethod
 from enum import Enum
-from dataclasses import dataclass
-from datetime import datetime
-from typing import List, Dict, Any
-import boto3
-from botocore.exceptions import ClientError
-import logging
-
-logger = logging.getLogger(__name__)
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
 
 class HealthStatus(Enum):
     """Health status indicators."""
@@ -50,17 +46,18 @@ class HealthStatus(Enum):
 
 @dataclass
 class ResourceHealth:
-    """Represents health of a single resource."""
+    """Health status of a single resource."""
     resource_id: str
     resource_name: str
     resource_type: str
     status: HealthStatus
     message: str
-    metrics: Dict[str, Any]
-    timestamp: datetime
-    region: str
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    region: str = 'us-east-1'
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
         return {
             'resource_id': self.resource_id,
             'resource_name': self.resource_name,
@@ -72,29 +69,17 @@ class ResourceHealth:
             'region': self.region
         }
 
-class AWSSessionManager:
-    """Manages AWS sessions and clients."""
-
-    def __init__(self, region='us-east-1', profile=None):
-        from boto3 import Session
-        session = Session(profile_name=profile) if profile else Session()
-        self.region = region
-        self.session = session
-        self._clients = {}
-
-    def get_client(self, service_name):
-        """Get or create client for service."""
-        if service_name not in self._clients:
-            self._clients[service_name] = self.session.client(
-                service_name,
-                region_name=self.region
-            )
-        return self._clients[service_name]
-
 class BaseMonitor(ABC):
     """Abstract base class for all service monitors."""
 
-    def __init__(self, session_manager: AWSSessionManager, config: Dict[str, Any]):
+    def __init__(self, session_manager, config: Dict[str, Any]):
+        """
+        Initialize monitor.
+
+        Args:
+            session_manager: Manages AWS credentials and regions
+            config: Service-specific configuration with thresholds
+        """
         self.session_manager = session_manager
         self.config = config
         self.region = session_manager.region
@@ -109,665 +94,918 @@ class BaseMonitor(ABC):
 
     @abstractmethod
     def check_health(self, resources: List[str]) -> List[ResourceHealth]:
-        """Check health of provided resources."""
+        """
+        Check health of provided resources.
+
+        Args:
+            resources: List of resource IDs/ARNs to check
+
+        Returns:
+            List of ResourceHealth objects
+        """
         pass
 
     def should_alert(self, health: ResourceHealth) -> bool:
-        """Determine if alert should be sent."""
+        """Determine if resource health warrants an alert."""
         return health.status in [HealthStatus.UNHEALTHY, HealthStatus.DEGRADED]
 
-    def publish_metrics(self, health: ResourceHealth):
-        """Publish health metrics to CloudWatch."""
-        try:
-            self.cloudwatch.put_metric_data(
-                Namespace=f'AWS-Monitoring/{self.service_name}',
-                MetricData=[
-                    {
-                        'MetricName': 'HealthStatus',
-                        'Value': 1 if health.status == HealthStatus.HEALTHY else 0,
-                        'Unit': 'Count',
-                        'Dimensions': [
-                            {'Name': 'ResourceId', 'Value': health.resource_id},
-                            {'Name': 'Service', 'Value': self.service_name}
-                        ],
-                        'Timestamp': health.timestamp
-                    }
-                ]
-            )
-        except ClientError as e:
-            logger.error(f"Failed to publish metrics: {e}")
+    def get_cloudwatch_metrics(
+        self,
+        resource_id: str,
+        metric_name: str,
+        statistic: str = 'Average',
+        period_minutes: int = 5
+    ) -> Optional[float]:
+        """
+        Get CloudWatch metric for a resource.
 
-# Example: Lambda Monitor
+        Args:
+            resource_id: Resource identifier
+            metric_name: CloudWatch metric name
+            statistic: Statistic to retrieve (Average, Sum, Maximum, etc.)
+            period_minutes: Period in minutes to look back
+
+        Returns:
+            Metric value or None if not available
+        """
+        try:
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(minutes=period_minutes)
+
+            response = self.cloudwatch.get_metric_statistics(
+                Namespace=self._get_cloudwatch_namespace(),
+                MetricName=metric_name,
+                Dimensions=self._get_cloudwatch_dimensions(resource_id),
+                StartTime=start_time,
+                EndTime=end_time,
+                Period=60,
+                Statistics=[statistic]
+            )
+
+            if response.get('Datapoints'):
+                return response['Datapoints'][-1].get(statistic)
+
+        except Exception as e:
+            self.logger.debug(f"Error getting metric {metric_name}: {e}")
+
+        return None
+
+    def _check_threshold(
+        self,
+        value: float,
+        threshold: float,
+        operator: str = 'greater_than'
+    ) -> bool:
+        """
+        Check if a value exceeds a threshold.
+
+        Args:
+            value: Actual value
+            threshold: Threshold value
+            operator: 'greater_than' or 'less_than'
+
+        Returns:
+            True if threshold is exceeded
+        """
+        if value is None:
+            return False
+
+        if operator == 'greater_than':
+            return value > threshold
+        elif operator == 'less_than':
+            return value < threshold
+        return False
+
+    def _get_threshold(self, threshold_key: str, default: float = None) -> Optional[float]:
+        """Get threshold value from config."""
+        return self.config.get('thresholds', {}).get(threshold_key, default)
+```
+
+### Concrete Implementation: Lambda Monitor
+
+```python
 class LambdaMonitor(BaseMonitor):
-    """Monitor AWS Lambda functions."""
+    """Monitor Lambda functions for performance and errors."""
 
     @property
     def service_name(self) -> str:
         return 'lambda'
 
     def check_health(self, function_names: List[str]) -> List[ResourceHealth]:
-        """Check health of Lambda functions."""
-        results = []
+        """
+        Check health of Lambda functions.
 
-        for function_name in function_names:
+        Returns:
+            List of health status for each function
+        """
+        health_list = []
+
+        for func_name in function_names:
             try:
-                response = self.client.get_function(FunctionName=function_name)
+                # Get function configuration
+                response = self.client.get_function(FunctionName=func_name)
                 config = response['Configuration']
 
-                # Check function metrics
-                health_status = HealthStatus.HEALTHY
-                message = "Function is healthy"
-
-                # Check if function was recently invoked (not stale)
-                cloudwatch = self.session_manager.get_client('cloudwatch')
-                metrics = cloudwatch.get_metric_statistics(
-                    Namespace='AWS/Lambda',
-                    MetricName='Invocations',
-                    Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
-                    StartTime=datetime.utcnow() - timedelta(hours=24),
-                    EndTime=datetime.utcnow(),
-                    Period=3600,
-                    Statistics=['Sum']
-                )
-
-                if not metrics['Datapoints']:
-                    health_status = HealthStatus.DEGRADED
-                    message = "No invocations in 24 hours"
-
                 # Check error rate
-                error_metrics = cloudwatch.get_metric_statistics(
-                    Namespace='AWS/Lambda',
-                    MetricName='Errors',
-                    Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
-                    StartTime=datetime.utcnow() - timedelta(hours=1),
-                    EndTime=datetime.utcnow(),
-                    Period=300,
-                    Statistics=['Sum']
+                error_rate = self.get_cloudwatch_metrics(
+                    func_name, 'Errors', statistic='Sum', period_minutes=5
                 )
 
-                if error_metrics['Datapoints'] and sum(dp['Sum'] for dp in error_metrics['Datapoints']) > 10:
-                    health_status = HealthStatus.UNHEALTHY
-                    message = f"High error rate detected"
+                # Check duration
+                duration = self.get_cloudwatch_metrics(
+                    func_name, 'Duration', statistic='Average', period_minutes=5
+                )
+
+                # Determine health status
+                status = HealthStatus.HEALTHY
+                message = f"Function {func_name} is running normally"
+
+                if error_rate and error_rate > self._get_threshold('error_rate_max', 5):
+                    status = HealthStatus.UNHEALTHY
+                    message = f"High error rate: {error_rate} errors"
+
+                if duration and duration > self._get_threshold('duration_max_ms', 10000):
+                    status = HealthStatus.DEGRADED
+                    message = f"Slow execution: {duration}ms average"
 
                 health = ResourceHealth(
                     resource_id=config['FunctionArn'],
-                    resource_name=function_name,
-                    resource_type='Lambda',
-                    status=health_status,
+                    resource_name=func_name,
+                    resource_type='lambda:function',
+                    status=status,
                     message=message,
-                    metrics={'Memory': config['MemorySize'], 'Timeout': config['Timeout']},
-                    timestamp=datetime.utcnow(),
+                    metrics={
+                        'error_rate': error_rate,
+                        'duration_ms': duration,
+                        'memory_mb': config['MemorySize'],
+                        'timeout_s': config['Timeout']
+                    },
                     region=self.region
                 )
 
-                results.append(health)
-                self.publish_metrics(health)
+                health_list.append(health)
 
-            except ClientError as e:
-                error_code = e.response['Error']['Code']
-                if error_code == 'ResourceNotFoundException':
-                    logger.warning(f"Function {function_name} not found")
-                else:
-                    logger.error(f"Error checking {function_name}: {e}")
+            except Exception as e:
+                health = ResourceHealth(
+                    resource_id=func_name,
+                    resource_name=func_name,
+                    resource_type='lambda:function',
+                    status=HealthStatus.UNKNOWN,
+                    message=f"Error checking health: {e}",
+                    region=self.region
+                )
+                health_list.append(health)
 
-        return results
+        return health_list
 
-# Usage
-if __name__ == '__main__':
-    session_manager = AWSSessionManager(region='us-east-1')
-    lambda_monitor = LambdaMonitor(session_manager, {})
+    def _get_cloudwatch_namespace(self) -> str:
+        return 'AWS/Lambda'
 
-    health_results = lambda_monitor.check_health([
-        'my-function',
-        'data-processor',
-        'api-handler'
-    ])
-
-    for health in health_results:
-        print(f"{health.resource_name}: {health.status.value} - {health.message}")
-        if lambda_monitor.should_alert(health):
-            print(f"  ⚠️  ALERT: {health.message}")
+    def _get_cloudwatch_dimensions(self, resource_id: str) -> List[Dict[str, str]]:
+        return [{'Name': 'FunctionName', 'Value': resource_id}]
 ```
+
+### Usage Example
+
+```python
+# Configure monitors
+config = {
+    'thresholds': {
+        'error_rate_max': 5,
+        'duration_max_ms': 10000,
+        'memory_utilization_max': 80
+    }
+}
+
+lambda_monitor = LambdaMonitor(session_manager, config)
+
+# Check health of all functions
+functions = ['process-data', 'api-gateway-handler', 'scheduled-job']
+health_results = lambda_monitor.check_health(functions)
+
+# Send alerts for unhealthy resources
+for health in health_results:
+    if lambda_monitor.should_alert(health):
+        send_alert(health.to_dict())
+```
+
+### Why This Pattern Works
+
+1. **Extensible**: Add new service monitors by extending BaseMonitor
+2. **Consistent**: All monitors follow same interface and structure
+3. **Maintainable**: Common logic in base class, service-specific logic in subclasses
+4. **Testable**: Abstract base makes it easy to mock and test
+5. **Scalable**: Works with 1 service or 17 services equally well
 
 ---
 
 ## Pattern 2: Cost Management & Chargeback
 
-**Use Case**: Track AWS costs by service, team, or project. Implement chargeback.
+### Mental Model
+Accountant for your cloud spending. Tracks who spent what, calculates bills per team/project, and shows ROI.
 
-**Key Features**:
-- Cost Explorer integration
-- Tag-based filtering
-- EMR job-level costs
-- CSV export for billing
+### Problem
+You need to:
+- Know how much each EMR job actually costs
+- Allocate AWS costs to different teams/projects
+- Track cost trends over time
+- Create chargeback reports
 
-**Source**: `cost/aws_cost_calculator.py` and `cost/emr_cost_calculator.py`
+### Solution: Cost Calculator Pattern
 
 ```python
 import boto3
 from datetime import datetime, timedelta
-from typing import Dict, List
-import json
-import csv
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
-class CostCalculator:
-    """Calculate AWS costs with filtering and grouping."""
-
-    def __init__(self, region='us-east-1'):
-        self.ce = boto3.client('ce', region_name=region)
-        self.s3 = boto3.client('s3', region_name=region)
-
-    def get_daily_costs(self, days=30, granularity='DAILY', group_by='SERVICE'):
-        """
-        Get costs grouped by service or tag.
-
-        Args:
-            days: Number of days to look back
-            granularity: DAILY or MONTHLY
-            group_by: SERVICE, LINKED_ACCOUNT, REGION, or TAGS
-
-        Returns:
-            Structured cost data
-        """
-        end_date = datetime.utcnow().date()
-        start_date = end_date - timedelta(days=days)
-
-        response = self.ce.get_cost_and_usage(
-            TimePeriod={
-                'Start': start_date.isoformat(),
-                'End': end_date.isoformat()
-            },
-            Granularity=granularity,
-            Metrics=['UnblendedCost'],
-            GroupBy=[
-                {'Type': 'DIMENSION', 'Key': group_by}
-            ]
-        )
-
-        costs_by_group = {}
-        for result in response['ResultsByTime']:
-            period = result['TimePeriod']['Start']
-            for group in result['Groups']:
-                key = group['Keys'][0]
-                amount = float(group['Metrics']['UnblendedCost']['Amount'])
-
-                if key not in costs_by_group:
-                    costs_by_group[key] = {}
-                costs_by_group[key][period] = amount
-
-        return costs_by_group
-
-    def get_costs_by_tag(self, tag_key, tag_value=None, days=30):
-        """Get costs for resources with specific tag."""
-        end_date = datetime.utcnow().date()
-        start_date = end_date - timedelta(days=days)
-
-        response = self.ce.get_cost_and_usage(
-            TimePeriod={
-                'Start': start_date.isoformat(),
-                'End': end_date.isoformat()
-            },
-            Granularity='DAILY',
-            Metrics=['UnblendedCost'],
-            Filter={
-                'Tags': {
-                    'Key': tag_key,
-                    'Values': [tag_value] if tag_value else None
-                }
-            }
-        )
-
-        total_cost = 0
-        for result in response['ResultsByTime']:
-            for group in result['Groups']:
-                total_cost += float(group['Metrics']['UnblendedCost']['Amount'])
-
-        return total_cost
-
-    def get_service_costs(self, days=30):
-        """Get breakdown by AWS service."""
-        costs = self.get_daily_costs(days=days, group_by='SERVICE')
-        return costs
-
-    def export_to_csv(self, output_file='costs.csv', days=30):
-        """Export costs to CSV for finance team."""
-        costs = self.get_daily_costs(days=days, group_by='SERVICE')
-
-        with open(output_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Service', 'Date', 'Cost (USD)'])
-
-            for service, daily_costs in costs.items():
-                for date, cost in sorted(daily_costs.items()):
-                    writer.writerow([service, date, f'{cost:.2f}'])
-
-        print(f"Exported costs to {output_file}")
+@dataclass
+class CostData:
+    """Cost information for a resource."""
+    resource_id: str
+    resource_type: str
+    start_date: str
+    end_date: str
+    total_cost: float
+    currency: str = 'USD'
+    service_breakdown: Dict[str, float] = None
 
 class EMRCostCalculator:
-    """Calculate costs for EMR jobs."""
+    """Calculate costs for EMR clusters and jobs."""
 
-    def __init__(self, region='us-east-1'):
-        self.emr = boto3.client('emr', region_name=region)
-        self.ce = boto3.client('ce', region_name=region)
-        self.ec2 = boto3.client('ec2', region_name=region)
-
-    def get_job_cost(self, cluster_id: str) -> Dict[str, float]:
+    def __init__(self, region_name: str = 'us-east-1'):
         """
-        Calculate total cost for EMR job/cluster.
+        Initialize the EMR Cost Calculator
+
+        Args:
+            region_name: AWS region name
+        """
+        self.cost_explorer = boto3.client('ce', region_name=region_name)
+        self.emr_client = boto3.client('emr', region_name=region_name)
+        self.region = region_name
+
+    def get_cluster_info(self, cluster_id: Optional[str] = None,
+                         cluster_name: Optional[str] = None) -> List[Dict]:
+        """
+        Get EMR cluster information by ID or name
+
+        Args:
+            cluster_id: EMR cluster ID
+            cluster_name: EMR cluster name
 
         Returns:
-            Dict with breakdown of core, task, master instance costs
+            List of cluster information dictionaries
         """
-        cluster = self.emr.describe_cluster(ClusterId=cluster_id)['Cluster']
-        core_count = len(self.emr.list_instances(
-            ClusterId=cluster_id,
-            InstanceGroupTypes=['CORE']
-        )['Instances'])
+        clusters = []
 
-        task_count = len(self.emr.list_instances(
-            ClusterId=cluster_id,
-            InstanceGroupTypes=['TASK']
-        )['Instances'])
-
-        # Get instance type pricing
-        instance_groups = self.emr.list_instance_groups(
-            ClusterId=cluster_id
-        )['InstanceGroups']
-
-        costs = {}
-        total_cost = 0
-
-        for group in instance_groups:
-            group_type = group['InstanceGroupType']
-            instance_type = group['InstanceType']
-
-            # Get on-demand price
-            price = self._get_spot_price(instance_type)
-
-            # Calculate hours running
-            hours = (datetime.utcnow() - cluster['Status']['Timeline']['CreationDateTime']).seconds / 3600
-
-            # Calculate cost
-            if group_type == 'MASTER':
-                instance_cost = price * hours
-            elif group_type == 'CORE':
-                instance_cost = price * core_count * hours
-            else:  # TASK
-                instance_cost = price * task_count * hours
-
-            costs[f'{group_type}'] = instance_cost
-            total_cost += instance_cost
-
-        costs['Total'] = total_cost
-        return costs
-
-    def _get_spot_price(self, instance_type):
-        """Get current spot price for instance type."""
         try:
-            response = self.ec2.describe_spot_price_history(
-                InstanceTypes=[instance_type],
-                MaxResults=1
+            if cluster_id:
+                # Get specific cluster by ID
+                response = self.emr_client.describe_cluster(ClusterId=cluster_id)
+                clusters.append({
+                    'Id': response['Cluster']['Id'],
+                    'Name': response['Cluster']['Name'],
+                    'Status': response['Cluster']['Status']['State'],
+                    'CreationDateTime': response['Cluster']['Status']['Timeline'].get('CreationDateTime'),
+                    'EndDateTime': response['Cluster']['Status']['Timeline'].get('EndDateTime')
+                })
+
+            elif cluster_name:
+                # List clusters and filter by name (pagination pattern)
+                paginator = self.emr_client.get_paginator('list_clusters')
+
+                for page in paginator.paginate():
+                    for cluster in page['Clusters']:
+                        if cluster['Name'] == cluster_name:
+                            clusters.append({
+                                'Id': cluster['Id'],
+                                'Name': cluster['Name'],
+                                'Status': cluster['Status']['State'],
+                                'CreationDateTime': cluster['Status']['Timeline'].get('CreationDateTime'),
+                                'EndDateTime': cluster['Status']['Timeline'].get('EndDateTime')
+                            })
+
+            return clusters
+
+        except Exception as e:
+            print(f"Error getting cluster information: {e}")
+            return []
+
+    def get_cluster_costs(self, cluster_id: str,
+                         start_date: str, end_date: str) -> Optional[float]:
+        """
+        Get costs for a specific EMR cluster using Cost Explorer API.
+
+        Args:
+            cluster_id: EMR cluster ID
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+
+        Returns:
+            Total cost in USD or None if error
+        """
+        try:
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date,
+                    'End': end_date
+                },
+                Granularity='MONTHLY',
+                Filter={
+                    'Tags': {
+                        'Key': 'cluster-id',
+                        'Values': [cluster_id]
+                    }
+                },
+                Metrics=['UnblendedCost'],
+                GroupBy=[
+                    {
+                        'Type': 'DIMENSION',
+                        'Key': 'SERVICE'
+                    }
+                ]
             )
-            if response['SpotPriceHistory']:
-                return float(response['SpotPriceHistory'][0]['SpotPrice'])
-        except:
-            pass
-        return 0.0
 
-# Usage
-if __name__ == '__main__':
-    calc = CostCalculator()
+            total_cost = 0.0
+            service_breakdown = {}
 
-    # Get last 30 days of costs by service
-    service_costs = calc.get_service_costs(days=30)
-    print("Costs by service:")
-    for service, daily_costs in service_costs.items():
-        total = sum(daily_costs.values())
-        print(f"  {service}: ${total:.2f}")
+            for result in response['ResultsByTime']:
+                for group in result['Groups']:
+                    service_name = group['Keys'][0]
+                    cost = float(group['Metrics']['UnblendedCost']['Amount'])
+                    service_breakdown[service_name] = cost
+                    total_cost += cost
 
-    # Export to CSV
-    calc.export_to_csv('monthly_costs.csv', days=30)
+            return CostData(
+                resource_id=cluster_id,
+                resource_type='emr:cluster',
+                start_date=start_date,
+                end_date=end_date,
+                total_cost=total_cost,
+                service_breakdown=service_breakdown
+            )
 
-    # Get costs for specific team
-    team_cost = calc.get_costs_by_tag('Team', 'data-engineering', days=30)
-    print(f"Data Engineering costs: ${team_cost:.2f}")
+        except Exception as e:
+            print(f"Error getting cluster costs: {e}")
+            return None
 
-    # EMR job cost
-    emr_calc = EMRCostCalculator()
-    job_cost = emr_calc.get_job_cost('j-123456')
-    print(f"EMR Job cost: ${job_cost['Total']:.2f}")
+    def allocate_costs_by_team(self, cluster_ids: List[str],
+                               cost_allocation_map: Dict[str, float]) -> Dict[str, float]:
+        """
+        Allocate cluster costs to teams.
+
+        Args:
+            cluster_ids: List of cluster IDs
+            cost_allocation_map: Map of cluster ID to team allocation percentage
+
+        Returns:
+            Dictionary of team -> total cost
+        """
+        team_costs = {}
+
+        for cluster_id in cluster_ids:
+            cost_data = self.get_cluster_costs(
+                cluster_id,
+                (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+                datetime.now().strftime('%Y-%m-%d')
+            )
+
+            if cost_data:
+                allocation_pct = cost_allocation_map.get(cluster_id, 100)
+                allocated_cost = cost_data.total_cost * (allocation_pct / 100)
+
+                # Add to team costs (simplified - normally would have cluster-to-team mapping)
+                team = cluster_id.split('-')[0]  # Extract team from cluster ID
+                team_costs[team] = team_costs.get(team, 0) + allocated_cost
+
+        return team_costs
 ```
+
+### Usage Example
+
+```python
+calculator = EMRCostCalculator()
+
+# Get cost for specific cluster
+cost_data = calculator.get_cluster_costs(
+    cluster_id='j-1234567890ABC',
+    start_date='2024-01-01',
+    end_date='2024-01-31'
+)
+
+if cost_data:
+    print(f"Cluster {cost_data.resource_id} cost: ${cost_data.total_cost:.2f}")
+    print("Service breakdown:")
+    for service, cost in cost_data.service_breakdown.items():
+        print(f"  {service}: ${cost:.2f}")
+
+# Allocate costs to teams
+clusters = ['analytics-cluster-1', 'analytics-cluster-2', 'ml-cluster-1']
+allocation = {
+    'analytics-cluster-1': 50,   # Analytics team: 50% of cost
+    'analytics-cluster-2': 50,   # Analytics team: 50% of cost
+    'ml-cluster-1': 100          # ML team: 100% of cost
+}
+
+team_costs = calculator.allocate_costs_by_team(clusters, allocation)
+for team, cost in team_costs.items():
+    print(f"{team}: ${cost:.2f}")
+```
+
+### Why This Pattern Works
+
+1. **Accurate**: Uses AWS Cost Explorer API for actual billing data
+2. **Flexible**: Supports multiple allocation methods
+3. **Auditable**: Tracks costs with clear breakdowns
+4. **Scalable**: Works with 1 cluster or 1000 clusters
 
 ---
 
 ## Pattern 3: Cross-Account Resource Access
 
-**Use Case**: Access resources in other AWS accounts using STS AssumeRole.
+### Mental Model
+Getting keys to another company's warehouse (different AWS account). Use a temporary pass (STS assume role) instead of keeping permanent keys.
 
-**Key Features**:
-- Credential caching
-- Automatic refresh
-- Error handling
+### Problem
+You need to:
+- Access resources in another AWS account
+- Use temporary credentials instead of permanent keys
+- Maintain security with minimal risk
+- Implement clear access control
 
-**Source**: `iam/cross_account_access_sts.py`
+### Solution: STS AssumeRole Pattern
 
 ```python
 import boto3
 from boto3 import Session
-from datetime import datetime, timedelta
-import logging
+from typing import Optional, Dict, Any
+from botocore.exceptions import ClientError
+from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+@dataclass
+class AssumedRoleCredentials:
+    """Temporary credentials from STS AssumeRole."""
+    access_key_id: str
+    secret_access_key: str
+    session_token: str
+    expiration: str
+    assumed_role_arn: str
 
-class CrossAccountAccessor:
-    """Access resources across AWS accounts using STS AssumeRole."""
+class CrossAccountAccessManager:
+    """Manage cross-account access using STS AssumeRole."""
 
-    def __init__(self, target_account_id: str, target_role_name: str,
-                 session_duration: int = 3600):
+    def __init__(self, source_account_credentials: Optional[Dict[str, str]] = None):
         """
-        Initialize cross-account accessor.
+        Initialize the manager.
 
         Args:
-            target_account_id: AWS account ID to access
-            target_role_name: IAM role name in target account
-            session_duration: Credential duration in seconds (900-3600)
+            source_account_credentials: Optional explicit credentials for source account
         """
-        self.target_account_id = target_account_id
-        self.target_role_name = target_role_name
-        self.target_role_arn = f'arn:aws:iam::{target_account_id}:role/{target_role_name}'
-        self.session_duration = session_duration
-        self._credentials_cache = {}
+        if source_account_credentials:
+            session = Session(
+                aws_access_key_id=source_account_credentials['access_key'],
+                aws_secret_access_key=source_account_credentials['secret_key']
+            )
+            self.sts = session.client('sts')
+        else:
+            self.sts = boto3.client('sts')
 
-    def get_credentials(self, session_name: str):
+    def assume_role(self, role_arn: str,
+                   role_session_name: str,
+                   duration_seconds: int = 3600) -> Optional[AssumedRoleCredentials]:
         """
-        Get temporary credentials for target account.
+        Assume a role in another account.
+
+        Args:
+            role_arn: ARN of role to assume
+            role_session_name: Unique session identifier
+            duration_seconds: How long credentials are valid (900-43200 seconds)
 
         Returns:
-            Credentials dict with AccessKeyId, SecretAccessKey, SessionToken
+            AssumedRoleCredentials or None if error
         """
-        # Check cache
-        if session_name in self._credentials_cache:
-            creds, expiry = self._credentials_cache[session_name]
-            if datetime.utcnow() < expiry - timedelta(minutes=5):
-                logger.info(f"Using cached credentials for {session_name}")
-                return creds
-
-        # Assume role to get new credentials
-        sts = boto3.client('sts')
         try:
-            response = sts.assume_role(
-                RoleArn=self.target_role_arn,
-                RoleSessionName=session_name,
-                DurationSeconds=self.session_duration
+            response = self.sts.assume_role(
+                RoleArn=role_arn,
+                RoleSessionName=role_session_name,
+                DurationSeconds=duration_seconds
             )
 
             credentials = response['Credentials']
-            creds_dict = {
-                'aws_access_key_id': credentials['AccessKeyId'],
-                'aws_secret_access_key': credentials['SecretAccessKey'],
-                'aws_session_token': credentials['SessionToken']
-            }
 
-            # Cache credentials
-            self._credentials_cache[session_name] = (creds_dict, credentials['Expiration'])
-            logger.info(f"Obtained new credentials for {session_name}")
+            return AssumedRoleCredentials(
+                access_key_id=credentials['AccessKeyId'],
+                secret_access_key=credentials['SecretAccessKey'],
+                session_token=credentials['SessionToken'],
+                expiration=credentials['Expiration'].isoformat(),
+                assumed_role_arn=response['AssumedRoleUser']['Arn']
+            )
 
-            return creds_dict
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == 'AccessDenied':
+                print(f"Access denied assuming role {role_arn}")
+            elif error_code == 'InvalidInput':
+                print(f"Invalid role ARN or session name")
+            else:
+                print(f"Error assuming role: {error_code}")
+            return None
 
-        except Exception as e:
-            logger.error(f"Failed to assume role {self.target_role_arn}: {e}")
-            raise
+    def get_cross_account_client(self, service_name: str,
+                                role_arn: str,
+                                region_name: str = 'us-east-1') -> Optional[Any]:
+        """
+        Get a service client in a cross-account role.
 
-    def get_client(self, service_name: str, region: str = 'us-east-1'):
-        """Get AWS client for service in target account."""
-        creds = self.get_credentials(f'{service_name}-client')
-        return boto3.client(
-            service_name,
-            region_name=region,
-            **creds
+        Args:
+            service_name: AWS service name (e.g., 's3', 'ec2')
+            role_arn: Role to assume
+            region_name: AWS region
+
+        Returns:
+            Boto3 client or None if error
+        """
+        # Assume the role
+        creds = self.assume_role(
+            role_arn=role_arn,
+            role_session_name=f'{service_name}-session'
         )
 
-    def get_resource(self, service_name: str, region: str = 'us-east-1'):
-        """Get AWS resource for service in target account."""
-        creds = self.get_credentials(f'{service_name}-resource')
-        return boto3.resource(
-            service_name,
-            region_name=region,
-            **creds
+        if not creds:
+            return None
+
+        # Create session with assumed role credentials
+        session = Session(
+            aws_access_key_id=creds.access_key_id,
+            aws_secret_access_key=creds.secret_access_key,
+            aws_session_token=creds.session_token,
+            region_name=region_name
         )
 
-    def list_s3_buckets(self) -> list:
-        """List all S3 buckets in target account."""
-        s3 = self.get_client('s3')
-        response = s3.list_buckets()
-        return [bucket['Name'] for bucket in response['Buckets']]
+        return session.client(service_name)
 
-    def list_ec2_instances(self, region: str = 'us-east-1'):
-        """List all EC2 instances in target account."""
-        ec2 = self.get_client('ec2', region=region)
-        response = ec2.describe_instances()
-        instances = []
-        for reservation in response['Reservations']:
-            for instance in reservation['Instances']:
-                instances.append({
-                    'InstanceId': instance['InstanceId'],
-                    'InstanceType': instance['InstanceType'],
-                    'State': instance['State']['Name']
-                })
-        return instances
+    def list_cross_account_buckets(self, role_arn: str) -> Optional[list]:
+        """
+        List S3 buckets accessible via cross-account role.
 
-    def list_rds_databases(self, region: str = 'us-east-1'):
-        """List all RDS databases in target account."""
-        rds = self.get_client('rds', region=region)
-        response = rds.describe_db_instances()
-        return [db['DBInstanceIdentifier'] for db in response['DBInstances']]
+        Args:
+            role_arn: Role to assume
 
-# Usage
-if __name__ == '__main__':
-    # Create accessor for another account
-    accessor = CrossAccountAccessor(
-        target_account_id='999999999999',
-        target_role_name='CrossAccountDataAccessRole'
-    )
+        Returns:
+            List of bucket names or None if error
+        """
+        s3_client = self.get_cross_account_client('s3', role_arn)
 
-    # List resources in other account
-    buckets = accessor.list_s3_buckets()
-    print(f"Buckets in target account: {buckets}")
+        if not s3_client:
+            return None
 
-    instances = accessor.list_ec2_instances(region='us-east-1')
-    print(f"EC2 instances: {instances}")
+        try:
+            response = s3_client.list_buckets()
+            return [bucket['Name'] for bucket in response['Buckets']]
 
-    databases = accessor.list_rds_databases()
-    print(f"RDS databases: {databases}")
+        except ClientError as e:
+            print(f"Error listing buckets: {e}")
+            return None
+
+    def query_cross_account_instances(self, role_arn: str,
+                                     region_name: str = 'us-east-1') -> Optional[list]:
+        """
+        Query EC2 instances in cross-account role.
+
+        Args:
+            role_arn: Role to assume
+            region_name: AWS region
+
+        Returns:
+            List of instance IDs or None if error
+        """
+        ec2_client = self.get_cross_account_client('ec2', role_arn, region_name)
+
+        if not ec2_client:
+            return None
+
+        try:
+            response = ec2_client.describe_instances()
+            instance_ids = []
+
+            for reservation in response['Reservations']:
+                for instance in reservation['Instances']:
+                    instance_ids.append({
+                        'InstanceId': instance['InstanceId'],
+                        'State': instance['State']['Name'],
+                        'InstanceType': instance['InstanceType']
+                    })
+
+            return instance_ids
+
+        except ClientError as e:
+            print(f"Error describing instances: {e}")
+            return None
 ```
+
+### Usage Example
+
+```python
+manager = CrossAccountAccessManager()
+
+# Assume role in another account
+role_arn = 'arn:aws:iam::987654321:role/CrossAccountAccessRole'
+
+# Get S3 client in remote account
+s3 = manager.get_cross_account_client('s3', role_arn)
+if s3:
+    response = s3.list_buckets()
+    print(f"Remote buckets: {[b['Name'] for b in response['Buckets']]}")
+
+# Query EC2 instances in remote account
+instances = manager.query_cross_account_instances(
+    role_arn=role_arn,
+    region_name='us-east-1'
+)
+if instances:
+    for instance in instances:
+        print(f"Instance {instance['InstanceId']}: {instance['State']}")
+```
+
+### Why This Pattern Works
+
+1. **Secure**: Uses temporary credentials, not long-lived keys
+2. **Auditable**: Each assume-role is logged in CloudTrail
+3. **Time-limited**: Credentials expire automatically
+4. **Flexible**: Works with any AWS service
+5. **Scalable**: Manage access to multiple accounts
 
 ---
 
 ## Pattern 4: CloudFormation Stack Discovery
 
-**Use Case**: Find and enumerate CloudFormation stacks with filtering.
+### Mental Model
+Treasure map for your infrastructure. Discovers all resources created by CloudFormation stacks, groups them logically.
 
-**Key Features**:
-- Tag-based filtering
-- Resource enumeration
-- Pagination support
+### Problem
+You need to:
+- Find all resources created by a specific stack
+- List all stacks in your account
+- Filter stacks by tag or name
+- Handle pagination for large results
 
-**Source**: `aws-resource-manager/stack_discovery.py`
+### Solution: Stack Discovery Pattern
 
 ```python
 import boto3
-from typing import List, Dict
-import logging
+from typing import List, Dict, Optional, Generator
+from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+@dataclass
+class StackResource:
+    """Information about a resource in a CloudFormation stack."""
+    logical_id: str
+    physical_id: str
+    resource_type: str
+    resource_status: str
+    timestamp: str
 
 class CloudFormationDiscovery:
-    """Discover and manage CloudFormation stacks."""
+    """Discover and enumerate CloudFormation stacks and resources."""
 
-    def __init__(self, region='us-east-1'):
-        self.cf = boto3.client('cloudformation', region_name=region)
-        self.region = region
-
-    def list_stacks(self, status_filter: List[str] = None) -> List[Dict]:
+    def __init__(self, region_name: str = 'us-east-1'):
         """
-        List CloudFormation stacks.
+        Initialize CloudFormation discovery.
 
         Args:
-            status_filter: List of stack statuses to include
-                          (CREATE_COMPLETE, UPDATE_COMPLETE, DELETE_COMPLETE, etc.)
+            region_name: AWS region
+        """
+        self.cfn = boto3.client('cloudformation', region_name=region_name)
+        self.region = region_name
+
+    def list_all_stacks(self) -> Generator[Dict, None, None]:
+        """
+        Generator for all stacks (handles pagination).
+
+        Yields:
+            Stack information dictionaries
+        """
+        paginator = self.cfn.get_paginator('list_stacks')
+
+        # Exclude deleted stacks
+        page_iterator = paginator.paginate(
+            StackStatusFilter=[
+                'CREATE_COMPLETE',
+                'UPDATE_COMPLETE',
+                'UPDATE_ROLLBACK_COMPLETE'
+            ]
+        )
+
+        for page in page_iterator:
+            for stack in page.get('StackSummaries', []):
+                yield {
+                    'StackName': stack['StackName'],
+                    'StackId': stack['StackId'],
+                    'StackStatus': stack['StackStatus'],
+                    'CreationTime': stack['CreationTime'].isoformat(),
+                    'LastUpdatedTime': stack.get('LastUpdatedTime', '').isoformat()
+                }
+
+    def get_stack_resources(self, stack_name: str) -> List[StackResource]:
+        """
+        Get all resources created by a stack.
+
+        Args:
+            stack_name: Name of CloudFormation stack
 
         Returns:
-            List of stack summaries
+            List of StackResource objects
         """
-        if status_filter is None:
-            status_filter = ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
-
-        paginator = self.cf.get_paginator('list_stacks')
-        stacks = []
-
-        for page in paginator.paginate(StackStatusFilter=status_filter):
-            stacks.extend(page['StackSummaries'])
-
-        return stacks
-
-    def find_stacks_by_tag(self, tag_key: str, tag_value: str = None) -> List[Dict]:
-        """Find stacks with specific tag."""
-        stacks = self.list_stacks()
-        matching = []
-
-        for stack in stacks:
-            response = self.cf.describe_stacks(StackName=stack['StackName'])
-            stack_detail = response['Stacks'][0]
-
-            tags = {tag['Key']: tag['Value'] for tag in stack_detail.get('Tags', [])}
-
-            if tag_key in tags:
-                if tag_value is None or tags[tag_key] == tag_value:
-                    matching.append(stack_detail)
-
-        return matching
-
-    def find_stacks_by_pattern(self, pattern: str) -> List[Dict]:
-        """Find stacks by name pattern (regex)."""
-        import re
-        stacks = self.list_stacks()
-        matching = []
-
-        regex = re.compile(pattern)
-        for stack in stacks:
-            if regex.search(stack['StackName']):
-                response = self.cf.describe_stacks(StackName=stack['StackName'])
-                matching.append(response['Stacks'][0])
-
-        return matching
-
-    def get_stack_resources(self, stack_name: str) -> List[Dict]:
-        """Get all resources in a stack."""
-        paginator = self.cf.get_paginator('list_stack_resources')
         resources = []
 
-        for page in paginator.paginate(StackName=stack_name):
-            resources.extend(page['StackResourceSummaries'])
+        try:
+            paginator = self.cfn.get_paginator('list_stack_resources')
+            page_iterator = paginator.paginate(StackName=stack_name)
+
+            for page in page_iterator:
+                for resource in page.get('StackResourceSummaries', []):
+                    resources.append(StackResource(
+                        logical_id=resource['LogicalResourceId'],
+                        physical_id=resource['PhysicalResourceId'],
+                        resource_type=resource['ResourceType'],
+                        resource_status=resource['ResourceStatus'],
+                        timestamp=resource['LastUpdatedTimestamp'].isoformat()
+                    ))
+
+        except Exception as e:
+            print(f"Error getting stack resources: {e}")
 
         return resources
 
-    def get_stack_outputs(self, stack_name: str) -> Dict:
-        """Get outputs from a stack."""
-        response = self.cf.describe_stacks(StackName=stack_name)
-        stack = response['Stacks'][0]
+    def find_stacks_by_tag(self, tag_key: str, tag_value: str) -> List[Dict]:
+        """
+        Find stacks with specific tag.
 
-        outputs = {}
-        for output in stack.get('Outputs', []):
-            outputs[output['OutputKey']] = output['OutputValue']
+        Args:
+            tag_key: Tag key to search for
+            tag_value: Tag value to match
 
-        return outputs
+        Returns:
+            List of matching stacks
+        """
+        matching_stacks = []
 
-    def get_stack_parameters(self, stack_name: str) -> Dict:
-        """Get parameters used in a stack."""
-        response = self.cf.describe_stacks(StackName=stack_name)
-        stack = response['Stacks'][0]
+        for stack in self.list_all_stacks():
+            try:
+                response = self.cfn.describe_stacks(StackName=stack['StackName'])
+                tags = response['Stacks'][0].get('Tags', [])
 
-        parameters = {}
-        for param in stack.get('Parameters', []):
-            parameters[param['ParameterKey']] = param['ParameterValue']
+                for tag in tags:
+                    if tag['Key'] == tag_key and tag['Value'] == tag_value:
+                        matching_stacks.append(stack)
+                        break
 
-        return parameters
+            except Exception as e:
+                print(f"Error checking tags for {stack['StackName']}: {e}")
 
-    def delete_stack(self, stack_name: str, retain_resources: List[str] = None):
-        """Delete a CloudFormation stack."""
-        try:
-            self.cf.delete_stack(
-                StackName=stack_name,
-                RetainResources=retain_resources or []
-            )
-            logger.info(f"Deletion initiated for stack: {stack_name}")
-        except Exception as e:
-            logger.error(f"Failed to delete stack {stack_name}: {e}")
-            raise
+        return matching_stacks
 
-# Usage
-if __name__ == '__main__':
-    discovery = CloudFormationDiscovery(region='us-east-1')
+    def get_stack_resources_by_type(self, stack_name: str,
+                                    resource_type: str) -> List[StackResource]:
+        """
+        Get resources of specific type from a stack.
 
-    # List all active stacks
-    stacks = discovery.list_stacks()
-    print(f"Found {len(stacks)} stacks")
+        Args:
+            stack_name: Stack name
+            resource_type: Resource type (e.g., 'AWS::S3::Bucket')
 
-    # Find stacks by tag
-    prod_stacks = discovery.find_stacks_by_tag('Environment', 'production')
-    print(f"Production stacks: {[s['StackName'] for s in prod_stacks]}")
+        Returns:
+            List of matching resources
+        """
+        all_resources = self.get_stack_resources(stack_name)
+        return [r for r in all_resources if r.resource_type == resource_type]
 
-    # Find stacks by pattern
-    data_stacks = discovery.find_stacks_by_pattern('.*-data-.*')
-    print(f"Data-related stacks: {[s['StackName'] for s in data_stacks]}")
+    def export_stack_inventory(self) -> Dict[str, List]:
+        """
+        Export inventory of all stacks and their resources.
 
-    # Get stack details
-    if stacks:
-        stack_name = stacks[0]['StackName']
-        resources = discovery.get_stack_resources(stack_name)
-        print(f"Resources in {stack_name}:")
-        for resource in resources:
-            print(f"  - {resource['LogicalResourceId']} ({resource['ResourceType']})")
+        Returns:
+            Dictionary of stack name -> list of resources
+        """
+        inventory = {}
 
-        outputs = discovery.get_stack_outputs(stack_name)
-        print(f"Outputs: {outputs}")
+        for stack in self.list_all_stacks():
+            stack_name = stack['StackName']
+            resources = self.get_stack_resources(stack_name)
+            inventory[stack_name] = [
+                {
+                    'logical_id': r.logical_id,
+                    'physical_id': r.physical_id,
+                    'type': r.resource_type,
+                    'status': r.resource_status
+                }
+                for r in resources
+            ]
+
+        return inventory
 ```
+
+### Usage Example
+
+```python
+discovery = CloudFormationDiscovery(region_name='us-east-1')
+
+# List all stacks
+print("All stacks:")
+for stack in discovery.list_all_stacks():
+    print(f"  {stack['StackName']}: {stack['StackStatus']}")
+
+# Get resources in a specific stack
+stack_resources = discovery.get_stack_resources('my-app-stack')
+print(f"\nResources in my-app-stack:")
+for resource in stack_resources:
+    print(f"  {resource.logical_id} ({resource.resource_type}): {resource.resource_status}")
+
+# Find stacks by tag
+prod_stacks = discovery.find_stacks_by_tag('Environment', 'production')
+print(f"\nProduction stacks:")
+for stack in prod_stacks:
+    print(f"  {stack['StackName']}")
+
+# Get only S3 buckets from a stack
+s3_resources = discovery.get_stack_resources_by_type(
+    'my-app-stack',
+    'AWS::S3::Bucket'
+)
+print(f"\nS3 buckets in my-app-stack:")
+for resource in s3_resources:
+    print(f"  {resource.logical_id}: {resource.physical_id}")
+
+# Export full inventory
+inventory = discovery.export_stack_inventory()
+import json
+print(json.dumps(inventory, indent=2))
+```
+
+### Why This Pattern Works
+
+1. **Complete**: Finds all resources across all stacks
+2. **Flexible**: Filter by name, tag, or resource type
+3. **Scalable**: Uses pagination for large inventories
+4. **Auditable**: Tracks creation and modification times
+5. **Exportable**: Can generate reports and inventories
 
 ---
 
 ## Pattern 5: SSM Remote Execution
 
-**Use Case**: Run commands on EC2 instances via Systems Manager.
+### Mental Model
+Remote control for your servers. Run commands on EC2 instances without SSH/bastion hosts. Send commands through AWS Systems Manager.
 
-**Key Features**:
-- Least-loaded instance targeting
-- Command output retrieval
-- Error handling
+### Problem
+You need to:
+- Run commands on EC2 instances without SSH access
+- Target instances dynamically (by tag, name, etc.)
+- Get command output and execution status
+- Avoid managing SSH keys
 
-**Source**: `aws-systems-manager/ssm_run_command_with_json_arg.py`
+### Solution: SSM Remote Execution Pattern
 
 ```python
 import boto3
+from typing import List, Dict, Optional
+from dataclasses import dataclass
 import json
 import time
-from typing import List, Dict
-import logging
 
-logger = logging.getLogger(__name__)
+@dataclass
+class CommandExecution:
+    """Result of SSM command execution."""
+    command_id: str
+    instance_id: str
+    status: str
+    output: str
+    error_output: str
 
 class SSMCommandExecutor:
-    """Execute commands on EC2 instances via SSM."""
+    """Execute commands on EC2 instances via Systems Manager."""
 
-    def __init__(self, region='us-east-1'):
-        self.ssm = boto3.client('ssm', region_name=region)
-        self.ec2 = boto3.client('ec2', region_name=region)
-        self.region = region
+    def __init__(self, region_name: str = 'us-east-1'):
+        """
+        Initialize SSM command executor.
 
-    def find_least_loaded_instance(self, tag_key: str, tag_value: str) -> str:
-        """Find EC2 instance with tag and lowest CPU utilization."""
-        cloudwatch = boto3.client('cloudwatch', region_name=self.region)
+        Args:
+            region_name: AWS region
+        """
+        self.ssm = boto3.client('ssm', region_name=region_name)
+        self.ec2 = boto3.client('ec2', region_name=region_name)
 
-        # Find instances with tag
+    def find_instances_by_tag(self, tag_key: str, tag_value: str) -> List[str]:
+        """
+        Find instances by tag.
+
+        Args:
+            tag_key: Tag key to search for
+            tag_value: Tag value to match
+
+        Returns:
+            List of instance IDs
+        """
         response = self.ec2.describe_instances(
             Filters=[
                 {'Name': f'tag:{tag_key}', 'Values': [tag_value]},
@@ -775,532 +1013,219 @@ class SSMCommandExecutor:
             ]
         )
 
-        instances = []
+        instance_ids = []
         for reservation in response['Reservations']:
-            instances.extend(reservation['Instances'])
+            for instance in reservation['Instances']:
+                instance_ids.append(instance['InstanceId'])
 
-        if not instances:
-            raise ValueError(f"No instances found with {tag_key}={tag_value}")
+        return instance_ids
 
-        # Get CPU utilization for each
-        least_loaded = None
-        min_cpu = 100
-
-        for instance in instances:
-            metrics = cloudwatch.get_metric_statistics(
-                Namespace='AWS/EC2',
-                MetricName='CPUUtilization',
-                Dimensions=[{'Name': 'InstanceId', 'Value': instance['InstanceId']}],
-                StartTime=time.time() - 300,
-                EndTime=time.time(),
-                Period=60,
-                Statistics=['Average']
-            )
-
-            avg_cpu = 0
-            if metrics['Datapoints']:
-                avg_cpu = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
-
-            if avg_cpu < min_cpu:
-                min_cpu = avg_cpu
-                least_loaded = instance['InstanceId']
-
-        return least_loaded
-
-    def run_command(self, instance_ids: List[str], command: str,
-                   timeout: int = 3600) -> str:
+    def find_least_loaded_instance(self, instance_ids: List[str]) -> Optional[str]:
         """
-        Run command on instances.
+        Find instance with least CPU utilization.
 
         Args:
-            instance_ids: List of EC2 instance IDs
-            command: Shell command to run
-            timeout: Command timeout in seconds
+            instance_ids: List of instance IDs to check
 
         Returns:
-            Command ID for tracking
+            Instance ID with lowest CPU or None
         """
-        try:
-            response = self.ssm.send_command(
-                InstanceIds=instance_ids,
-                DocumentName='AWS-RunShellScript',
-                Parameters={'command': [command]},
-                TimeoutSeconds=timeout
-            )
+        if not instance_ids:
+            return None
 
-            command_id = response['Command']['CommandId']
-            logger.info(f"Command {command_id} sent to {len(instance_ids)} instances")
+        cloudwatch = boto3.client('cloudwatch')
+        cpu_loads = {}
 
-            return command_id
-
-        except Exception as e:
-            logger.error(f"Failed to run command: {e}")
-            raise
-
-    def run_command_with_json(self, instance_ids: List[str],
-                             script: str, json_args: Dict) -> str:
-        """
-        Run command with JSON arguments.
-
-        The script will have access to $JSON_ARGS environment variable.
-        """
-        json_str = json.dumps(json_args)
-        # Escape JSON for shell
-        escaped_json = json_str.replace('"', '\\"')
-
-        command = f"""
-        export JSON_ARGS='{json_str}'
-        {script}
-        """
-
-        return self.run_command(instance_ids, command)
-
-    def get_command_output(self, command_id: str, instance_id: str):
-        """Get output from executed command."""
-        # Wait for command to complete
-        max_attempts = 60
-        for attempt in range(max_attempts):
-            response = self.ssm.get_command_invocation(
-                CommandId=command_id,
-                InstanceId=instance_id
-            )
-
-            status = response['Status']
-            if status in ['Success', 'Failed']:
-                return {
-                    'Status': status,
-                    'StandardOutput': response['StandardOutputContent'],
-                    'StandardError': response['StandardErrorContent']
-                }
-
-            time.sleep(5)
-
-        raise TimeoutError(f"Command {command_id} timed out")
-
-    def run_script_on_instance(self, instance_id: str, script_path: str) -> str:
-        """Upload and run script on instance."""
-        with open(script_path, 'r') as f:
-            script_content = f.read()
-
-        # Create command to download and execute
-        command = f"""
-        cat << 'EOF' > /tmp/script.sh
-        {script_content}
-        EOF
-        chmod +x /tmp/script.sh
-        /tmp/script.sh
-        """
-
-        return self.run_command([instance_id], command)
-
-# Usage
-if __name__ == '__main__':
-    executor = SSMCommandExecutor(region='us-east-1')
-
-    # Find least-loaded web server
-    instance_id = executor.find_least_loaded_instance('Role', 'web-server')
-    print(f"Targeting instance: {instance_id}")
-
-    # Run simple command
-    cmd_id = executor.run_command([instance_id], 'df -h')
-    output = executor.get_command_output(cmd_id, instance_id)
-    print(f"Disk usage:\n{output['StandardOutput']}")
-
-    # Run command with JSON arguments
-    json_args = {
-        'bucket': 'my-data-bucket',
-        'prefix': 'data/2024-05/',
-        'format': 'parquet'
-    }
-    cmd_id = executor.run_command_with_json(
-        [instance_id],
-        '''python3 << 'SCRIPT'
-import json
-import os
-args = json.loads(os.environ['JSON_ARGS'])
-print(f"Processing {args['bucket']}/{args['prefix']}")
-SCRIPT
-        ''',
-        json_args
-    )
-    output = executor.get_command_output(cmd_id, instance_id)
-    print(output['StandardOutput'])
-```
-
----
-
-## Pattern 6: S3 SQL Query Engine
-
-**Use Case**: Query data in S3 using SQL without downloading files.
-
-**Key Features**:
-- CSV and Parquet support
-- SQL filtering
-- Streaming results
-
-**Source**: `s3-sql/s3_sql.py`
-
-```python
-import boto3
-import json
-from typing import Iterator, List
-
-class S3SQLEngine:
-    """Query data in S3 using SQL."""
-
-    def __init__(self, region='us-east-1'):
-        self.s3 = boto3.client('s3', region_name=region)
-
-    def query_csv(self, bucket: str, key: str, sql: str,
-                 headers: bool = True) -> Iterator[str]:
-        """
-        Query CSV file in S3 using SQL.
-
-        Args:
-            bucket: S3 bucket name
-            key: Object key
-            sql: SQL query (e.g., "SELECT * FROM s3object WHERE amount > 100")
-            headers: True if first row is header
-
-        Yields:
-            Result rows as strings
-        """
-        response = self.s3.select_object_content(
-            Bucket=bucket,
-            Key=key,
-            ExpressionType='SQL',
-            Expression=sql,
-            InputSerialization={
-                'CSV': {
-                    'FileHeaderInfo': 'Use' if headers else 'None',
-                    'Comments': '#',
-                    'QuoteEscapeCharacter': '"',
-                    'RecordDelimiter': '\n',
-                    'FieldDelimiter': ','
-                }
-            },
-            OutputSerialization={'CSV': {}}
-        )
-
-        # Stream results
-        for event in response['Payload']:
-            if 'Records' in event:
-                yield event['Records']['Payload'].decode('utf-8')
-
-    def query_parquet(self, bucket: str, key: str, sql: str) -> Iterator[str]:
-        """Query Parquet file in S3 using SQL."""
-        response = self.s3.select_object_content(
-            Bucket=bucket,
-            Key=key,
-            ExpressionType='SQL',
-            Expression=sql,
-            InputSerialization={'Parquet': {}},
-            OutputSerialization={'JSON': {}}
-        )
-
-        # Stream results
-        for event in response['Payload']:
-            if 'Records' in event:
-                yield event['Records']['Payload'].decode('utf-8')
-
-    def query_json(self, bucket: str, key: str, sql: str) -> Iterator[str]:
-        """Query JSONL file in S3 using SQL."""
-        response = self.s3.select_object_content(
-            Bucket=bucket,
-            Key=key,
-            ExpressionType='SQL',
-            Expression=sql,
-            InputSerialization={'JSON': {'Type': 'LINES'}},
-            OutputSerialization={'JSON': {}}
-        )
-
-        # Stream results
-        for event in response['Payload']:
-            if 'Records' in event:
-                yield event['Records']['Payload'].decode('utf-8')
-
-    def count_rows(self, bucket: str, key: str, file_type: str = 'csv') -> int:
-        """Count rows in file."""
-        sql = 'SELECT COUNT(*) FROM s3object'
-
-        if file_type == 'csv':
-            results = ''.join(self.query_csv(bucket, key, sql))
-        elif file_type == 'parquet':
-            results = ''.join(self.query_parquet(bucket, key, sql))
-        else:
-            results = ''.join(self.query_json(bucket, key, sql))
-
-        # Extract count from result
-        lines = results.strip().split('\n')
-        if lines:
-            return int(lines[0])
-        return 0
-
-    def filter_and_download(self, bucket: str, key: str, sql: str,
-                           output_file: str, file_type: str = 'csv'):
-        """Filter data and save to local file."""
-        query_method = getattr(self, f'query_{file_type}')
-
-        with open(output_file, 'w') as f:
-            for chunk in query_method(bucket, key, sql):
-                f.write(chunk)
-
-        print(f"Results saved to {output_file}")
-
-# Usage
-if __name__ == '__main__':
-    engine = S3SQLEngine()
-
-    # Count rows in CSV
-    count = engine.count_rows(
-        bucket='data-lake',
-        key='raw-data/sales.csv',
-        file_type='csv'
-    )
-    print(f"Total rows: {count}")
-
-    # Query CSV with filtering
-    results = engine.query_csv(
-        bucket='data-lake',
-        key='raw-data/sales.csv',
-        sql='SELECT date, customer_id, amount FROM s3object WHERE amount > 1000'
-    )
-
-    print("High-value sales:")
-    for line in results:
-        print(line)
-
-    # Query Parquet
-    results = engine.query_parquet(
-        bucket='data-lake',
-        key='processed/sales.parquet',
-        sql='SELECT * FROM s3object WHERE CAST(date AS DATE) > CAST(\'2024-01-01\' AS DATE)'
-    )
-
-    # Filter and save
-    engine.filter_and_download(
-        bucket='data-lake',
-        key='raw-data/sales.csv',
-        sql='SELECT * FROM s3object WHERE amount > 500',
-        output_file='filtered_sales.csv',
-        file_type='csv'
-    )
-```
-
----
-
-## Pattern 7: Lambda Layer Deployment
-
-**Use Case**: Create and share dependencies across Lambda functions.
-
-```python
-import boto3
-import zipfile
-import subprocess
-import os
-import tempfile
-from typing import List
-
-class LambdaLayerManager:
-    """Manage Lambda layers for shared dependencies."""
-
-    def __init__(self, region='us-east-1'):
-        self.lamb = boto3.client('lambda', region_name=region)
-
-    def create_layer_from_requirements(self, layer_name: str,
-                                      requirements_file: str,
-                                      runtimes: List[str] = None) -> str:
-        """
-        Create Lambda layer from requirements.txt.
-
-        Args:
-            layer_name: Name for the layer
-            requirements_file: Path to requirements.txt
-            runtimes: Compatible runtimes (default: python3.11)
-
-        Returns:
-            Layer version ARN
-        """
-        if runtimes is None:
-            runtimes = ['python3.11']
-
-        # Create temporary directory
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Install packages
-            lib_dir = os.path.join(tmpdir, 'python')
-            os.makedirs(lib_dir)
-
-            subprocess.run([
-                'pip', 'install', '-r', requirements_file,
-                '-t', lib_dir
-            ], check=True)
-
-            # Create zip file
-            zip_path = os.path.join(tmpdir, f'{layer_name}.zip')
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for root, dirs, files in os.walk(tmpdir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, tmpdir)
-                        zf.write(file_path, arcname)
-
-            # Upload to Lambda
-            with open(zip_path, 'rb') as f:
-                response = self.lamb.publish_layer_version(
-                    LayerName=layer_name,
-                    Content={'ZipFile': f.read()},
-                    CompatibleRuntimes=runtimes
+        for instance_id in instance_ids:
+            try:
+                response = cloudwatch.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName='CPUUtilization',
+                    Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
+                    StartTime=datetime.utcnow() - timedelta(minutes=5),
+                    EndTime=datetime.utcnow(),
+                    Period=60,
+                    Statistics=['Average']
                 )
 
-        layer_arn = response['LayerVersionArn']
-        print(f"Layer published: {layer_arn}")
-        return layer_arn
+                if response['Datapoints']:
+                    cpu_loads[instance_id] = response['Datapoints'][-1]['Average']
+                else:
+                    cpu_loads[instance_id] = 0  # No data = assume low load
 
-    def add_layer_to_function(self, function_name: str, layer_arns: List[str]):
-        """Add layers to a Lambda function."""
-        self.lamb.update_function_configuration(
-            FunctionName=function_name,
-            Layers=layer_arns
+            except Exception as e:
+                print(f"Error checking CPU for {instance_id}: {e}")
+                cpu_loads[instance_id] = 999  # Assume high load on error
+
+        # Return instance with lowest CPU
+        return min(cpu_loads, key=cpu_loads.get)
+
+    def execute_command(self, instance_ids: List[str],
+                       command: str,
+                       wait_for_completion: bool = True,
+                       timeout_seconds: int = 300) -> List[CommandExecution]:
+        """
+        Execute command on EC2 instances.
+
+        Args:
+            instance_ids: List of instance IDs
+            command: Shell command to execute
+            wait_for_completion: Wait for command to finish
+            timeout_seconds: Timeout if waiting
+
+        Returns:
+            List of CommandExecution results
+        """
+        # Send command
+        response = self.ssm.send_command(
+            InstanceIds=instance_ids,
+            DocumentName='AWS-RunShellScript',
+            Parameters={'command': [command]},
+            TimeoutSeconds=[timeout_seconds]
         )
-        print(f"Layers added to {function_name}")
 
-# Usage
-if __name__ == '__main__':
-    manager = LambdaLayerManager()
+        command_id = response['Command']['CommandId']
+        print(f"Command {command_id} sent to {len(instance_ids)} instances")
 
-    # Create layer from requirements.txt
-    layer_arn = manager.create_layer_from_requirements(
-        layer_name='pandas-numpy-layer',
-        requirements_file='requirements.txt'
-    )
+        results = []
 
-    # Add to functions
-    manager.add_layer_to_function('data-processor', [layer_arn])
+        if wait_for_completion:
+            # Wait for all instances to complete
+            start_time = time.time()
+
+            while time.time() - start_time < timeout_seconds:
+                response = self.ssm.get_command_invocation(
+                    CommandId=command_id,
+                    InstanceId=instance_ids[0]  # Check first instance
+                )
+
+                status = response['Status']
+
+                if status in ['Success', 'Failed', 'Cancelled', 'TimedOut']:
+                    # Command completed on this instance
+                    break
+
+                time.sleep(5)  # Check every 5 seconds
+
+            # Get results from all instances
+            for instance_id in instance_ids:
+                try:
+                    response = self.ssm.get_command_invocation(
+                        CommandId=command_id,
+                        InstanceId=instance_id
+                    )
+
+                    results.append(CommandExecution(
+                        command_id=command_id,
+                        instance_id=instance_id,
+                        status=response['Status'],
+                        output=response.get('StandardOutputContent', ''),
+                        error_output=response.get('StandardErrorContent', '')
+                    ))
+
+                except Exception as e:
+                    results.append(CommandExecution(
+                        command_id=command_id,
+                        instance_id=instance_id,
+                        status='Error',
+                        output='',
+                        error_output=str(e)
+                    ))
+
+        return results
+
+    def execute_on_tagged_instances(self, tag_key: str, tag_value: str,
+                                   command: str) -> List[CommandExecution]:
+        """
+        Execute command on all instances with specific tag.
+
+        Args:
+            tag_key: Tag key to search for
+            tag_value: Tag value to match
+            command: Command to execute
+
+        Returns:
+            List of execution results
+        """
+        # Find instances by tag
+        instance_ids = self.find_instances_by_tag(tag_key, tag_value)
+
+        if not instance_ids:
+            print(f"No instances found with tag {tag_key}={tag_value}")
+            return []
+
+        print(f"Found {len(instance_ids)} instances: {instance_ids}")
+
+        # Execute command
+        return self.execute_command(instance_ids, command)
 ```
 
----
-
-## Pattern 8: Step Functions Orchestration
-
-**Use Case**: Orchestrate complex workflows across AWS services.
+### Usage Example
 
 ```python
-import boto3
-import json
-from datetime import datetime
+executor = SSMCommandExecutor()
 
-class StepFunctionsOrchestrator:
-    """Create and manage Step Functions workflows."""
+# Execute on specific instances
+instances = ['i-1234567890abcdef0', 'i-0987654321fedcba0']
+results = executor.execute_command(
+    instance_ids=instances,
+    command='df -h'  # Show disk space
+)
 
-    def __init__(self, region='us-east-1'):
-        self.sfn = boto3.client('stepfunctions', region_name=region)
+for result in results:
+    print(f"{result.instance_id}: {result.status}")
+    print(f"Output:\n{result.output}")
 
-    def create_etl_pipeline(self, state_machine_name: str, role_arn: str,
-                           extract_fn: str, transform_fn: str, load_fn: str) -> str:
-        """Create ETL pipeline state machine."""
-        definition = {
-            'Comment': 'ETL Pipeline',
-            'StartAt': 'Extract',
-            'States': {
-                'Extract': {
-                    'Type': 'Task',
-                    'Resource': f'arn:aws:lambda:*:*:function:{extract_fn}',
-                    'Next': 'Transform',
-                    'Catch': [
-                        {
-                            'ErrorEquals': ['States.ALL'],
-                            'Next': 'HandleError'
-                        }
-                    ]
-                },
-                'Transform': {
-                    'Type': 'Task',
-                    'Resource': f'arn:aws:lambda:*:*:function:{transform_fn}',
-                    'Next': 'Load'
-                },
-                'Load': {
-                    'Type': 'Task',
-                    'Resource': f'arn:aws:lambda:*:*:function:{load_fn}',
-                    'End': True
-                },
-                'HandleError': {
-                    'Type': 'Fail',
-                    'Error': 'PipelineFailed',
-                    'Cause': 'ETL pipeline encountered an error'
-                }
-            }
-        }
+# Execute on all instances with a tag
+results = executor.execute_on_tagged_instances(
+    tag_key='Environment',
+    tag_value='production',
+    command='systemctl restart myservice'
+)
 
-        response = self.sfn.create_state_machine(
-            name=state_machine_name,
-            definition=json.dumps(definition),
-            roleArn=role_arn
-        )
-
-        return response['stateMachineArn']
-
-    def execute_pipeline(self, state_machine_arn: str, input_data: dict) -> str:
-        """Execute state machine."""
-        response = self.sfn.start_execution(
-            stateMachineArn=state_machine_arn,
-            input=json.dumps(input_data)
-        )
-
-        return response['executionArn']
-
-    def get_execution_status(self, execution_arn: str):
-        """Check execution status."""
-        response = self.sfn.describe_execution(executionArn=execution_arn)
-        return {
-            'Status': response['status'],
-            'Output': json.loads(response.get('output', '{}'))
-        }
-
-# Usage
-if __name__ == '__main__':
-    orchestrator = StepFunctionsOrchestrator()
-
-    # Create pipeline
-    arn = orchestrator.create_etl_pipeline(
-        state_machine_name='data-pipeline',
-        role_arn='arn:aws:iam::ACCOUNT:role/step-functions-role',
-        extract_fn='extract-data',
-        transform_fn='transform-data',
-        load_fn='load-data'
-    )
-
-    # Execute
-    execution_arn = orchestrator.execute_pipeline(arn, {
-        'source_bucket': 'raw-data',
-        'target_bucket': 'processed-data'
-    })
-
-    # Check status
-    status = orchestrator.get_execution_status(execution_arn)
-    print(f"Pipeline status: {status['Status']}")
+# Find least loaded instance
+instance_ids = executor.find_instances_by_tag('Application', 'api-server')
+least_loaded = executor.find_least_loaded_instance(instance_ids)
+print(f"Least loaded instance: {least_loaded}")
 ```
+
+### Why This Pattern Works
+
+1. **Secure**: No SSH keys to manage
+2. **Audited**: All commands logged in CloudTrail
+3. **Scalable**: Run on 1 or 1000 instances
+4. **Flexible**: Target by tag, name, or explicit list
+5. **Safe**: IAM policies control what can be executed
 
 ---
 
-## Summary
+## Summary Table
 
-These 8 patterns cover the most common real-world AWS scenarios:
+| Pattern | Problem | Solution |
+|---------|---------|----------|
+| **Monitoring** | Track 17+ services | Base monitor + service-specific implementations |
+| **Cost** | Who spent what | Cost Explorer API + allocation logic |
+| **Cross-Account** | Access remote account resources | STS AssumeRole + temporary credentials |
+| **Discovery** | Find all resources | CloudFormation stack enumeration |
+| **Execution** | Run commands on EC2 | SSM command execution |
+| **SQL on S3** | Query data in S3 | PySpark + Athena integration |
+| **Layers** | Share code across functions | Lambda layer deployment automation |
+| **Orchestration** | Complex workflows | Step Functions state machines |
 
-| Pattern | Use Case | Complexity |
-|---------|----------|-----------|
-| 1. Monitoring | Health checks, alerts | Medium |
-| 2. Cost Management | Billing, chargeback | Medium |
-| 3. Cross-Account | Multi-account access | Medium |
-| 4. Stack Discovery | Infrastructure discovery | Easy |
-| 5. SSM Execution | Remote commands | Medium |
-| 6. S3 Queries | Data filtering | Easy |
-| 7. Lambda Layers | Dependency sharing | Easy |
-| 8. Step Functions | Workflow orchestration | Hard |
+---
 
-All patterns include:
-- Error handling
-- Logging
-- Type hints
-- Real usage examples
-- Production-ready code
+## Key Takeaways
 
+1. **Abstraction**: Build abstract base classes for extensibility
+2. **Pagination**: Always use paginators for list operations
+3. **Error Handling**: Wrap all AWS calls in try-except
+4. **Credentials**: Use IAM roles/STS, never hardcode keys
+5. **Monitoring**: Log operations, send metrics, alert on problems
+6. **Cost**: Track spending, allocate to teams, prevent surprises
+7. **Security**: Use least privilege, temporary credentials, audit trails
+
+---
+
+**Last Updated**: 2024
+**Target Audience**: AWS developers building production systems
+**Estimated Reading Time**: 2-3 hours (patterns are independent)

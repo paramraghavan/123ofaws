@@ -1,487 +1,695 @@
-This URL appears to be an Amazon S3 presigned URL for a CloudFormation custom resource response. Let me break down what
-this URL contains and explain how to create similar URLs dynamically.
+# S3 Presigned URLs - Complete Tutorial
 
-## What this URL is:
+> **Grant Temporary Access to S3 Objects**: Learn to create time-limited, credential-free URLs for sharing and uploading files.
 
-This is a presigned S3 URL that allows temporary access to an S3 object without requiring AWS credentials. Specifically,
-it's for:
+---
 
-- **Service**: Amazon S3 (CloudFormation custom resource responses)
-- **Bucket**: `cloudformation-custom-resource-response-useast1`
-- **Region**: `us-east-1`
-- **Object**: A CloudFormation stack response file
-- **Access**: Temporary (7200 seconds = 2 hours based on the Expires parameter)
+## Table of Contents
 
-The URL contains AWS Signature Version 4 authentication parameters that make it valid for temporary access.
+1. [What is a Presigned URL? (Beginner)](#what-is-a-presigned-url-beginner)
+2. [The Mental Model (Sticks in Your Mind!)](#the-mental-model-sticks-in-your-mind)
+3. [How Presigned URLs Work](#how-presigned-urls-work)
+4. [Creating Presigned URLs](#creating-presigned-urls)
+5. [Use Cases](#use-cases)
+6. [Security Considerations](#security-considerations)
+7. [Best Practices](#best-practices)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Patterns](#advanced-patterns)
 
-## Security Risk Flag:
+---
 
-Your security tool is likely flagging this because:
+## What is a Presigned URL? (Beginner)
 
-1. It contains what appears to be AWS credentials (the signature components)
-2. It's a long, encoded URL that could be suspicious
-3. There's a typo in the domain (`anazonaws.com` instead of `amazonaws.com`) which makes it look potentially malicious
+### Simple Explanation
 
-## How to create presigned URLs dynamically:## Python example:
+A **presigned URL** is a temporary link to an S3 object that allows anyone with the link to access it—**without needing AWS credentials**.
+
+**Key points:**
+- ✅ Allows public access to private S3 objects
+- ✅ Time-limited (expires after set duration)
+- ✅ Works with a browser (no AWS SDK needed)
+- ✅ Can be for download OR upload
+- ✅ No AWS credentials exposed
+
+**Quick example:**
+```
+Regular S3 object: BLOCKED without AWS credentials
+       ↓
+Generate presigned URL
+       ↓
+https://my-bucket.s3.amazonaws.com/file.pdf?...&Expires=1234567890&Signature=abc123...
+       ↓
+Anyone can click the link and access the file
+       ↓
+URL expires in 1 hour, link becomes invalid
+```
+
+---
+
+## The Mental Model (Sticks in Your Mind!)
+
+Think of presigned URLs like **temporary guest passes**:
+
+```
+Your Company Building (S3 Bucket):
+├─ Private office (Private S3 object)
+└─ Anyone needs credentials to enter
+
+Need to let a client in?
+├─ Option 1: Give them your master key (BAD!)
+│  └─ They have unlimited access forever
+│
+├─ Option 2: Issue a guest pass (GOOD!)
+│  ├─ "Valid for 1 hour only"
+│  ├─ "Can only access Conference Room 3"
+│  ├─ "Cannot visit the vault"
+│  └─ After 1 hour, pass expires automatically
+
+Presigned URL = Guest Pass:
+├─ Time-limited access (expires)
+├─ Specific object access (can't access other files)
+├─ No permanent credentials given
+└─ Works like a magic URL anyone can use
+```
+
+**Real-world analogy:**
+- **AWS credentials** = Master key to building (unlimited, permanent)
+- **Presigned URL** = Guest pass (limited, temporary)
+
+You never hand out master keys to clients. You issue guest passes instead.
+
+---
+
+## How Presigned URLs Work
+
+### Step-by-Step Process
+
+```
+1. YOU create presigned URL
+   ├─ You have AWS credentials (master key)
+   ├─ You specify: bucket, object, expiration time
+   └─ AWS signs the URL with your secret key
+
+2. URL is created with signature
+   ├─ Contains: S3 bucket, object key
+   ├─ Contains: Expiration timestamp
+   ├─ Contains: Cryptographic signature (proves it's real)
+   └─ Looks like: https://bucket.s3.amazonaws.com/file.pdf?Expires=123&Signature=abc...
+
+3. URL is shared
+   ├─ Send to client via email, chat, web page
+   └─ Client doesn't need AWS credentials
+
+4. Client uses URL
+   ├─ Clicks link or downloads
+   ├─ S3 verifies signature (proves it's authentic)
+   ├─ Checks expiration (not expired)
+   └─ Grants access to that ONE object
+
+5. URL expires
+   └─ Client clicks link after expiration
+      └─ S3 rejects: "This URL is no longer valid"
+         └─ Client can no longer access the file
+```
+
+### What Makes It Secure?
+
+```
+Why can't someone just make their own presigned URL?
+
+1. URL contains cryptographic signature
+   └─ Generated using YOUR secret AWS key
+   └─ Only you can generate valid signatures
+
+2. If someone modifies the URL
+   ├─ Changes expiration time
+   ├─ Changes object name
+   ├─ Changes bucket name
+   └─ Signature becomes invalid → S3 rejects it
+
+3. URL expires automatically
+   └─ Even if URL is leaked, it stops working
+   └─ Time limit = built-in security
+```
+
+---
+
+## Creating Presigned URLs
+
+### Method 1: For Downloading (GET)
 
 ```python
 import boto3
-from botocore.exceptions import ClientError
 from datetime import timedelta
 
+s3 = boto3.client('s3')
 
-def generate_presigned_url(bucket_name, object_key, expiration=3600):
-    """Generate a presigned URL for S3 object"""
-    s3_client = boto3.client('s3', region_name='us-east-1')
+# Generate presigned URL for downloading a file
+url = s3.generate_presigned_url(
+    'get_object',
+    Params={
+        'Bucket': 'my-bucket',
+        'Key': 'documents/report.pdf'
+    },
+    ExpiresIn=3600  # URL valid for 1 hour (3600 seconds)
+)
 
-    try:
-        response = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket_name, 'Key': object_key},
-            ExpiresIn=expiration
-        )
-    except ClientError as e:
-        print(f"Error: {e}")
-        return None
-
-    return response
+print(url)
+# Output: https://my-bucket.s3.amazonaws.com/documents/report.pdf?Expires=1234567890&Signature=...
 ```
 
-## Key Points:
+**How to use:**
+```bash
+# Anyone can download using the URL
+curl "https://my-bucket.s3.amazonaws.com/documents/report.pdf?Expires=1234567890&Signature=..." \
+  -o report.pdf
+```
 
-1. **Authentication**: You need valid AWS credentials with S3 access permissions
-2. **Expiration**: Set appropriate expiration times (the URL in your example expires in 2 hours)
-3. **Security**: These URLs provide temporary access without exposing your AWS credentials
-4. **Domain**: Make sure you're using the correct domain (`amazonaws.com`, not `anazonaws.com`)
+---
 
-The security flag is likely a false positive due to the typo in the domain name and the long, encoded nature of the URL.
-Presigned URLs are a legitimate AWS feature for secure, temporary access to S3 resources.
-
+### Method 2: For Uploading (PUT)
 
 ```python
 import boto3
-import os
-from botocore.exceptions import ClientError, NoCredentialsError
-from datetime import datetime, timedelta
 
-class S3PresignedURLGenerator:
-    def __init__(self, region_name='us-east-1'):
-        """Initialize S3 client with credentials from environment or IAM role"""
-        try:
-            self.s3_client = boto3.client(
-                's3',
-                region_name=region_name,
-                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-                aws_session_token=os.getenv('AWS_SESSION_TOKEN')  # For temporary credentials
-            )
-        except NoCredentialsError:
-            print("Error: AWS credentials not found. Please configure your credentials.")
-            raise
+s3 = boto3.client('s3')
 
-    def generate_presigned_url(self, bucket_name, object_key, expiration=3600, http_method='get_object'):
-        """
-        Generate a presigned URL for S3 object
-        
-        Args:
-            bucket_name (str): Name of the S3 bucket
-            object_key (str): S3 object key
-            expiration (int): Time in seconds for URL to remain valid (default: 1 hour)
-            http_method (str): HTTP method ('get_object', 'put_object', etc.)
-            
-        Returns:
-            str: Presigned URL or None if error occurred
-        """
-        try:
-            response = self.s3_client.generate_presigned_url(
-                http_method,
-                Params={'Bucket': bucket_name, 'Key': object_key},
-                ExpiresIn=expiration
-            )
-            return response
-        except ClientError as e:
-            print(f"Error generating presigned URL: {e}")
-            return None
+# Generate presigned URL for uploading a file
+url = s3.generate_presigned_url(
+    'put_object',
+    Params={
+        'Bucket': 'my-bucket',
+        'Key': 'uploads/user-file.txt'
+    },
+    ExpiresIn=1800  # URL valid for 30 minutes
+)
 
-    def generate_presigned_post(self, bucket_name, object_key, expiration=3600, conditions=None):
-        """
-        Generate a presigned POST URL for uploading files
-        
-        Args:
-            bucket_name (str): Name of the S3 bucket
-            object_key (str): S3 object key
-            expiration (int): Time in seconds for URL to remain valid
-            conditions (list): List of conditions for the upload
-            
-        Returns:
-            dict: Dictionary containing POST URL and form fields
-        """
-        try:
-            response = self.s3_client.generate_presigned_post(
-                Bucket=bucket_name,
-                Key=object_key,
-                ExpiresIn=expiration,
-                Conditions=conditions or []
-            )
-            return response
-        except ClientError as e:
-            print(f"Error generating presigned POST: {e}")
-            return None
-
-def create_cloudformation_response_url(stack_id, logical_resource_id, request_id, expiration=7200):
-    """
-    Create presigned URL for CloudFormation custom resource response
-    
-    Args:
-        stack_id (str): CloudFormation stack ARN
-        logical_resource_id (str): Logical resource ID
-        request_id (str): Unique request ID
-        expiration (int): URL expiration in seconds (default: 2 hours)
-        
-    Returns:
-        str: Presigned URL for CloudFormation response
-    """
-    generator = S3PresignedURLGenerator()
-    bucket_name = "cloudformation-custom-resource-response-useast1"
-    
-    # CloudFormation custom resources typically use this naming pattern
-    object_key = f"{stack_id}|{logical_resource_id}|{request_id}"
-    
-    return generator.generate_presigned_url(bucket_name, object_key, expiration)
-
-def main():
-    """Example usage"""
-    generator = S3PresignedURLGenerator()
-    
-    # Example 1: Generate URL for downloading a file
-    bucket_name = "my-bucket"
-    object_key = "path/to/my-file.txt"
-    
-    download_url = generator.generate_presigned_url(
-        bucket_name=bucket_name,
-        object_key=object_key,
-        expiration=3600  # 1 hour
-    )
-    
-    if download_url:
-        print(f"Download URL: {download_url}")
-    
-    # Example 2: Generate URL for uploading a file
-    upload_url = generator.generate_presigned_url(
-        bucket_name=bucket_name,
-        object_key="uploads/new-file.txt",
-        expiration=1800,  # 30 minutes
-        http_method='put_object'
-    )
-    
-    if upload_url:
-        print(f"Upload URL: {upload_url}")
-    
-    # Example 3: CloudFormation custom resource response
-    cf_url = create_cloudformation_response_url(
-        stack_id="arn:aws:cloudformation:us-east-1:123456789012:stack/my-stack/guid",
-        logical_resource_id="MyCustomResource",
-        request_id="unique-request-id-123"
-    )
-    
-    if cf_url:
-        print(f"CloudFormation Response URL: {cf_url}")
-
-if __name__ == "__main__":
-    main()
-
-# Alternative simple function for quick use
-def generate_s3_presigned_url(bucket, key, expiration=3600):
-    """Simple function to generate presigned URL"""
-    s3_client = boto3.client('s3')
-    
-    try:
-        url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket, 'Key': key},
-            ExpiresIn=expiration
-        )
-        return url
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
-
-# Usage with URL from your example (corrected domain)
-def analyze_existing_url():
-    """Analyze the structure of your example URL"""
-    original_url = "https://cloudformation-custom-resource-response-useast1.s3.amazonaws.com/..."
-    
-    print("URL Structure Analysis:")
-    print("- Service: Amazon S3")
-    print("- Bucket: cloudformation-custom-resource-response-useast1")
-    print("- Region: us-east-1")
-    print("- Purpose: CloudFormation custom resource response")
-    print("- Signature Version: AWS4-HMAC-SHA256")
-    print("- Expiration: 7200 seconds (2 hours)")
-    
-    return {
-        'bucket': 'cloudformation-custom-resource-response-useast1',
-        'region': 'us-east-1',
-        'expires_in': 7200
-    }
+print(url)
 ```
-## invoke_lambda_with_cloudformation_dat
-```python
-import json
-import boto3
-import uuid
-from datetime import datetime
 
-def invoke_lambda_with_cloudformation_data():
-    """
-    Example of how to invoke a Lambda function and pass CloudFormation-like data
-    """
-    
-    lambda_client = boto3.client('lambda', region_name='us-east-1')
-    
-    # YOU need to provide these values when invoking the Lambda
-    # Here are different ways to get/generate them:
-    
-    # Option 1: If you're calling from within a CloudFormation custom resource
-    # These would come from your CloudFormation event
-    stack_id = "arn:aws:cloudformation:us-east-1:123456789012:stack/my-stack/12345678-1234-1234-1234-123456789012"
-    logical_resource_id = "MyCustomResource"  # The name from your CF template
-    request_id = str(uuid.uuid4())  # Generate unique request ID
-    
-    # Option 2: Get stack info dynamically if you know the stack name
-    stack_name = "my-stack"
-    stack_id, logical_resource_id = get_stack_info(stack_name, "MyCustomResource")
-    request_id = str(uuid.uuid4())
-    
-    # Option 3: Generate/construct them based on your context
-    account_id = boto3.client('sts').get_caller_identity()['Account']
-    region = boto3.Session().region_name or 'us-east-1'
-    stack_name = "my-stack"
-    stack_id = f"arn:aws:cloudformation:{region}:{account_id}:stack/{stack_name}/{uuid.uuid4()}"
-    logical_resource_id = "MyCustomResource"
-    request_id = str(uuid.uuid4())
-    
-    # Create the payload to send to Lambda
-    payload = {
-        "StackId": stack_id,
-        "LogicalResourceId": logical_resource_id,
-        "RequestId": request_id,
-        "RequestType": "Create",  # or "Update" or "Delete"
-        "ResourceProperties": {
-            "MyProperty": "some-value",
-            "AnotherProperty": "another-value"
+**How to use:**
+```bash
+# Anyone can upload using the URL
+curl -X PUT --data-binary "@myfile.txt" \
+  "https://my-bucket.s3.amazonaws.com/uploads/user-file.txt?Expires=1234567890&Signature=..."
+```
+
+---
+
+### Method 3: For HTML Form Upload
+
+For web applications where users upload files via form:
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+# Generate presigned POST (for HTML forms)
+response = s3.generate_presigned_post(
+    Bucket='my-bucket',
+    Key='uploads/user-file.txt',
+    ExpiresIn=3600
+)
+
+# response contains:
+# {
+#   'url': 'https://my-bucket.s3.amazonaws.com/',
+#   'fields': {
+#       'key': 'uploads/user-file.txt',
+#       'policy': '...',
+#       'x-amz-signature': '...',
+#       'x-amz-date': '...',
+#       ...
+#   }
+# }
+
+print(response['url'])
+print(response['fields'])
+```
+
+**Use in HTML:**
+```html
+<form method="POST" action="{{ url }}" enctype="multipart/form-data">
+  {% for key, value in fields.items() %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+  {% endfor %}
+
+  <input type="file" name="file">
+  <button type="submit">Upload</button>
+</form>
+```
+
+---
+
+## Use Cases
+
+### Use Case 1: Share Files with Clients
+
+**Scenario:** Consultant generates report, needs to share with client
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+# Client needs to download report for 24 hours
+url = s3.generate_presigned_url(
+    'get_object',
+    Params={'Bucket': 'reports', 'Key': 'q4-analysis.pdf'},
+    ExpiresIn=86400  # 24 hours
+)
+
+# Send URL to client via email
+email_body = f"""
+Your report is ready:
+{url}
+
+This link expires in 24 hours.
+"""
+```
+
+---
+
+### Use Case 2: User Profile Pictures
+
+**Scenario:** Users upload profile pictures to private bucket
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+def get_profile_picture_url(user_id):
+    """Get temporary URL for user's profile picture"""
+    url = s3.generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': 'user-uploads',
+            'Key': f'profiles/{user_id}/picture.jpg'
         },
-        # Add any other data your Lambda needs
-        "CustomData": {
-            "timestamp": datetime.utcnow().isoformat(),
-            "source": "manual_invoke"
-        }
-    }
-    
-    try:
-        response = lambda_client.invoke(
-            FunctionName='my-lambda-function-name',
-            InvocationType='RequestResponse',  # Synchronous
-            Payload=json.dumps(payload)
-        )
-        
-        # Parse the response
-        response_payload = json.loads(response['Payload'].read())
-        print(f"Lambda response: {response_payload}")
-        
-        # Extract the values if your Lambda returns them
-        if 'stack_id' in response_payload:
-            returned_stack_id = response_payload['stack_id']
-            returned_logical_resource_id = response_payload['logical_resource_id']
-            returned_request_id = response_payload['request_id']
-            print(f"Returned values: {returned_stack_id}, {returned_logical_resource_id}, {returned_request_id}")
-        
-        return response_payload
-        
-    except Exception as e:
-        print(f"Error invoking Lambda: {e}")
-        return None
-
-def get_stack_info(stack_name, logical_resource_id):
-    """
-    Get stack information from CloudFormation if you know the stack name
-    """
-    cf_client = boto3.client('cloudformation')
-    
-    try:
-        # Get stack details
-        response = cf_client.describe_stacks(StackName=stack_name)
-        stack = response['Stacks'][0]
-        stack_id = stack['StackId']
-        
-        # Verify the logical resource exists
-        resources = cf_client.describe_stack_resources(StackName=stack_name)
-        resource_exists = any(
-            res['LogicalResourceId'] == logical_resource_id 
-            for res in resources['StackResources']
-        )
-        
-        if not resource_exists:
-            print(f"Warning: LogicalResourceId '{logical_resource_id}' not found in stack")
-        
-        return stack_id, logical_resource_id
-        
-    except Exception as e:
-        print(f"Error getting stack info: {e}")
-        return None, None
-
-def invoke_lambda_async():
-    """
-    Example of asynchronous Lambda invocation
-    """
-    lambda_client = boto3.client('lambda')
-    
-    payload = {
-        "StackId": "arn:aws:cloudformation:us-east-1:123456789012:stack/my-stack/guid",
-        "LogicalResourceId": "MyAsyncResource", 
-        "RequestId": str(uuid.uuid4()),
-        "async": True
-    }
-    
-    response = lambda_client.invoke(
-        FunctionName='my-async-function',
-        InvocationType='Event',  # Asynchronous
-        Payload=json.dumps(payload)
+        ExpiresIn=3600  # 1 hour (can be longer for static images)
     )
-    
-    print(f"Async invocation status: {response['StatusCode']}")
-    return response
+    return url
 
-def create_presigned_url_for_lambda_response():
-    """
-    If your Lambda needs to create a presigned URL for responses
-    """
-    # Generate the required values
-    account_id = boto3.client('sts').get_caller_identity()['Account']
-    stack_id = f"arn:aws:cloudformation:us-east-1:{account_id}:stack/my-stack/{uuid.uuid4()}"
-    logical_resource_id = "MyResource"
-    request_id = str(uuid.uuid4())
-    
-    # Create presigned URL using these values
-    s3_client = boto3.client('s3')
-    bucket_name = "cloudformation-custom-resource-response-useast1"
-    object_key = f"{stack_id}|{logical_resource_id}|{request_id}"
-    
-    try:
-        presigned_url = s3_client.generate_presigned_url(
-            'put_object',
-            Params={'Bucket': bucket_name, 'Key': object_key},
-            ExpiresIn=7200
-        )
-        
-        # Pass this URL to your Lambda
-        payload = {
-            "StackId": stack_id,
-            "LogicalResourceId": logical_resource_id,
-            "RequestId": request_id,
-            "ResponseURL": presigned_url
-        }
-        
-        return payload
-        
-    except Exception as e:
-        print(f"Error creating presigned URL: {e}")
-        return None
-
-# Example Lambda function that receives these values
-def example_lambda_handler(event, context):
-    """
-    This is what your invoked Lambda function might look like
-    """
-    # Extract the values you passed in
-    stack_id = event.get('StackId')
-    logical_resource_id = event.get('LogicalResourceId') 
-    request_id = event.get('RequestId')
-    
-    print(f"Received Stack ID: {stack_id}")
-    print(f"Received Logical Resource ID: {logical_resource_id}")
-    print(f"Received Request ID: {request_id}")
-    
-    # Your business logic here
-    result = {
-        "status": "success",
-        "message": "Processing completed",
-        "stack_id": stack_id,
-        "logical_resource_id": logical_resource_id,
-        "request_id": request_id,
-        "processed_at": datetime.utcnow().isoformat()
-    }
-    
-    return result
-
-# Different scenarios for getting these values:
-
-def scenario_1_from_cloudformation_event(cf_event):
-    """
-    Scenario 1: You're inside a CloudFormation custom resource handler
-    and need to invoke another Lambda
-    """
-    # Extract from the CF event you received
-    stack_id = cf_event['StackId']
-    logical_resource_id = cf_event['LogicalResourceId']  
-    request_id = cf_event['RequestId']
-    
-    # Invoke another Lambda with these values
-    lambda_client = boto3.client('lambda')
-    payload = {
-        "StackId": stack_id,
-        "LogicalResourceId": logical_resource_id,
-        "RequestId": request_id,
-        "OriginalEvent": cf_event
-    }
-    
-    return lambda_client.invoke(
-        FunctionName='worker-lambda',
-        Payload=json.dumps(payload)
-    )
-
-def scenario_2_manual_invocation():
-    """
-    Scenario 2: You're manually invoking a Lambda and need to provide these values
-    """
-    # You need to construct or provide these yourself
-    stack_id = "arn:aws:cloudformation:us-east-1:123456789012:stack/my-stack/12345678-1234-1234-1234-123456789012"
-    logical_resource_id = "MyManualResource"
-    request_id = f"manual-{uuid.uuid4()}"
-    
-    return invoke_lambda_with_values(stack_id, logical_resource_id, request_id)
-
-def scenario_3_from_existing_stack():
-    """
-    Scenario 3: Get values from an existing CloudFormation stack
-    """
-    stack_name = "my-existing-stack"
-    resource_logical_id = "MyExistingResource"
-    
-    stack_id, logical_resource_id = get_stack_info(stack_name, resource_logical_id)
-    request_id = str(uuid.uuid4())
-    
-    return invoke_lambda_with_values(stack_id, logical_resource_id, request_id)
-
-def invoke_lambda_with_values(stack_id, logical_resource_id, request_id):
-    """
-    Helper function to invoke Lambda with the three required values
-    """
-    lambda_client = boto3.client('lambda')
-    
-    payload = {
-        "StackId": stack_id,
-        "LogicalResourceId": logical_resource_id,
-        "RequestId": request_id
-    }
-    
-    return lambda_client.invoke(
-        FunctionName='target-lambda-function',
-        Payload=json.dumps(payload)
-    )
-
-if __name__ == "__main__":
-    # Example usage
-    result = invoke_lambda_with_cloudformation_data()
-    print(f"Result: {result}")
+# In your web app:
+user_picture_url = get_profile_picture_url('user-123')
+# Use in HTML: <img src="{{ user_picture_url }}">
 ```
+
+---
+
+### Use Case 3: Multi-Step Data Upload
+
+**Scenario:** Allow users to upload data to private bucket in phases
+
+```python
+import boto3
+import secrets
+
+s3 = boto3.client('s3')
+
+def generate_upload_url(user_id, file_type):
+    """Generate URL for user to upload specific file type"""
+
+    # Include timestamp to make key unique
+    timestamp = int(time.time())
+    key = f'user-data/{user_id}/{file_type}-{timestamp}.json'
+
+    url = s3.generate_presigned_post(
+        Bucket='user-data',
+        Key=key,
+        ExpiresIn=1800,  # 30 minutes to upload
+        Conditions=[
+            ['content-length-range', 0, 10485760],  # Max 10MB
+            ['starts-with', '$Content-Type', 'application/json']  # Only JSON
+        ]
+    )
+
+    return url, key
+
+# User gets upload URL
+url_data, key = generate_upload_url('user-123', 'personal-data')
+# User uploads file to URL
+# File lands in S3 at exactly: user-data/user-123/personal-data-1234567890.json
+```
+
+---
+
+## Security Considerations
+
+### ✅ DO: Use Time Limits
+
+```python
+# ✓ GOOD: Expires in 1 hour
+url = s3.generate_presigned_url(
+    'get_object',
+    Params={'Bucket': 'bucket', 'Key': 'file.pdf'},
+    ExpiresIn=3600
+)
+
+# ✗ BAD: Expires in 7 days (too long!)
+url = s3.generate_presigned_url(
+    'get_object',
+    Params={'Bucket': 'bucket', 'Key': 'file.pdf'},
+    ExpiresIn=604800  # 7 days - too permissive!
+)
+```
+
+**Guidelines:**
+- Public download: 1 hour
+- Form upload: 15-30 minutes
+- Single download: 5-15 minutes
+- Maximum: 7 days (AWS limit)
+
+---
+
+### ✅ DO: Restrict Operations
+
+```python
+# ✓ GOOD: User can only PUT (upload), not DELETE
+url = s3.generate_presigned_url(
+    'put_object',  # Specific operation
+    Params={'Bucket': 'bucket', 'Key': 'file.txt'},
+    ExpiresIn=1800
+)
+
+# ✗ BAD: If you give get_object + put_object, user can read AND write
+```
+
+---
+
+### ✅ DO: Validate Content
+
+```python
+# ✓ GOOD: Restrict by content type and size
+response = s3.generate_presigned_post(
+    Bucket='bucket',
+    Key='upload/file.jpg',
+    ExpiresIn=3600,
+    Conditions=[
+        ['content-length-range', 0, 5242880],  # Max 5MB
+        ['starts-with', '$Content-Type', 'image/']  # Only images
+    ]
+)
+```
+
+---
+
+### ❌ DON'T: Share Secret Key
+
+```python
+# ✗ WRONG: Never put AWS credentials in presigned URL
+# The signature is based on your secret key, not the credentials themselves
+
+# ✓ RIGHT: Presigned URL doesn't expose credentials
+# Only your code (with credentials) generates the URL
+# URL is shared, but credentials stay hidden
+```
+
+---
+
+### ❌ DON'T: Log the Full URL
+
+```python
+# ✗ WRONG: URL in logs can be captured
+import logging
+url = s3.generate_presigned_url(...)
+logging.info(f"Generated URL: {url}")  # URL in logs = vulnerable!
+
+# ✓ RIGHT: Log only the key, not the signature
+logging.info(f"Generated URL for key: documents/report.pdf")
+```
+
+---
+
+## Best Practices
+
+### 1. Generate URLs Server-Side Only
+
+```python
+# ✓ GOOD: Backend generates URL, sends to frontend
+# Frontend code:
+@app.route('/api/download-url')
+def get_download_url():
+    url = s3.generate_presigned_url(...)  # Server-side
+    return {'url': url}
+
+# ✗ BAD: Frontend has AWS credentials
+// Frontend code:
+const s3 = new AWS.S3({
+    accessKeyId: AWS_KEY,  // Exposed in browser!
+    secretAccessKey: AWS_SECRET
+});
+```
+
+---
+
+### 2. Use Minimal Permissions
+
+```python
+# Create IAM user with minimal permissions
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",  # Only GET
+      "Resource": "arn:aws:s3:::my-bucket/public/*"  # Only specific prefix
+    }
+  ]
+}
+```
+
+---
+
+### 3. Monitor Usage
+
+```python
+import boto3
+import logging
+
+s3 = boto3.client('s3')
+cloudwatch = boto3.client('cloudwatch')
+
+def generate_tracked_url(bucket, key, reason='unnamed'):
+    """Generate presigned URL and log it"""
+    url = s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': bucket, 'Key': key},
+        ExpiresIn=3600
+    )
+
+    # Log for audit trail
+    logging.info(f"Presigned URL generated for {key} by {reason}")
+
+    # Send metric
+    cloudwatch.put_metric_data(
+        Namespace='PresignedURLs',
+        MetricData=[{
+            'MetricName': 'URLsGenerated',
+            'Value': 1
+        }]
+    )
+
+    return url
+```
+
+---
+
+## Troubleshooting
+
+### Problem: "Invalid signature" Error
+
+**Cause:** URL is modified or signature is corrupted
+
+**Solution:**
+- Don't modify URL after generation
+- Make sure you're copying the entire URL (including query parameters)
+- Check for URL encoding issues (spaces become `%20`, etc.)
+
+---
+
+### Problem: "Request has expired" Error
+
+**Cause:** URL expiration time has passed
+
+**Solution:**
+- Generate a fresh URL with new expiration time
+- Use longer `ExpiresIn` if needed (max 7 days)
+- Check system clock is correct
+
+---
+
+### Problem: Access Denied (403)
+
+**Possible causes:**
+1. Bucket is not accessible to the user who generated the URL
+2. Object doesn't exist
+3. Incorrect bucket or key name
+
+**Solution:**
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+# Verify bucket exists and you have access
+try:
+    s3.head_bucket(Bucket='my-bucket')
+    print("✓ Bucket accessible")
+except Exception as e:
+    print(f"✗ Bucket error: {e}")
+
+# Verify object exists
+try:
+    s3.head_object(Bucket='my-bucket', Key='documents/file.pdf')
+    print("✓ Object exists")
+except Exception as e:
+    print(f"✗ Object error: {e}")
+```
+
+---
+
+## Advanced Patterns
+
+### Pattern 1: Custom Response Headers
+
+Control how browser handles the download:
+
+```python
+s3 = boto3.client('s3')
+
+url = s3.generate_presigned_url(
+    'get_object',
+    Params={
+        'Bucket': 'my-bucket',
+        'Key': 'documents/report.pdf',
+        'ResponseContentDisposition': 'attachment; filename="report.pdf"',
+        'ResponseContentType': 'application/pdf'
+    },
+    ExpiresIn=3600
+)
+
+# Browser will:
+# - Download the file (not display in browser)
+# - Use filename "report.pdf"
+# - Treat as PDF content type
+```
+
+---
+
+### Pattern 2: Conditional URLs
+
+Generate different URLs based on user role:
+
+```python
+def get_download_url(user_role, file_key):
+    """Generate URL with different expiration by role"""
+
+    if user_role == 'admin':
+        expires = 86400  # 24 hours
+    elif user_role == 'user':
+        expires = 3600   # 1 hour
+    else:
+        expires = 300    # 5 minutes
+
+    url = s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': 'bucket', 'Key': file_key},
+        ExpiresIn=expires
+    )
+
+    return url
+
+# Usage:
+admin_url = get_download_url('admin', 'sensitive/data.pdf')
+user_url = get_download_url('user', 'shared/report.pdf')
+guest_url = get_download_url('guest', 'public/demo.pdf')
+```
+
+---
+
+### Pattern 3: Rotating Upload Endpoints
+
+Generate new upload URL for each file:
+
+```python
+import uuid
+import time
+
+def get_upload_endpoint(user_id):
+    """Generate unique upload endpoint per request"""
+
+    unique_id = str(uuid.uuid4())
+    timestamp = int(time.time())
+
+    # Create unique key
+    key = f'uploads/{user_id}/{timestamp}-{unique_id}.json'
+
+    url = s3.generate_presigned_post(
+        Bucket='uploads',
+        Key=key,
+        ExpiresIn=1800,
+        Conditions=[
+            ['content-length-range', 0, 1048576]  # Max 1MB
+        ]
+    )
+
+    return {
+        'upload_url': url['url'],
+        'form_data': url['fields'],
+        'file_key': key
+    }
+```
+
+---
+
+## Common Questions
+
+**Q: Can I revoke a presigned URL?**
+A: No, not directly. The URL is valid until it expires. To effectively revoke:
+- Delete the S3 object
+- Delete the IAM user's credentials (if URL was generated by temporary credentials)
+- Use S3 access logs to monitor usage
+
+**Q: Can I make a presigned URL permanent?**
+A: No, AWS has a 7-day maximum. For permanent access, use:
+- S3 bucket policy (public or role-based)
+- CloudFront distribution with signed URLs
+
+**Q: Can presigned URLs work with server-side encryption?**
+A: Yes! If the bucket uses SSE-S3 or SSE-KMS, presigned URLs work transparently.
+
+**Q: Can I limit presigned URL to specific IP addresses?**
+A: Not with presigned URLs directly. Use:
+- S3 bucket policy with IP conditions
+- CloudFront with IP whitelisting
+
+---
+
+## Summary
+
+| Aspect | Details |
+|--------|---------|
+| **What** | Time-limited URL for S3 access without credentials |
+| **Why** | Share files safely without exposing AWS keys |
+| **How long** | 1-7 days (you choose) |
+| **For download** | `generate_presigned_url('get_object', ...)` |
+| **For upload** | `generate_presigned_url('put_object', ...)` or `generate_presigned_post(...)` |
+| **Security** | Signature proves authenticity, expiration limits exposure |
+| **Best practice** | Generate server-side, short expiration, minimal scope |
+
+---
+
+## Next Steps
+
+- Use for file sharing with clients
+- Add upload forms to your web app
+- Integrate with CloudFront for CDN distribution
+- Monitor presigned URL usage with CloudWatch
+
+---
+
+**Last Updated:** 2026-05-28
+**Level:** Beginner to Intermediate

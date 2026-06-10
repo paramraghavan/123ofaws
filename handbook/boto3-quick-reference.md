@@ -1,860 +1,806 @@
-# Boto3 Quick Reference: 30-60 Second Answers
+`# Boto3 Quick Reference
+## 30-60 Second Lookup for Common Operations
 
-> **TL;DR for Boto3**: Quick syntax lookups for common operations. No explanations, just code you can copy-paste.
-
----
-
-## Table of Contents
-- [Setup](#setup)
-- [Client vs Resource](#client-vs-resource)
-- [S3](#s3)
-- [Lambda](#lambda)
-- [EC2](#ec2)
-- [RDS](#rds)
-- [DynamoDB](#dynamodb)
-- [SQS](#sqs)
-- [SNS](#sns)
-- [CloudWatch](#cloudwatch)
-- [Error Handling](#error-handling)
-- [Pagination](#pagination)
-- [Waiters](#waiters)
-- [Sessions](#sessions)
+### Table of Contents
+- Client vs Resource Decision
+- Common Service Operations
+- Error Handling Patterns
+- Pagination & Waiters
+- Session Management
+- Configuration Patterns
 
 ---
 
-## Setup
+## Client vs Resource - Quick Comparison
 
+| Need | Use | Code |
+|------|-----|------|
+| Simple operations | Resource | `s3 = boto3.resource('s3')` |
+| All AWS features | Client | `s3 = boto3.client('s3')` |
+| Control & flexibility | Client | Map 1:1 with AWS API |
+| Readable code | Resource | Higher-level abstractions |
+| Learning/Prototyping | Resource | Beginner-friendly |
+| Production automation | Client | Explicit control |
+
+**Quick Test**:
 ```python
-# Basic setup
-import boto3
+# If you need all features → Client
+client = boto3.client('s3')
 
-# Client (low-level)
-s3 = boto3.client('s3', region_name='us-east-1')
-
-# Resource (high-level, object-oriented)
-s3_resource = boto3.resource('s3', region_name='us-east-1')
-
-# Get credentials info
-sts = boto3.client('sts')
-identity = sts.get_caller_identity()
-print(identity['Account'], identity['Arn'], identity['UserId'])
+# If you want simple code → Resource
+resource = boto3.resource('s3')
 ```
 
 ---
 
-## Client vs Resource
+## S3: Common Operations
 
-| Operation | Client | Resource |
-|-----------|--------|----------|
-| **List S3 buckets** | `s3.list_buckets()` | `[b.name for b in s3.buckets.all()]` |
-| **Upload file** | `s3.upload_file(...)` | `bucket.upload_file(...)` |
-| **Get DynamoDB item** | `dynamodb.get_item(...)` | `table.get_item(...)` |
-| **Advanced filters** | ✓ Yes | ✗ No |
-| **Simple operations** | Verbose | Clean |
-
----
-
-## S3
-
-### Basics
+### Upload File
 ```python
 s3 = boto3.client('s3')
-
-# Create bucket
-s3.create_bucket(Bucket='my-bucket')
-
-# List buckets
-s3.list_buckets()['Buckets']
-
-# List objects
-s3.list_objects_v2(Bucket='my-bucket')['Contents']
-
-# Upload
 s3.upload_file('local.txt', 'my-bucket', 'remote.txt')
+```
 
-# Download
+### Download File
+```python
 s3.download_file('my-bucket', 'remote.txt', 'local.txt')
+```
 
-# Get object
-response = s3.get_object(Bucket='my-bucket', Key='file.txt')
-content = response['Body'].read()
+### List Objects
+```python
+# Using client (need pagination)
+response = s3.list_objects_v2(Bucket='my-bucket')
+for obj in response['Contents']:
+    print(obj['Key'])
 
-# Put object
-s3.put_object(Bucket='my-bucket', Key='file.txt', Body=b'content')
+# Using resource (automatic)
+bucket = boto3.resource('s3').Bucket('my-bucket')
+for obj in bucket.objects.all():
+    print(obj.key)
+```
 
-# Delete object
+### Delete Object
+```python
 s3.delete_object(Bucket='my-bucket', Key='file.txt')
-
-# Delete bucket
-s3.delete_bucket(Bucket='my-bucket')
-
-# Check if bucket exists
-try:
-    s3.head_bucket(Bucket='my-bucket')
-    print("Exists")
-except:
-    print("Doesn't exist")
 ```
 
-### Metadata & Tags
+### Generate Presigned URL
 ```python
-# Get object metadata
-response = s3.head_object(Bucket='my-bucket', Key='file.txt')
-print(response['ContentLength'], response['LastModified'])
-
-# Upload with metadata
-s3.put_object(
-    Bucket='my-bucket',
-    Key='file.txt',
-    Body=b'content',
-    Metadata={'key': 'value'}
-)
-
-# Get metadata
-response = s3.head_object(Bucket='my-bucket', Key='file.txt')
-print(response['Metadata'])
-```
-
-### Presigned URLs
-```python
-# Download URL (1 hour)
 url = s3.generate_presigned_url(
     'get_object',
     Params={'Bucket': 'my-bucket', 'Key': 'file.txt'},
     ExpiresIn=3600
 )
+print(url)  # Share this link (expires in 1 hour)
+```
 
-# Upload URL
-url = s3.generate_presigned_url(
-    'put_object',
-    Params={'Bucket': 'my-bucket', 'Key': 'file.txt'},
-    ExpiresIn=3600
+### Copy Object
+```python
+s3.copy_object(
+    Bucket='dest-bucket',
+    CopySource={'Bucket': 'source-bucket', 'Key': 'file.txt'},
+    Key='file.txt'
 )
 ```
 
-### S3 Select (Query)
+### Check If Object Exists
 ```python
-response = s3.select_object_content(
-    Bucket='my-bucket',
-    Key='data.csv',
-    ExpressionType='SQL',
-    Expression='SELECT * FROM s3object WHERE amount > 100',
-    InputSerialization={'CSV': {'FileHeaderInfo': 'Use'}},
-    OutputSerialization={'CSV': {}}
-)
-
-for event in response['Payload']:
-    if 'Records' in event:
-        print(event['Records']['Payload'].decode('utf-8'))
+try:
+    s3.head_object(Bucket='my-bucket', Key='file.txt')
+    print("File exists")
+except s3.exceptions.NoSuchKey:
+    print("File doesn't exist")
 ```
 
-### Using Resource (Cleaner)
+### Get Object ETag
 ```python
-s3 = boto3.resource('s3')
+response = s3.head_object(Bucket='my-bucket', Key='file.txt')
+etag = response['ETag']  # "5d41402abc4b2a76b9719d911017c592"
+```
 
-# List buckets
-for bucket in s3.buckets.all():
-    print(bucket.name)
-
-# Get bucket
-bucket = s3.Bucket('my-bucket')
-
-# List objects
-for obj in bucket.objects.all():
-    print(obj.key, obj.size)
-
-# Upload
-bucket.upload_file('local.txt', 'remote.txt')
-
-# Download
-bucket.download_file('remote.txt', 'local.txt')
+### Multipart Upload
+```python
+# For large files, use upload_fileobj (automatic multipart)
+with open('large-file.zip', 'rb') as f:
+    s3.upload_fileobj(f, 'my-bucket', 'large-file.zip')
 ```
 
 ---
 
-## Lambda
+## EC2: Common Operations
 
-### Functions
-```python
-lamb = boto3.client('lambda')
-
-# Create function
-lamb.create_function(
-    FunctionName='my-function',
-    Runtime='python3.11',
-    Role='arn:aws:iam::ACCOUNT:role/lambda-role',
-    Handler='index.handler',
-    Code={'ZipFile': b'code_bytes'},
-    Timeout=30,
-    MemorySize=128
-)
-
-# Update code
-lamb.update_function_code(
-    FunctionName='my-function',
-    ZipFile=b'new_code'
-)
-
-# Update config
-lamb.update_function_configuration(
-    FunctionName='my-function',
-    Timeout=60,
-    MemorySize=256
-)
-
-# Delete
-lamb.delete_function(FunctionName='my-function')
-
-# Describe
-lamb.get_function(FunctionName='my-function')
-
-# List
-lamb.list_functions()['Functions']
-```
-
-### Invoke
-```python
-# Synchronous
-response = lamb.invoke(
-    FunctionName='my-function',
-    InvocationType='RequestResponse',
-    Payload=json.dumps({'key': 'value'})
-)
-result = json.loads(response['Payload'].read())
-
-# Asynchronous (fire and forget)
-lamb.invoke(
-    FunctionName='my-function',
-    InvocationType='Event',
-    Payload=json.dumps({'key': 'value'})
-)
-```
-
-### Layers
-```python
-# Publish layer
-response = lamb.publish_layer_version(
-    LayerName='my-layer',
-    Content={'ZipFile': b'code'},
-    CompatibleRuntimes=['python3.11']
-)
-
-# Add to function
-lamb.update_function_configuration(
-    FunctionName='my-function',
-    Layers=[response['LayerVersionArn']]
-)
-```
-
----
-
-## EC2
-
-### Instances
+### List Instances
 ```python
 ec2 = boto3.client('ec2')
 
-# Launch
+# All instances
+response = ec2.describe_instances()
+for r in response['Reservations']:
+    for instance in r['Instances']:
+        print(f"{instance['InstanceId']}: {instance['State']['Name']}")
+
+# Running only
+response = ec2.describe_instances(
+    Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
+)
+```
+
+### Launch Instance
+```python
 response = ec2.run_instances(
-    ImageId='ami-0c55b159cbfafe1f0',
+    ImageId='ami-0c55b159cbfafe1f0',  # Amazon Linux 2
     MinCount=1,
     MaxCount=1,
-    InstanceType='t3.micro'
+    InstanceType='t2.micro'
 )
 instance_id = response['Instances'][0]['InstanceId']
+```
 
-# Describe
-ec2.describe_instances(InstanceIds=[instance_id])
-
-# Stop
-ec2.stop_instances(InstanceIds=[instance_id])
-
-# Start
-ec2.start_instances(InstanceIds=[instance_id])
-
-# Terminate
-ec2.terminate_instances(InstanceIds=[instance_id])
-
-# Wait for running
+### Wait for Running
+```python
 waiter = ec2.get_waiter('instance_running')
-waiter.wait(InstanceIds=[instance_id])
+waiter.wait(InstanceIds=['i-1234567890abcdef0'])
 ```
 
-### Tags
+### Stop Instance
 ```python
-# Add tags
-ec2.create_tags(
-    Resources=[instance_id],
-    Tags=[
-        {'Key': 'Environment', 'Value': 'prod'},
-        {'Key': 'Name', 'Value': 'web-server'}
-    ]
-)
-
-# Filter by tag
-response = ec2.describe_instances(
-    Filters=[
-        {'Name': 'tag:Environment', 'Values': ['prod']},
-        {'Name': 'instance-state-name', 'Values': ['running']}
-    ]
-)
+ec2.stop_instances(InstanceIds=['i-1234567890abcdef0'])
 ```
 
-### Security Groups
+### Terminate Instance
 ```python
-# Create
-sg = ec2.create_security_group(
+ec2.terminate_instances(InstanceIds=['i-1234567890abcdef0'])
+```
+
+### Create Security Group
+```python
+response = ec2.create_security_group(
     GroupName='web-sg',
-    Description='Web server SG',
-    VpcId='vpc-123'
+    Description='Web server security group',
+    VpcId='vpc-12345'
 )
-sg_id = sg['GroupId']
+sg_id = response['GroupId']
 
-# Add rule
+# Add HTTP rule
 ec2.authorize_security_group_ingress(
     GroupId=sg_id,
-    IpPermissions=[
-        {
-            'IpProtocol': 'tcp',
-            'FromPort': 80,
-            'ToPort': 80,
-            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-        }
+    IpPermissions=[{
+        'IpProtocol': 'tcp',
+        'FromPort': 80,
+        'ToPort': 80,
+        'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+    }]
+)
+```
+
+### Add Tags
+```python
+ec2.create_tags(
+    Resources=['i-1234567890abcdef0'],
+    Tags=[
+        {'Key': 'Name', 'Value': 'my-server'},
+        {'Key': 'Environment', 'Value': 'prod'}
     ]
 )
+```
 
-# Remove rule
-ec2.revoke_security_group_ingress(
-    GroupId=sg_id,
-    IpPermissions=[...]
+### Get Instance By Tag
+```python
+response = ec2.describe_instances(
+    Filters=[{'Name': 'tag:Name', 'Values': ['my-server']}]
 )
-
-# Describe
-ec2.describe_security_groups(GroupIds=[sg_id])
-
-# Delete
-ec2.delete_security_group(GroupId=sg_id)
 ```
 
 ---
 
-## RDS
+## Lambda: Common Operations
 
-### Instances
+### Invoke Function
 ```python
-rds = boto3.client('rds')
+lambda_client = boto3.client('lambda')
 
-# Create
-rds.create_db_instance(
-    DBInstanceIdentifier='mydb',
-    DBInstanceClass='db.t3.micro',
-    Engine='mysql',
-    MasterUsername='admin',
-    MasterUserPassword='password123',
-    AllocatedStorage=20
+# Synchronous invocation
+response = lambda_client.invoke(
+    FunctionName='my-function',
+    InvocationType='RequestResponse',  # Wait for response
+    Payload='{"key": "value"}'
 )
 
-# Wait
-waiter = rds.get_waiter('db_instance_available')
-waiter.wait(DBInstanceIdentifier='mydb')
+result = json.loads(response['Payload'].read())
+print(result)
+```
 
-# Describe
-rds.describe_db_instances(DBInstanceIdentifier='mydb')
-
-# Modify
-rds.modify_db_instance(
-    DBInstanceIdentifier='mydb',
-    AllocatedStorage=50,
-    ApplyImmediately=True
-)
-
-# Delete
-rds.delete_db_instance(
-    DBInstanceIdentifier='mydb',
-    SkipFinalSnapshot=True
+### Invoke Async
+```python
+# Fire and forget
+lambda_client.invoke(
+    FunctionName='my-function',
+    InvocationType='Event'  # Async
 )
 ```
 
-### Snapshots
+### List Functions
 ```python
-# Create snapshot
+response = lambda_client.list_functions()
+for func in response['Functions']:
+    print(f"{func['FunctionName']}: {func['Runtime']}")
+```
+
+### Update Function Code
+```python
+with open('lambda_function.zip', 'rb') as f:
+    lambda_client.update_function_code(
+        FunctionName='my-function',
+        ZipFile=f.read()
+    )
+```
+
+### Update Configuration
+```python
+lambda_client.update_function_configuration(
+    FunctionName='my-function',
+    Timeout=60,      # seconds
+    MemorySize=256,  # MB
+    Environment={'Variables': {'KEY': 'value'}}
+)
+```
+
+### Create Function
+```python
+with open('lambda_function.zip', 'rb') as f:
+    response = lambda_client.create_function(
+        FunctionName='my-function',
+        Runtime='python3.11',
+        Role='arn:aws:iam::123456789:role/lambda-role',
+        Handler='lambda_function.lambda_handler',
+        Code={'ZipFile': f.read()}
+    )
+```
+
+---
+
+## DynamoDB: Common Operations
+
+### Put Item
+```python
+dynamodb = boto3.client('dynamodb')
+
+dynamodb.put_item(
+    TableName='Users',
+    Item={
+        'id': {'S': 'user123'},
+        'name': {'S': 'Alice'},
+        'email': {'S': 'alice@example.com'}
+    }
+)
+```
+
+### Get Item
+```python
+response = dynamodb.get_item(
+    TableName='Users',
+    Key={'id': {'S': 'user123'}}
+)
+item = response['Item']
+print(item['name']['S'])  # 'Alice'
+```
+
+### Query Items
+```python
+response = dynamodb.query(
+    TableName='Users',
+    KeyConditionExpression='id = :id',
+    ExpressionAttributeValues={':id': {'S': 'user123'}}
+)
+for item in response['Items']:
+    print(item)
+```
+
+### Scan All Items
+```python
+response = dynamodb.scan(TableName='Users')
+for item in response['Items']:
+    print(item)
+```
+
+### Update Item
+```python
+dynamodb.update_item(
+    TableName='Users',
+    Key={'id': {'S': 'user123'}},
+    UpdateExpression='SET email = :email',
+    ExpressionAttributeValues={':email': {'S': 'newemail@example.com'}}
+)
+```
+
+### Delete Item
+```python
+dynamodb.delete_item(
+    TableName='Users',
+    Key={'id': {'S': 'user123'}}
+)
+```
+
+### Using Resource (simpler)
+```python
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('Users')
+
+# Put
+table.put_item(Item={'id': 'user123', 'name': 'Alice'})
+
+# Get
+response = table.get_item(Key={'id': 'user123'})
+print(response['Item'])
+
+# Update
+table.update_item(
+    Key={'id': 'user123'},
+    UpdateExpression='SET email = :email',
+    ExpressionAttributeValues={':email': 'new@example.com'}
+)
+```
+
+---
+
+## RDS: Common Operations
+
+### List Databases
+```python
+rds = boto3.client('rds')
+
+response = rds.describe_db_instances()
+for db in response['DBInstances']:
+    print(f"{db['DBInstanceIdentifier']}: {db['DBInstanceStatus']}")
+```
+
+### Create Database
+```python
+response = rds.create_db_instance(
+    DBInstanceIdentifier='mydb',
+    DBInstanceClass='db.t2.micro',
+    Engine='postgres',
+    MasterUsername='admin',
+    MasterUserPassword='MyPassword123',
+    AllocatedStorage=20
+)
+```
+
+### Wait for Available
+```python
+waiter = rds.get_waiter('db_instance_available')
+waiter.wait(DBInstanceIdentifier='mydb')
+```
+
+### Get Connection Details
+```python
+response = rds.describe_db_instances(DBInstanceIdentifier='mydb')
+db = response['DBInstances'][0]
+print(f"Host: {db['Endpoint']['Address']}")
+print(f"Port: {db['Endpoint']['Port']}")
+```
+
+### Create Snapshot
+```python
 rds.create_db_snapshot(
     DBSnapshotIdentifier='mydb-backup',
     DBInstanceIdentifier='mydb'
 )
+```
 
-# Restore
+### Restore from Snapshot
+```python
 rds.restore_db_instance_from_db_snapshot(
     DBInstanceIdentifier='mydb-restored',
     DBSnapshotIdentifier='mydb-backup'
 )
-
-# List snapshots
-rds.describe_db_snapshots(DBInstanceIdentifier='mydb')
-
-# Delete snapshot
-rds.delete_db_snapshot(DBSnapshotIdentifier='mydb-backup')
 ```
 
 ---
 
-## DynamoDB
+## CloudWatch: Common Operations
 
-### Client (Low-level)
+### Put Metric
 ```python
-ddb = boto3.client('dynamodb')
+cloudwatch = boto3.client('cloudwatch')
 
-# Create table
-ddb.create_table(
-    TableName='users',
-    KeySchema=[
-        {'AttributeName': 'user_id', 'KeyType': 'HASH'},
-        {'AttributeName': 'timestamp', 'KeyType': 'RANGE'}
-    ],
-    AttributeDefinitions=[
-        {'AttributeName': 'user_id', 'AttributeType': 'S'},
-        {'AttributeName': 'timestamp', 'AttributeType': 'N'}
-    ],
-    BillingMode='PAY_PER_REQUEST'
-)
-
-# Put item
-ddb.put_item(
-    TableName='users',
-    Item={
-        'user_id': {'S': 'user_123'},
-        'name': {'S': 'Alice'},
-        'age': {'N': '30'}
-    }
-)
-
-# Get item
-ddb.get_item(
-    TableName='users',
-    Key={'user_id': {'S': 'user_123'}}
-)
-
-# Query
-ddb.query(
-    TableName='users',
-    KeyConditionExpression='user_id = :uid',
-    ExpressionAttributeValues={':uid': {'S': 'user_123'}}
-)
-
-# Scan
-ddb.scan(TableName='users')
-
-# Delete item
-ddb.delete_item(
-    TableName='users',
-    Key={'user_id': {'S': 'user_123'}}
-)
-
-# Delete table
-ddb.delete_table(TableName='users')
-```
-
-### Resource (High-level)
-```python
-ddb = boto3.resource('dynamodb')
-
-# Get table
-table = ddb.Table('users')
-
-# Put item (simpler)
-table.put_item(Item={'user_id': 'user_123', 'name': 'Alice', 'age': 30})
-
-# Get item
-table.get_item(Key={'user_id': 'user_123'})
-
-# Query
-table.query(
-    KeyConditionExpression='user_id = :uid',
-    ExpressionAttributeValues={':uid': 'user_123'}
-)
-
-# Scan
-table.scan()
-
-# Update item
-table.update_item(
-    Key={'user_id': 'user_123'},
-    UpdateExpression='SET #n = :name',
-    ExpressionAttributeNames={'#n': 'name'},
-    ExpressionAttributeValues={':name': 'Bob'}
-)
-```
-
----
-
-## SQS
-
-### Queue Operations
-```python
-sqs = boto3.client('sqs')
-
-# Create queue
-response = sqs.create_queue(
-    QueueName='my-queue',
-    Attributes={
-        'VisibilityTimeout': '300',
-        'MessageRetentionPeriod': '86400'
-    }
-)
-queue_url = response['QueueUrl']
-
-# Send message
-sqs.send_message(
-    QueueUrl=queue_url,
-    MessageBody=json.dumps({'key': 'value'})
-)
-
-# Send batch
-sqs.send_message_batch(
-    QueueUrl=queue_url,
-    Entries=[
-        {'Id': '1', 'MessageBody': json.dumps({'id': 1})},
-        {'Id': '2', 'MessageBody': json.dumps({'id': 2})}
-    ]
-)
-
-# Receive messages
-response = sqs.receive_message(
-    QueueUrl=queue_url,
-    MaxNumberOfMessages=10,
-    WaitTimeSeconds=20
-)
-
-for msg in response.get('Messages', []):
-    print(json.loads(msg['Body']))
-    sqs.delete_message(
-        QueueUrl=queue_url,
-        ReceiptHandle=msg['ReceiptHandle']
-    )
-
-# Delete queue
-sqs.delete_queue(QueueUrl=queue_url)
-```
-
-### FIFO Queue
-```python
-# Create FIFO
-response = sqs.create_queue(
-    QueueName='my-queue.fifo',
-    Attributes={'FifoQueue': 'true'}
-)
-
-# Send to FIFO
-sqs.send_message(
-    QueueUrl=queue_url,
-    MessageBody=json.dumps({'data': 'value'}),
-    MessageGroupId='group-1',
-    MessageDeduplicationId='unique-id'
-)
-```
-
----
-
-## SNS
-
-### Topics & Messages
-```python
-sns = boto3.client('sns')
-
-# Create topic
-response = sns.create_topic(Name='my-topic')
-topic_arn = response['TopicArn']
-
-# Subscribe
-sns.subscribe(
-    TopicArn=topic_arn,
-    Protocol='email',
-    Endpoint='user@example.com'
-)
-
-# Publish
-sns.publish(
-    TopicArn=topic_arn,
-    Message='Hello',
-    Subject='Alert'
-)
-
-# Delete topic
-sns.delete_topic(TopicArn=topic_arn)
-```
-
----
-
-## CloudWatch
-
-### Metrics
-```python
-cw = boto3.client('cloudwatch')
-
-# Put metric
-cw.put_metric_data(
+cloudwatch.put_metric_data(
     Namespace='MyApp',
-    MetricData=[
-        {
-            'MetricName': 'ProcessingTime',
-            'Value': 45.5,
-            'Unit': 'Milliseconds',
-            'Dimensions': [
-                {'Name': 'Environment', 'Value': 'prod'}
-            ]
-        }
-    ]
+    MetricData=[{
+        'MetricName': 'ProcessingTime',
+        'Value': 45.5,
+        'Unit': 'Milliseconds'
+    }]
 )
+```
 
-# Get metrics
-cw.get_metric_statistics(
-    Namespace='AWS/EC2',
-    MetricName='CPUUtilization',
+### Get Metrics
+```python
+from datetime import datetime, timedelta
+
+response = cloudwatch.get_metric_statistics(
+    Namespace='MyApp',
+    MetricName='ProcessingTime',
     StartTime=datetime.utcnow() - timedelta(hours=1),
     EndTime=datetime.utcnow(),
-    Period=300,
+    Period=300,  # 5 minutes
     Statistics=['Average', 'Maximum']
 )
+
+for point in response['Datapoints']:
+    print(f"{point['Timestamp']}: {point['Average']}")
 ```
 
-### Alarms
+### Create Alarm
 ```python
-# Create alarm
-cw.put_metric_alarm(
-    AlarmName='high-cpu',
-    MetricName='CPUUtilization',
-    Namespace='AWS/EC2',
+cloudwatch.put_metric_alarm(
+    AlarmName='HighProcessingTime',
+    MetricName='ProcessingTime',
+    Namespace='MyApp',
     Statistic='Average',
     Period=300,
     EvaluationPeriods=2,
-    Threshold=80.0,
-    ComparisonOperator='GreaterThanThreshold',
-    AlarmActions=['arn:aws:sns:us-east-1:ACCOUNT:topic']
+    Threshold=100,
+    ComparisonOperator='GreaterThanThreshold'
 )
+```
 
-# Delete alarm
-cw.delete_alarms(AlarmNames=['high-cpu'])
+### Delete Alarm
+```python
+cloudwatch.delete_alarms(AlarmNames=['HighProcessingTime'])
 ```
 
 ---
 
-## Error Handling
+## Error Handling Patterns
 
-### Basic
+### Basic Try-Except
 ```python
 from botocore.exceptions import ClientError
 
 try:
-    s3.get_object(Bucket='bucket', Key='key')
+    s3.get_object(Bucket='my-bucket', Key='file.txt')
 except ClientError as e:
     error_code = e.response['Error']['Code']
-    if error_code == 'NoSuchBucket':
-        print("Bucket not found")
-    elif error_code == 'AccessDenied':
-        print("Permission denied")
+    if error_code == 'NoSuchKey':
+        print("File not found")
     else:
-        raise
+        print(f"Error: {error_code}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
 ```
 
 ### With Retry
 ```python
 import time
+from botocore.exceptions import ClientError
 
-def call_with_retry(func, max_attempts=3):
-    for attempt in range(max_attempts):
+def retry_operation(func, max_retries=3):
+    for attempt in range(max_retries):
         try:
             return func()
         except ClientError as e:
-            if attempt == max_attempts - 1:
-                raise
-            time.sleep(2 ** attempt)
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            raise
+
+result = retry_operation(
+    lambda: s3.list_objects_v2(Bucket='my-bucket')
+)
 ```
 
-### Specific Errors
+### With Auto-Retry Config
 ```python
-from botocore.exceptions import (
-    NoCredentialsError,
-    ConnectionError,
-    Waiter
-)
+from botocore.config import Config
 
-try:
-    s3.list_buckets()
-except NoCredentialsError:
-    print("Configure AWS credentials")
-except ConnectionError:
-    print("Network error")
+config = Config(
+    retries={'max_attempts': 3, 'mode': 'adaptive'}
+)
+s3 = boto3.client('s3', config=config)
+# Retries happen automatically
 ```
 
 ---
 
-## Pagination
+## Pagination Patterns
 
-### Using Paginator
+### Client with Paginator
 ```python
 s3 = boto3.client('s3')
 
-# Get paginator
 paginator = s3.get_paginator('list_objects_v2')
+pages = paginator.paginate(Bucket='my-bucket')
 
-# Paginate
-page_iterator = paginator.paginate(
-    Bucket='my-bucket',
-    PaginationConfig={'PageSize': 100}
-)
-
-for page in page_iterator:
+for page in pages:
     for obj in page.get('Contents', []):
         print(obj['Key'])
 ```
 
+### Resource (Automatic)
+```python
+s3 = boto3.resource('s3')
+bucket = s3.Bucket('my-bucket')
+
+for obj in bucket.objects.all():
+    print(obj.key)
+```
+
+### Manual with ContinuationToken
+```python
+s3 = boto3.client('s3')
+continuation_token = None
+
+while True:
+    if continuation_token:
+        response = s3.list_objects_v2(
+            Bucket='my-bucket',
+            ContinuationToken=continuation_token
+        )
+    else:
+        response = s3.list_objects_v2(Bucket='my-bucket')
+
+    for obj in response.get('Contents', []):
+        print(obj['Key'])
+
+    if response.get('IsTruncated'):
+        continuation_token = response['NextContinuationToken']
+    else:
+        break
+```
+
 ---
 
-## Waiters
+## Waiter Patterns
 
-### Common Waiters
+### Wait for Instance
 ```python
-# EC2 instance running
+ec2 = boto3.client('ec2')
 waiter = ec2.get_waiter('instance_running')
-waiter.wait(InstanceIds=['i-123'])
+waiter.wait(InstanceIds=['i-1234567890abcdef0'])
+```
 
-# S3 bucket exists
-waiter = s3.get_waiter('bucket_exists')
-waiter.wait(Bucket='my-bucket')
+### Wait for S3 Object
+```python
+s3 = boto3.client('s3')
+waiter = s3.get_waiter('object_exists')
+waiter.wait(Bucket='my-bucket', Key='file.txt')
+```
 
-# RDS available
-waiter = rds.get_waiter('db_instance_available')
-waiter.wait(DBInstanceIdentifier='mydb')
-
-# Lambda function exists
-waiter = lamb.get_waiter('function_exists')
-waiter.wait(FunctionName='my-function')
-
-# With custom config
+### With Timeout
+```python
 waiter.wait(
-    InstanceIds=['i-123'],
-    WaiterConfig={'Delay': 10, 'MaxAttempts': 60}
+    InstanceIds=['i-1234567890abcdef0'],
+    WaiterConfig={
+        'Delay': 15,      # Check every 15 seconds
+        'MaxAttempts': 40 # Max 10 minutes
+    }
 )
+```
+
+### List Available Waiters
+```python
+s3 = boto3.client('s3')
+print(s3.waiter_names)
+# ['bucket_exists', 'bucket_not_exists', 'object_exists', 'object_not_exists']
 ```
 
 ---
 
-## Sessions
+## Session Patterns
 
-### Create Session
+### Default Session
 ```python
-from boto3 import Session
+import boto3
 
-# Default session
-session = Session()
-
-# Custom credentials
-session = Session(
-    aws_access_key_id='KEY',
-    aws_secret_access_key='SECRET',
-    region_name='us-east-1'
-)
-
-# Named profile
-session = Session(profile_name='production')
-
-# Create clients from session
-s3 = session.client('s3')
-ec2 = session.resource('ec2')
+# Uses credentials from environment/config
+s3 = boto3.client('s3')
 ```
 
-### Cross-Account (AssumeRole)
+### Specific Profile
+```python
+session = boto3.Session(profile_name='production')
+s3 = session.client('s3')
+```
+
+### Assume Role (Cross-Account)
 ```python
 sts = boto3.client('sts')
 
 response = sts.assume_role(
-    RoleArn='arn:aws:iam::ACCOUNT:role/Role',
-    RoleSessionName='session',
-    DurationSeconds=3600
+    RoleArn='arn:aws:iam::987654321:role/RemoteRole',
+    RoleSessionName='session-name'
 )
 
-creds = response['Credentials']
-session = Session(
-    aws_access_key_id=creds['AccessKeyId'],
-    aws_secret_access_key=creds['SecretAccessKey'],
-    aws_session_token=creds['SessionToken']
+credentials = response['Credentials']
+session = boto3.Session(
+    aws_access_key_id=credentials['AccessKeyId'],
+    aws_secret_access_key=credentials['SecretAccessKey'],
+    aws_session_token=credentials['SessionToken']
 )
 
 s3 = session.client('s3')
 ```
 
+### Specific Region
+```python
+session = boto3.Session(region_name='eu-west-1')
+s3 = session.client('s3')
+
+# Or in client
+s3 = boto3.client('s3', region_name='eu-west-1')
+```
+
+### Custom Credentials
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_KEY',
+    aws_secret_access_key='YOUR_SECRET',
+    region_name='us-east-1'
+)
+```
+
 ---
 
-## Cheat Sheet by Use Case
+## Configuration Patterns
 
-### "I want to upload a file"
+### Increase Timeouts
+```python
+from botocore.config import Config
+
+config = Config(
+    connect_timeout=60,
+    read_timeout=60
+)
+s3 = boto3.client('s3', config=config)
+```
+
+### Enable Retries
+```python
+from botocore.config import Config
+
+config = Config(
+    retries={'max_attempts': 5, 'mode': 'adaptive'}
+)
+s3 = boto3.client('s3', config=config)
+```
+
+### Max Connection Pool
+```python
+from botocore.config import Config
+
+config = Config(max_pool_connections=20)
+s3 = boto3.client('s3', config=config)
+```
+
+### Combined Config
+```python
+from botocore.config import Config
+
+config = Config(
+    max_pool_connections=20,
+    connect_timeout=60,
+    read_timeout=60,
+    retries={'max_attempts': 3, 'mode': 'adaptive'}
+)
+s3 = boto3.client('s3', config=config)
+```
+
+---
+
+## Common Code Patterns
+
+### Batch Upload
+```python
+import os
+import boto3
+
+s3 = boto3.client('s3')
+
+for filename in os.listdir('/path/to/files'):
+    filepath = os.path.join('/path/to/files', filename)
+    if os.path.isfile(filepath):
+        s3.upload_file(filepath, 'my-bucket', filename)
+        print(f"Uploaded {filename}")
+```
+
+### Batch Download
 ```python
 s3 = boto3.client('s3')
-s3.upload_file('local.txt', 'bucket', 'remote.txt')
-# or
-s3 = boto3.resource('s3')
-s3.Bucket('bucket').upload_file('local.txt', 'remote.txt')
+
+paginator = s3.get_paginator('list_objects_v2')
+for page in paginator.paginate(Bucket='my-bucket'):
+    for obj in page.get('Contents', []):
+        s3.download_file('my-bucket', obj['Key'], f"local/{obj['Key']}")
 ```
 
-### "I want to list all resources"
+### Batch Delete
 ```python
-# S3 buckets
-s3.list_buckets()['Buckets']
+s3 = boto3.client('s3')
 
-# EC2 instances
-ec2.describe_instances()
-
-# Lambda functions
-lamb.list_functions()['Functions']
-
-# RDS databases
-rds.describe_db_instances()['DBInstances']
+response = s3.list_objects_v2(Bucket='my-bucket')
+for obj in response.get('Contents', []):
+    s3.delete_object(Bucket='my-bucket', Key=obj['Key'])
+    print(f"Deleted {obj['Key']}")
 ```
 
-### "I want to handle errors"
+### Filter by Tag
 ```python
-from botocore.exceptions import ClientError
+ec2 = boto3.client('ec2')
 
-try:
-    # AWS operation
-except ClientError as e:
-    if e.response['Error']['Code'] == 'TargetError':
-        # Handle specific error
-    else:
-        raise
+response = ec2.describe_instances(
+    Filters=[
+        {'Name': 'tag:Environment', 'Values': ['production']},
+        {'Name': 'instance-state-name', 'Values': ['running']}
+    ]
+)
+
+for r in response['Reservations']:
+    for instance in r['Instances']:
+        print(instance['InstanceId'])
 ```
 
-### "I want to wait for something"
+### Parallel Operations
 ```python
-# Get waiter
-waiter = ec2.get_waiter('instance_running')
+from concurrent.futures import ThreadPoolExecutor
 
-# Wait with timeout
-waiter.wait(InstanceIds=['i-123'], WaiterConfig={'MaxAttempts': 30})
+def download_file(bucket, key):
+    s3.download_file(bucket, key, f'local/{key}')
 
-# Now safe to use
-print("Instance is running!")
-```
+s3 = boto3.client('s3')
+files = [('bucket', f'file{i}.txt') for i in range(10)]
 
-### "I want to do many operations"
-```python
-# Use batch operations
-sqs.send_message_batch(QueueUrl=url, Entries=[...])  # Up to 10
-ec2.create_tags(Resources=[...], Tags=[...])  # Many resources
-ddb.batch_write_item(RequestItems={...})  # Many items
+with ThreadPoolExecutor(max_workers=5) as executor:
+    executor.map(lambda args: download_file(*args), files)
 ```
 
 ---
 
-## Common Imports
+## Service Cheat Sheet
+
+| Service | Create | Read | Update | Delete |
+|---------|--------|------|--------|--------|
+| **S3** | `put_object` | `get_object` | `put_object` | `delete_object` |
+| **EC2** | `run_instances` | `describe_instances` | `modify_instance` | `terminate_instances` |
+| **Lambda** | `create_function` | `get_function` | `update_function_code` | `delete_function` |
+| **DynamoDB** | `put_item` | `get_item` | `update_item` | `delete_item` |
+| **RDS** | `create_db_instance` | `describe_db_instances` | `modify_db_instance` | `delete_db_instance` |
+| **SNS** | `create_topic` | `list_topics` | `set_topic_attributes` | `delete_topic` |
+| **SQS** | `create_queue` | `list_queues` | `set_queue_attributes` | `delete_queue` |
+| **IAM** | `create_user` | `get_user` | `update_user` | `delete_user` |
+
+---
+
+## Debugging Quick Checks
 
 ```python
-import boto3
-from boto3 import Session
-from botocore.exceptions import ClientError, NoCredentialsError
-from botocore.config import Config
-import json
-from datetime import datetime, timedelta
-import time
+# Check credentials
+sts = boto3.client('sts')
+print(sts.get_caller_identity())
+
+# Check region
+session = boto3.Session()
+print(session.region_name)
+
+# List available services
+print(session.get_available_services())
+
+# Enable debug logging
+import logging
+logging.basicConfig(level=logging.DEBUG)
 ```
 
+---
+
+## Resources
+
+- **Docs**: https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
+- **Examples**: https://github.com/aws/aws-sdk-examples
+- **LocalStack**: https://localstack.cloud/ (test locally)
+
+---
+
+**Last Updated**: 2024
+**Target Audience**: AWS developers needing quick reference
+**Estimated Reading Time**: 15-30 minutes to scan, seconds to lookup

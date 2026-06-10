@@ -1,1195 +1,1137 @@
-# AWS Boto3 Troubleshooting Guide: Fix Errors Fast
+# AWS & Boto3 Troubleshooting Guide
+## Fix Common Errors Fast
 
-> **Fast solutions to common AWS errors**: This guide covers 25+ error messages with multiple solutions for each. Organized by error type and service.
-
----
-
-## Table of Contents
-
-### PART 1: AUTHENTICATION & CREDENTIALS (Top 10 Errors)
-- NoCredentialsError
-- InvalidSignatureException
-- AccessDenied
-- ExpiredToken
-- InvalidClientTokenId
-
-### PART 2: COMMON SERVICE ERRORS (Top 15 Errors)
-- S3 Errors
-- Lambda Errors
-- EC2 Errors
-- RDS Errors
-- CloudWatch Errors
-
-### PART 3: DEBUGGING TECHNIQUES
-- Enable Debug Logging
-- Using CloudTrail
-- IAM Policy Simulator
-- AWS CLI Testing
+### Table of Contents
+1. **Part 1: Common Errors** - Fix the most frequent problems
+2. **Part 2: Service-Specific Issues** - Troubleshoot by AWS service
+3. **Part 3: Debugging Techniques** - Find and fix hidden issues
+4. **Part 4: Quick Reference** - Error codes and solutions
 
 ---
 
-# PART 1: AUTHENTICATION & CREDENTIALS
+## PART 1: COMMON ERRORS
 
-## Error 1: NoCredentialsError
+### NoCredentialsError
 
+**Error Message**:
 ```
 botocore.exceptions.NoCredentialsError: Unable to locate credentials
 ```
 
-### What it means
-Boto3 cannot find AWS credentials to authenticate API calls.
+**What It Means**: Boto3 can't find your AWS credentials.
 
-### Root causes
-1. No AWS credentials configured
-2. Credentials expired
-3. Wrong credentials location
-4. Environment variables not set
-5. IAM role not attached to EC2/Lambda
+**Solutions** (in order of preference):
 
-### Solution 1: Configure AWS CLI (Easiest)
-
+#### Solution 1: Check Environment Variables
 ```bash
-# Install AWS CLI if not already installed
-pip install awscli
-
-# Configure with your credentials
-aws configure
-
-# Prompted for:
-# - AWS Access Key ID
-# - AWS Secret Access Key
-# - Default region (us-east-1)
-# - Default output format (json)
-
-# Verify it works
-aws s3 ls
-```
-
-### Solution 2: Set Environment Variables
-
-```bash
-# Set credentials as environment variables
-export AWS_ACCESS_KEY_ID='your_access_key_here'
-export AWS_SECRET_ACCESS_KEY='your_secret_key_here'
-export AWS_DEFAULT_REGION='us-east-1'
-
-# Verify in Python
-import boto3
-s3 = boto3.client('s3')
-print(s3.list_buckets())
-```
-
-### Solution 3: Hardcode in Code (Development Only!)
-
-```python
-import boto3
-
-# ⚠️ NEVER DO THIS IN PRODUCTION
-# Only for local development and testing
-s3 = boto3.client(
-    's3',
-    aws_access_key_id='your_access_key',
-    aws_secret_access_key='your_secret_key',
-    region_name='us-east-1'
-)
-
-print(s3.list_buckets())
-```
-
-### Solution 4: Use IAM Role (Recommended for EC2/Lambda)
-
-```python
-import boto3
-
-# When running on EC2 or Lambda, use the attached IAM role
-# No credentials needed - AWS SDK auto-detects the role
-s3 = boto3.client('s3')  # Just works!
-
-print(s3.list_buckets())
-
-# Or explicitly request credentials from role
-sts = boto3.client('sts')
-response = sts.get_caller_identity()
-print(f"Account: {response['Account']}")
-print(f"ARN: {response['Arn']}")
-```
-
-### Solution 5: Use Named Profile
-
-```bash
-# If you have multiple AWS accounts/profiles
-# First, configure profile
-aws configure --profile production
-
-# Then use in Python
-import boto3
-from boto3 import Session
-
-session = Session(profile_name='production')
-s3 = session.client('s3')
-print(s3.list_buckets())
-```
-
-### Verification Checklist
-
-```bash
-# 1. Check credentials file exists
-cat ~/.aws/credentials
-
-# 2. Check config file exists
-cat ~/.aws/config
-
-# 3. Check environment variables
+# On Mac/Linux
 echo $AWS_ACCESS_KEY_ID
 echo $AWS_SECRET_ACCESS_KEY
 
-# 4. Test with AWS CLI
-aws sts get-caller-identity
-
-# 5. Test in Python
-python3 -c "import boto3; print(boto3.client('sts').get_caller_identity())"
+# On Windows (PowerShell)
+$env:AWS_ACCESS_KEY_ID
+$env:AWS_SECRET_ACCESS_KEY
 ```
 
----
-
-## Error 2: InvalidSignatureException
-
-```
-botocore.exceptions.ClientError: An error occurred (InvalidSignature) when calling
-the [...] operation: The request signature we calculated does not match the signature
-you provided. Check your key and signing method.
-```
-
-### What it means
-Your credentials are being rejected. Usually wrong credentials or they've changed.
-
-### Root causes
-1. Wrong AWS secret access key
-2. Credentials were recently rotated
-3. Using credentials from wrong account
-4. Clock skew (system time is very wrong)
-5. Credentials have spaces or special characters
-
-### Solution 1: Rotate Credentials
-
+If empty, set them:
 ```bash
-# Generate new credentials from AWS Console
-# Then update credentials file
+# Mac/Linux
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_DEFAULT_REGION="us-east-1"
+
+# Windows (PowerShell)
+$env:AWS_ACCESS_KEY_ID="your-access-key"
+$env:AWS_SECRET_ACCESS_KEY="your-secret-key"
+```
+
+#### Solution 2: Check AWS Credentials File
+```bash
+# Credentials should be at:
+# Mac/Linux: ~/.aws/credentials
+# Windows: %USERPROFILE%\.aws\credentials
+
+cat ~/.aws/credentials  # Mac/Linux
+type %USERPROFILE%\.aws\credentials  # Windows
+```
+
+**File Format**:
+```
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+
+[production]
+aws_access_key_id = PROD_ACCESS_KEY
+aws_secret_access_key = PROD_SECRET_KEY
+```
+
+#### Solution 3: Create Credentials File
+```bash
+mkdir -p ~/.aws
+
+cat > ~/.aws/credentials << 'EOF'
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+EOF
+
+chmod 600 ~/.aws/credentials  # Secure file permissions
+```
+
+#### Solution 4: Use AWS CLI to Configure
+```bash
 aws configure
 
-# Or update environment variables
-export AWS_ACCESS_KEY_ID='new_access_key'
-export AWS_SECRET_ACCESS_KEY='new_secret_key'
-
-# Test
-aws sts get-caller-identity
+# Or configure specific profile
+aws configure --profile production
 ```
 
-### Solution 2: Check System Time
-
-```bash
-# Server time must be within 5 minutes of AWS time
-# If off, it will cause signature errors
-
-# Check current time
-date
-
-# Mac: Sync time
-# Settings > Date & Time > Sync Now
-
-# Linux: Sync time
-sudo ntpdate -s time.nist.gov
-# or
-timedatectl set-ntp on
-
-# Docker: Ensure correct timezone/time
-# In docker-compose.yml:
-# environment:
-#   - TZ=UTC
-```
-
-### Solution 3: Verify Credentials Format
-
-```python
-import boto3
-import os
-
-# Check if credentials have invisible characters
-access_key = os.environ.get('AWS_ACCESS_KEY_ID', '').strip()
-secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY', '').strip()
-
-print(f"Access Key: '{access_key}' (len={len(access_key)})")
-print(f"Secret Key length: {len(secret_key)}")
-
-# Access key should be 20 chars like: AKIAIOSFODNN7EXAMPLE
-# Secret key should be 40 chars
-
-if len(access_key) != 20:
-    print("⚠️  Access key has wrong length!")
-if len(secret_key) != 40:
-    print("⚠️  Secret key has wrong length!")
-```
-
-### Solution 4: Use Different Account
-
+#### Solution 5: Explicitly Pass Credentials
 ```python
 import boto3
 
-# If you have multiple accounts, ensure you're using correct credentials
-sts = boto3.client('sts')
-
-try:
-    response = sts.get_caller_identity()
-    account_id = response['Account']
-    arn = response['Arn']
-    print(f"Using account: {account_id}")
-    print(f"ARN: {arn}")
-
-    # Check if this is the account you intended
-    if account_id != '123456789':  # Your expected account
-        print("⚠️  Wrong account!")
-
-except Exception as e:
-    print(f"Error: {e}")
+s3 = boto3.client(
+    's3',
+    aws_access_key_id='your-access-key',
+    aws_secret_access_key='your-secret-key',
+    region_name='us-east-1'
+)
 ```
 
----
+**⚠️ WARNING**: Never hardcode credentials in code. Use environment variables or credential files.
 
-## Error 3: AccessDenied / UnauthorizedOperation
-
-```
-botocore.exceptions.ClientError: An error occurred (AccessDenied) when calling
-the [...] operation: User: arn:aws:iam::123456789:user/john is not authorized
-to perform: s3:GetObject on resource: arn:aws:s3:::my-bucket/data.csv
-```
-
-### What it means
-Your credentials are valid, but you don't have permission for this operation.
-
-### Root causes
-1. IAM policy doesn't allow this operation
-2. Resource-based policy denies access
-3. Missing KMS key permissions (for encrypted resources)
-4. Bucket policy is too restrictive
-5. SCP (Service Control Policy) blocks operation
-
-### Solution 1: Check IAM Policy
-
+#### Solution 6: Check IAM Role (if on EC2/Lambda/ECS)
 ```python
 import boto3
 from botocore.exceptions import ClientError
 
+# If you're on EC2, Lambda, or ECS, credentials come from IAM role
+# Check the role is attached:
+
 iam = boto3.client('iam')
-
-# Get current user
-sts = boto3.client('sts')
-user_arn = sts.get_caller_identity()['Arn']
-username = user_arn.split('/')[-1]
-
-print(f"Checking policies for: {username}")
-
-# List attached policies
-response = iam.list_attached_user_policies(UserName=username)
-print(f"Attached policies:")
-for policy in response['AttachedPolicies']:
-    print(f"  - {policy['PolicyName']}")
-
-# List inline policies
-response = iam.list_user_policies(UserName=username)
-print(f"Inline policies:")
-for policy in response['PolicyNames']:
-    print(f"  - {policy}")
+try:
+    # This will fail if no credentials at all
+    response = iam.get_user()
+    print(f"Current user: {response['User']['UserName']}")
+except ClientError as e:
+    print(f"Error: {e}")
 ```
 
-### Solution 2: Add Required Permissions
-
+**Verification Script**:
 ```python
 import boto3
-import json
 
-iam = boto3.client('iam')
+def check_credentials():
+    try:
+        sts = boto3.client('sts')
+        identity = sts.get_caller_identity()
+        print(f"Account: {identity['Account']}")
+        print(f"User/Role: {identity['Arn']}")
+        print("✓ Credentials are valid")
+        return True
+    except Exception as e:
+        print(f"✗ Credentials error: {e}")
+        return False
 
-# Define policy with required permissions
-policy_document = {
+check_credentials()
+```
+
+---
+
+### AccessDenied
+
+**Error Message**:
+```
+botocore.exceptions.ClientError: An error occurred (AccessDenied) when calling the GetObject operation: Access Denied
+```
+
+**What It Means**: Your credentials are valid, but you don't have permission for this operation.
+
+**Root Cause**: IAM policy issue.
+
+#### Debugging Steps
+
+**Step 1: Verify You Can Access AWS**
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+sts = boto3.client('sts')
+try:
+    identity = sts.get_caller_identity()
+    print(f"You are: {identity['Arn']}")
+except ClientError as e:
+    print(f"Can't access AWS: {e}")
+```
+
+**Step 2: Check Specific Permission**
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3')
+try:
+    # Try a simple operation
+    response = s3.list_buckets()
+    print(f"Can list buckets: {len(response['Buckets'])} found")
+except ClientError as e:
+    if e.response['Error']['Code'] == 'AccessDenied':
+        print("Missing s3:ListAllMyBuckets permission")
+    else:
+        print(f"Error: {e}")
+```
+
+**Step 3: Use IAM Policy Simulator** (Web Console)
+1. Go to [IAM Policy Simulator](https://policysim.aws.amazon.com/)
+2. Enter your user/role ARN
+3. Select service and action
+4. See if it's allowed or denied
+
+**Step 4: Check the Resource**
+```python
+# Sometimes the resource exists but you can't access it
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3')
+
+try:
+    # Try to access specific bucket
+    response = s3.head_bucket(Bucket='someone-elses-bucket')
+    print("Can access bucket")
+except ClientError as e:
+    error = e.response['Error']['Code']
+    if error == 'AccessDenied':
+        print("You don't have permission to access this bucket")
+    elif error == '404':
+        print("Bucket doesn't exist or is in another account")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+#### Common IAM Policy Gaps
+
+**S3 Bucket Access Denied**:
+```json
+{
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
             "Action": [
                 "s3:GetObject",
-                "s3:ListBucket"
+                "s3:PutObject",
+                "s3:DeleteObject"
             ],
-            "Resource": [
-                "arn:aws:s3:::my-bucket",
-                "arn:aws:s3:::my-bucket/*"
-            ]
+            "Resource": "arn:aws:s3:::my-bucket/*"
         },
         {
             "Effect": "Allow",
-            "Action": [
-                "kms:Decrypt"
-            ],
-            "Resource": "arn:aws:kms:us-east-1:123456789:key/12345678-1234"
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::my-bucket"
         }
     ]
 }
-
-# Attach to user
-iam.put_user_policy(
-    UserName='john',
-    PolicyName='S3Access',
-    PolicyDocument=json.dumps(policy_document)
-)
-
-print("Policy attached. Changes take effect immediately.")
 ```
 
-### Solution 3: Use IAM Policy Simulator
-
-```python
-import boto3
-import json
-
-iam = boto3.client('iam')
-
-# Simulate permission
-response = iam.simulate_principal_policy(
-    PolicySourceArn='arn:aws:iam::123456789:user/john',
-    ActionNames=['s3:GetObject'],
-    ResourceArns=['arn:aws:s3:::my-bucket/data.csv']
-)
-
-print("Permission simulation results:")
-for result in response['EvaluationResults']:
-    action = result['EvalActionName']
-    decision = result['EvalDecision']  # allowed, implicitDeny, explicitDeny
-    print(f"{action}: {decision}")
-
-    if decision != 'allowed':
-        print(f"  Reason: {result.get('EvalResourceName', 'N/A')}")
+**EC2 DescribeInstances Access Denied**:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeImages",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeNetworkInterfaces"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 ```
 
-### Solution 4: Check S3 Bucket Policy
-
-```python
-import boto3
-import json
-
-s3 = boto3.client('s3')
-
-# Get bucket policy
-try:
-    response = s3.get_bucket_policy(Bucket='my-bucket')
-    policy = json.loads(response['Policy'])
-    print("Bucket policy:")
-    print(json.dumps(policy, indent=2))
-
-except s3.exceptions.NoSuchBucketPolicy:
-    print("No bucket policy set")
-
-# Check bucket ACL
-response = s3.get_bucket_acl(Bucket='my-bucket')
-print(f"Owner: {response['Owner']['DisplayName']}")
-print(f"Grants: {response['Grants']}")
-```
-
-### Solution 5: Check KMS Key Permissions
-
-```python
-import boto3
-
-kms = boto3.client('kms')
-
-# List key policies
-key_id = 'arn:aws:kms:us-east-1:123456789:key/12345678'
-
-response = kms.get_key_policy(KeyId=key_id, PolicyName='default')
-import json
-policy = json.loads(response['Policy'])
-print("KMS Key policy:")
-print(json.dumps(policy, indent=2))
+**Lambda InvokeFunction Access Denied**:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "lambda:InvokeFunction",
+            "Resource": "arn:aws:lambda:us-east-1:123456789:function:my-function"
+        }
+    ]
+}
 ```
 
 ---
 
-## Error 4: ExpiredToken
+### ThrottlingException
 
+**Error Message**:
 ```
-botocore.exceptions.ClientError: An error occurred (ExpiredToken) when calling
-the [...] operation: The provided token has expired.
+botocore.exceptions.ClientError: An error occurred (ThrottlingException) when calling the PutMetricData operation: Rate exceeded
 ```
 
-### What it means
-Your temporary credentials (from STS) have expired.
+**What It Means**: You're making too many requests to AWS. The service limited you.
 
-### Root causes
-1. STS credentials older than 1 hour
-2. AssumeRole credentials exceeded max duration
-3. Federation token expired
-4. Session token invalid
+**Solutions**:
 
-### Solution 1: Refresh Credentials
-
+#### Solution 1: Enable Automatic Retries (Recommended)
 ```python
 import boto3
-from boto3 import Session
-from datetime import datetime
+from botocore.config import Config
 
-# Check current credentials
-sts = boto3.client('sts')
-identity = sts.get_caller_identity()
-print(f"Current user: {identity['Arn']}")
+# Let Boto3 handle retries automatically
+config = Config(retries={'max_attempts': 3, 'mode': 'adaptive'})
+cloudwatch = boto3.client('cloudwatch', config=config)
 
-# If using temporary credentials from AssumeRole
-# they are automatically refreshed by boto3
-
-# If using federation, request new credentials
-sts = boto3.client('sts')
-response = sts.assume_role(
-    RoleArn='arn:aws:iam::123456789:role/MyRole',
-    RoleSessionName='session-name'
-)
-
-credentials = response['Credentials']
-print(f"New credentials valid until: {credentials['Expiration']}")
-
-# Create new session with fresh credentials
-session = Session(
-    aws_access_key_id=credentials['AccessKeyId'],
-    aws_secret_access_key=credentials['SecretAccessKey'],
-    aws_session_token=credentials['SessionToken']
-)
-
-s3 = session.client('s3')
+# Now automatic retries happen internally
+cloudwatch.put_metric_data(Namespace='MyApp', MetricData=[...])
 ```
 
-### Solution 2: Increase Token Duration
-
+#### Solution 2: Manual Exponential Backoff
 ```python
-import boto3
-
-sts = boto3.client('sts')
-
-# Request longer-lived credentials (max 12 hours)
-response = sts.assume_role(
-    RoleArn='arn:aws:iam::123456789:role/MyRole',
-    RoleSessionName='long-running-job',
-    DurationSeconds=43200  # 12 hours (max)
-)
-
-credentials = response['Credentials']
-expiration = credentials['Expiration']
-print(f"Credentials valid until: {expiration}")
-```
-
-### Solution 3: Check Credential Expiration
-
-```python
-import boto3
-from datetime import datetime, timedelta
-import os
-
-# Check if environment credentials are about to expire
-from botocore.session import get_session
-
-session = get_session()
-credentials = session.get_credentials()
-
-if credentials and hasattr(credentials, '_expiry_time'):
-    expiry = credentials._expiry_time
-    now = datetime.utcnow()
-    remaining = expiry - now
-
-    print(f"Credentials expire in: {remaining}")
-
-    if remaining < timedelta(minutes=5):
-        print("⚠️  Credentials expiring soon!")
-else:
-    print("Using long-term credentials (don't expire)")
-```
-
----
-
-# PART 2: COMMON SERVICE ERRORS
-
-## S3 Errors
-
-### Error: NoSuchBucket
-
-```
-botocore.exceptions.ClientError: An error occurred (NoSuchBucket) when calling
-the HeadBucket operation: The specified bucket does not exist
-```
-
-**Solutions:**
-
-```python
-import boto3
-from botocore.exceptions import ClientError
-
-s3 = boto3.client('s3')
-
-# Solution 1: Check if bucket exists
-def bucket_exists(bucket_name):
-    try:
-        s3.head_bucket(Bucket=bucket_name)
-        return True
-    except ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code == '404' or error_code == 'NoSuchBucket':
-            return False
-        raise
-
-if not bucket_exists('my-bucket'):
-    print("Bucket doesn't exist, creating...")
-    s3.create_bucket(Bucket='my-bucket')
-
-# Solution 2: List all available buckets
-response = s3.list_buckets()
-available_buckets = [b['Name'] for b in response['Buckets']]
-print(f"Available buckets: {available_buckets}")
-
-# Solution 3: Check bucket name for typos
-bucket_to_check = 'my-buckét'  # Wrong
-correct_bucket = 'my-bucket'   # Right
-```
-
-### Error: NoSuchKey
-
-```
-botocore.exceptions.ClientError: An error occurred (NoSuchKey) when calling
-the GetObject operation: The specified key does not exist.
-```
-
-**Solutions:**
-
-```python
-import boto3
-from botocore.exceptions import ClientError
-
-s3 = boto3.client('s3')
-
-# Solution 1: Check if object exists
-def object_exists(bucket, key):
-    try:
-        s3.head_object(Bucket=bucket, Key=key)
-        return True
-    except ClientError as e:
-        if e.response['Error']['Code'] == '404':
-            return False
-        raise
-
-if not object_exists('my-bucket', 'file.txt'):
-    print("Object doesn't exist")
-    # Upload it first
-    s3.put_object(Bucket='my-bucket', Key='file.txt', Body=b'content')
-
-# Solution 2: List objects in bucket to find correct key
-response = s3.list_objects_v2(Bucket='my-bucket', Prefix='data/')
-print("Objects in bucket:")
-for obj in response.get('Contents', []):
-    print(f"  {obj['Key']}")
-
-# Solution 3: Check key format (case-sensitive!)
-wrong_key = 'File.TXT'    # Wrong
-correct_key = 'file.txt'  # Right
-```
-
-### Error: AccessDenied (S3)
-
-**Solutions:**
-
-```python
-import boto3
-import json
-
-s3 = boto3.client('s3')
-
-# Solution 1: Check bucket permissions
-def check_s3_permissions(bucket):
-    try:
-        # Try to read bucket
-        s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
-        print("✓ ListBucket permission OK")
-    except Exception as e:
-        print(f"✗ ListBucket permission denied: {e}")
-
-    try:
-        # Try to read an object (any)
-        s3.get_object(Bucket=bucket, Key='test.txt')
-        print("✓ GetObject permission OK")
-    except Exception:
-        print("✗ GetObject permission denied")
-
-# Solution 2: Check bucket policy
-response = s3.get_bucket_policy(Bucket='my-bucket')
-policy = json.loads(response['Policy'])
-print(json.dumps(policy, indent=2))
-
-# Solution 3: Check if bucket is encrypted
-response = s3.get_bucket_encryption(Bucket='my-bucket')
-encryption = response.get('ServerSideEncryptionConfiguration', {})
-if encryption:
-    print("Bucket is encrypted with:", encryption)
-    print("You may need KMS key permissions")
-```
-
----
-
-## Lambda Errors
-
-### Error: InvalidParameterValueException
-
-```
-botocore.exceptions.ClientError: An error occurred (InvalidParameterValueException)
-when calling the CreateFunction operation: The role defined for the function cannot
-be assumed by Lambda.
-```
-
-**Solutions:**
-
-```python
-import boto3
-import json
-
-lambda_client = boto3.client('lambda')
-iam = boto3.client('iam')
-
-# Solution 1: Verify IAM role exists and has trust relationship
-role_name = 'lambda-execution-role'
-
-try:
-    response = iam.get_role(RoleName=role_name)
-    role_arn = response['Role']['Arn']
-    print(f"Role ARN: {role_arn}")
-
-except iam.exceptions.NoSuchEntityException:
-    print(f"Role {role_name} doesn't exist")
-    print("Creating role...")
-
-    trust_policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {"Service": "lambda.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-            }
-        ]
-    }
-
-    iam.create_role(
-        RoleName=role_name,
-        AssumeRolePolicyDocument=json.dumps(trust_policy),
-        Description='Execution role for Lambda functions'
-    )
-
-    # Attach basic Lambda policy
-    iam.attach_role_policy(
-        RoleName=role_name,
-        PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
-    )
-
-# Solution 2: Check trust policy
-response = iam.get_role(RoleName=role_name)
-trust_policy = response['Role']['AssumeRolePolicyDocument']
-print("Trust policy:")
-print(json.dumps(trust_policy, indent=2))
-
-# Should have: "Service": "lambda.amazonaws.com"
-```
-
-### Error: ResourceNotFoundException
-
-```
-botocore.exceptions.ClientError: An error occurred (ResourceNotFoundException)
-when calling the GetFunction operation: The resource you requested does not exist.
-```
-
-**Solutions:**
-
-```python
-import boto3
-
-lambda_client = boto3.client('lambda', region_name='us-east-1')
-
-# Solution 1: Check if function exists
-def function_exists(function_name):
-    try:
-        lambda_client.get_function(FunctionName=function_name)
-        return True
-    except lambda_client.exceptions.ResourceNotFoundException:
-        return False
-
-if not function_exists('my-function'):
-    print("Function doesn't exist")
-    print("Creating function...")
-    # Create it
-
-# Solution 2: List all Lambda functions
-response = lambda_client.list_functions()
-functions = [f['FunctionName'] for f in response['Functions']]
-print(f"Available functions: {functions}")
-
-# Solution 3: Check if you're in correct region
-print(f"Current region: {lambda_client.meta.region_name}")
-print("Function might be in a different region")
-```
-
-### Error: CodeStorageExceededException
-
-```
-botocore.exceptions.ClientError: An error occurred (CodeStorageExceededException)
-when calling the CreateFunction operation: An error occurred (CodeStorageExceededException)
-when calling the CreateFunction operation: Your total code size is [...] bytes,
-which exceeds the account limit of [...]
-```
-
-**Solutions:**
-
-```python
-import boto3
-
-lambda_client = boto3.client('lambda')
-
-# Solution 1: Check current code storage usage
-response = lambda_client.get_account_settings()
-code_size_limit = response['AccountUsage']['CodeStorageInBytes']
-code_size_used = response['AccountUsage'].get('CodeStorageInBytes', 0)
-
-print(f"Code storage limit: {code_size_limit / 1024 / 1024 / 1024:.2f} GB")
-print(f"Code storage used: {code_size_used / 1024 / 1024 / 1024:.2f} GB")
-
-# Solution 2: Delete unused Lambda functions
-response = lambda_client.list_functions()
-functions = response['Functions']
-
-# Sort by last modified
-functions.sort(key=lambda x: x['LastModified'])
-
-print("Functions (oldest first):")
-for f in functions:
-    size_mb = f['CodeSize'] / 1024 / 1024
-    print(f"  {f['FunctionName']}: {size_mb:.2f} MB (Modified: {f['LastModified']})")
-
-# Delete old functions
-lambda_client.delete_function(FunctionName='old-function')
-
-# Solution 3: Reduce function package size
-# - Remove unnecessary dependencies
-# - Use Lambda Layers for shared code
-# - Use AWS Lambda extensions for tools
-```
-
----
-
-## EC2 Errors
-
-### Error: InsufficientInstanceCapacity
-
-```
-botocore.exceptions.ClientError: An error occurred (InsufficientInstanceCapacity)
-when calling the RunInstances operation: We currently do not have sufficient
-capacity in the Availability Zone to service your request.
-```
-
-**Solutions:**
-
-```python
-import boto3
-
-ec2 = boto3.client('ec2', region_name='us-east-1')
-
-# Solution 1: Try different availability zone
-# Launch in multiple AZs
-azs = ['us-east-1a', 'us-east-1b', 'us-east-1c']
-
-for az in azs:
-    try:
-        response = ec2.run_instances(
-            ImageId='ami-0c55b159cbfafe1f0',
-            MinCount=1,
-            MaxCount=1,
-            InstanceType='t3.micro',
-            Placement={'AvailabilityZone': az}
-        )
-        print(f"✓ Launched in {az}")
-        break
-    except Exception as e:
-        print(f"✗ Failed in {az}: {e}")
-        continue
-
-# Solution 2: Try different instance type
-instance_types = ['t3.micro', 't3.small', 't2.micro', 't2.small']
-
-for inst_type in instance_types:
-    try:
-        response = ec2.run_instances(
-            ImageId='ami-0c55b159cbfafe1f0',
-            MinCount=1,
-            MaxCount=1,
-            InstanceType=inst_type
-        )
-        print(f"✓ Launched with instance type {inst_type}")
-        break
-    except Exception as e:
-        print(f"✗ Failed with {inst_type}: {e}")
-        continue
-
-# Solution 3: Wait and retry
 import time
-for attempt in range(5):
-    try:
-        response = ec2.run_instances(
-            ImageId='ami-0c55b159cbfafe1f0',
-            MinCount=1,
-            MaxCount=1,
-            InstanceType='t3.micro'
-        )
-        print("✓ Instance launched")
-        break
-    except Exception as e:
-        wait_time = 2 ** attempt
-        print(f"Attempt {attempt + 1} failed, waiting {wait_time}s...")
-        time.sleep(wait_time)
+from botocore.exceptions import ClientError
+
+def put_metric_with_backoff(cloudwatch, metric_data, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            cloudwatch.put_metric_data(
+                Namespace='MyApp',
+                MetricData=metric_data
+            )
+            return  # Success
+        except ClientError as e:
+            if e.response['Error']['Code'] != 'ThrottlingException':
+                raise  # Different error, re-raise
+
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # 1, 2, 4, 8, 16 seconds
+                print(f"Throttled. Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
+            else:
+                raise  # Max retries exceeded
+
+# Usage
+try:
+    put_metric_with_backoff(cloudwatch, [...])
+except ClientError as e:
+    print(f"Failed after all retries: {e}")
 ```
 
----
-
-## RDS Errors
-
-### Error: DBInstanceAlreadyExists
-
-```
-botocore.exceptions.ClientError: An error occurred (DBInstanceAlreadyExists)
-when calling the CreateDBInstance operation: [...]
-```
-
-**Solutions:**
-
+#### Solution 3: Add Delays Between Requests
 ```python
-import boto3
-
-rds = boto3.client('rds', region_name='us-east-1')
-
-# Solution 1: Check if instance exists
-def db_instance_exists(db_instance_id):
-    try:
-        rds.describe_db_instances(DBInstanceIdentifier=db_instance_id)
-        return True
-    except rds.exceptions.DBInstanceNotFoundFault:
-        return False
-
-if db_instance_exists('mydb'):
-    print("Database already exists")
-    # Either use it or delete and recreate
-    response = rds.describe_db_instances(DBInstanceIdentifier='mydb')
-    print(f"Endpoint: {response['DBInstances'][0]['Endpoint']}")
-else:
-    print("Creating new database...")
-    # Create it
-
-# Solution 2: List all databases
-response = rds.describe_db_instances()
-databases = [db['DBInstanceIdentifier'] for db in response['DBInstances']]
-print(f"Existing databases: {databases}")
-
-# Solution 3: Delete old instance first (careful!)
-print("Deleting old database...")
-rds.delete_db_instance(
-    DBInstanceIdentifier='old-db',
-    SkipFinalSnapshot=True  # Don't create snapshot
-)
-```
-
----
-
-## CloudWatch Errors
-
-### Error: InvalidParameterValue
-
-```
-botocore.exceptions.ClientError: An error occurred (InvalidParameterValue)
-when calling the PutMetricAlarm operation: [...]
-```
-
-**Solutions:**
-
-```python
+import time
 import boto3
 
 cloudwatch = boto3.client('cloudwatch')
 
-# Solution 1: Verify all required parameters
-try:
-    cloudwatch.put_metric_alarm(
-        AlarmName='my-alarm',
-        MetricName='CPUUtilization',
-        Namespace='AWS/EC2',
-        Statistic='Average',
-        Period=300,
-        EvaluationPeriods=2,
-        Threshold=80.0,
-        ComparisonOperator='GreaterThanThreshold',
-        # Missing AlarmActions or TreatMissingData
-    )
-except Exception as e:
-    print(f"Error: {e}")
+metrics = [
+    # ... your metrics ...
+]
 
-# Solution 2: Add all required parameters
-cloudwatch.put_metric_alarm(
-    AlarmName='my-alarm',
-    MetricName='CPUUtilization',
-    Namespace='AWS/EC2',
-    Statistic='Average',  # Must be: SampleCount, Average, Sum, Minimum, Maximum
-    Period=60,  # Must be multiple of 60
-    EvaluationPeriods=1,
-    Threshold=80.0,
-    ComparisonOperator='GreaterThanThreshold',  # GreaterThan, LessThan, GreaterThanOrEqualTo, etc.
-    AlarmActions=['arn:aws:sns:us-east-1:123456789:topic'],
-    TreatMissingData='notBreaching'  # breaching, notBreaching, missing
-)
-
-print("✓ Alarm created")
+for metric in metrics:
+    cloudwatch.put_metric_data(Namespace='MyApp', MetricData=[metric])
+    time.sleep(0.1)  # 100ms between requests
 ```
 
----
-
-# PART 3: DEBUGGING TECHNIQUES
-
-## Technique 1: Enable Debug Logging
-
+#### Solution 4: Batch Requests
 ```python
+# CloudWatch allows up to 20 metrics per request
+# Don't make 100 requests for 100 metrics, make 5 requests for 20 each
+
 import boto3
-import logging
 
-# Enable debug logging for boto3
-boto3.set_stream_logger(
-    name='botocore',
-    level=logging.DEBUG
-)
+cloudwatch = boto3.client('cloudwatch')
+metrics = [...]  # 100 metrics
 
-# Now all AWS API calls will be logged with full details
-s3 = boto3.client('s3')
-response = s3.list_buckets()
-
-# Output will show:
-# - Exact API request
-# - Request headers
-# - Response headers
-# - Full response body
+# Batch into groups of 20
+for i in range(0, len(metrics), 20):
+    batch = metrics[i:i+20]
+    cloudwatch.put_metric_data(Namespace='MyApp', MetricData=batch)
+    print(f"Sent metrics {i} to {i+len(batch)}")
 ```
 
-### Selective Debug Logging
-
-```python
-import logging
-
-# Create logger for specific service
-logging.basicConfig(level=logging.DEBUG)
-
-# Debug only S3
-boto3.set_stream_logger('botocore.s3', logging.DEBUG)
-
-# Debug only EC2
-boto3.set_stream_logger('botocore.ec2', logging.DEBUG)
-
-# This is useful when dealing with large responses
-```
-
----
-
-## Technique 2: Test with AWS CLI First
-
-```bash
-# Many Boto3 errors can be reproduced with AWS CLI first
-# This helps isolate if it's a permission issue vs code issue
-
-# Test S3 access
-aws s3 ls
-
-# Test specific operation
-aws s3 cp test.txt s3://my-bucket/test.txt
-
-# With debug output
-aws s3 ls --debug
-
-# Check credentials being used
-aws sts get-caller-identity
-
-# List all resources of a type
-aws ec2 describe-instances
-aws rds describe-db-instances
-```
-
----
-
-## Technique 3: Use IAM Access Analyzer
-
+#### Solution 5: Use SQS for Async Batching
 ```python
 import boto3
 import json
+from concurrent.futures import ThreadPoolExecutor
 
-iam = boto3.client('iam')
-access_analyzer = boto3.client('accessanalyzer')
+# Queue metrics for async processing
+sqs = boto3.client('sqs')
+cloudwatch = boto3.client('cloudwatch')
 
-# Find out what permissions you actually have
-sts = boto3.client('sts')
-user_arn = sts.get_caller_identity()['Arn']
-
-# List all policies
-iam = boto3.client('iam')
-response = iam.list_attached_user_policies(
-    UserName=user_arn.split('/')[-1]
-)
-
-print("Attached policies:")
-for policy in response['AttachedPolicies']:
-    print(f"  - {policy['PolicyName']}")
-
-    # Get policy document
-    policy_version = iam.get_policy(PolicyArn=policy['PolicyArn'])
-    policy_doc = iam.get_policy_version(
-        PolicyArn=policy['PolicyArn'],
-        VersionId=policy_version['Policy']['DefaultVersionId']
+# Send messages to queue
+for metric in metrics:
+    sqs.send_message(
+        QueueUrl='https://sqs.us-east-1.amazonaws.com/123/metrics-queue',
+        MessageBody=json.dumps(metric)
     )
 
-    statements = policy_doc['PolicyVersion']['Document']['Statement']
-    for stmt in statements:
-        if stmt['Effect'] == 'Allow':
-            actions = stmt.get('Action', [])
-            resources = stmt.get('Resource', [])
-            print(f"    Actions: {actions}")
-            print(f"    Resources: {resources}")
+# Process queue with rate limiting
+def process_metrics_batch():
+    while True:
+        response = sqs.receive_message(MaxNumberOfMessages=10)
+        if 'Messages' not in response:
+            break
+
+        batch = []
+        for msg in response['Messages']:
+            metric = json.loads(msg['Body'])
+            batch.append(metric)
+            sqs.delete_message(
+                QueueUrl='https://sqs.us-east-1.amazonaws.com/123/metrics-queue',
+                ReceiptHandle=msg['ReceiptHandle']
+            )
+
+        if batch:
+            cloudwatch.put_metric_data(Namespace='MyApp', MetricData=batch)
+            time.sleep(1)  # Pause between batches
 ```
 
 ---
 
-## Technique 4: Use botocore Event System
+### NoSuchBucket (S3)
 
+**Error Message**:
+```
+botocore.exceptions.ClientError: An error occurred (NoSuchBucket) when calling the GetObject operation
+```
+
+**What It Means**: The S3 bucket doesn't exist, or you're looking in the wrong region.
+
+**Solutions**:
+
+#### Solution 1: Verify Bucket Exists
 ```python
 import boto3
-from botocore.hooks import EventAliasMapping
-
-# Register event handlers to see all API calls
-def log_api_call(event_name=None, **kwargs):
-    print(f"Event: {event_name}")
-    if 'request' in kwargs:
-        print(f"  URL: {kwargs['request'].url}")
-        print(f"  Method: {kwargs['request'].method}")
-        print(f"  Headers: {dict(kwargs['request'].headers)}")
+from botocore.exceptions import ClientError
 
 s3 = boto3.client('s3')
 
-# Register before every API call
-s3.meta.events.register('before-call', log_api_call)
-s3.meta.events.register('after-call', log_api_call)
+try:
+    s3.head_bucket(Bucket='my-bucket')
+    print("✓ Bucket exists")
+except ClientError as e:
+    error = e.response['Error']['Code']
+    if error == '404':
+        print("✗ Bucket doesn't exist")
+    elif error == '403':
+        print("✗ Bucket exists but you don't have permission")
+    else:
+        print(f"✗ Error: {error}")
+```
 
-# Now test
+#### Solution 2: List All Your Buckets
+```python
+s3 = boto3.client('s3')
+response = s3.list_buckets()
+
+print("Your buckets:")
+for bucket in response['Buckets']:
+    print(f"  - {bucket['Name']}")
+```
+
+#### Solution 3: Check Bucket Region
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+s3_us_east = boto3.client('s3', region_name='us-east-1')
+s3_eu = boto3.client('s3', region_name='eu-west-1')
+
+bucket_name = 'my-bucket'
+
+# Try different regions
+for region in ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1']:
+    try:
+        client = boto3.client('s3', region_name=region)
+        client.head_bucket(Bucket=bucket_name)
+        print(f"✓ Bucket found in {region}")
+        break
+    except ClientError as e:
+        if e.response['Error']['Code'] != '404':
+            continue
+
+# Or check bucket location directly
+s3 = boto3.client('s3', region_name='us-east-1')
+try:
+    response = s3.get_bucket_location(Bucket=bucket_name)
+    region = response['LocationConstraint'] or 'us-east-1'
+    print(f"Bucket is in: {region}")
+except ClientError as e:
+    print(f"Can't find bucket: {e}")
+```
+
+#### Solution 4: Create Missing Bucket
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3', region_name='us-east-1')
+
+try:
+    if s3.list_buckets()['Buckets']:
+        # Check if our bucket exists
+        bucket_exists = any(b['Name'] == 'my-bucket' for b in response['Buckets'])
+
+    if not bucket_exists:
+        s3.create_bucket(Bucket='my-bucket')
+        print("✓ Bucket created")
+except ClientError as e:
+    if e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
+        print("Bucket already exists")
+    else:
+        print(f"Error: {e}")
+```
+
+---
+
+### InvalidParameterValue
+
+**Error Message**:
+```
+botocore.exceptions.ClientError: An error occurred (InvalidParameterValue) when calling the RunInstances operation: Invalid id: 'ami-invalid'
+```
+
+**What It Means**: A parameter value doesn't match AWS requirements.
+
+**Common Parameter Issues**:
+
+#### Wrong AMI ID
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+ec2 = boto3.client('ec2')
+
+# WRONG: Invalid format
+try:
+    response = ec2.run_instances(ImageId='my-image', MinCount=1, MaxCount=1)
+except ClientError as e:
+    print(f"✗ Error: {e}")
+
+# RIGHT: Valid AMI format
+try:
+    response = ec2.run_instances(
+        ImageId='ami-0c55b159cbfafe1f0',  # Correct format: ami-xxxxxxxxx
+        MinCount=1,
+        MaxCount=1
+    )
+except ClientError as e:
+    # Check if AMI exists in this region
+    print(f"Error: {e}")
+```
+
+#### Invalid Instance Type
+```python
+# WRONG
+response = ec2.run_instances(
+    ImageId='ami-12345',
+    InstanceType='t2.huge'  # ❌ Invalid instance type
+)
+
+# RIGHT
+response = ec2.run_instances(
+    ImageId='ami-12345',
+    InstanceType='t2.micro'  # ✓ Valid: micro, small, medium, large, xlarge
+)
+```
+
+#### Invalid CIDR Block
+```python
+# WRONG
+ec2.authorize_security_group_ingress(
+    GroupId='sg-123',
+    IpPermissions=[{
+        'IpProtocol': 'tcp',
+        'FromPort': 80,
+        'ToPort': 80,
+        'IpRanges': [{'CidrIp': '192.168.1'}]  # ❌ Missing /24 notation
+    }]
+)
+
+# RIGHT
+ec2.authorize_security_group_ingress(
+    GroupId='sg-123',
+    IpPermissions=[{
+        'IpProtocol': 'tcp',
+        'FromPort': 80,
+        'ToPort': 80,
+        'IpRanges': [{'CidrIp': '192.168.1.0/24'}]  # ✓ Valid CIDR
+    }]
+)
+```
+
+**Validation Script**:
+```python
+import re
+
+def validate_ami_id(ami_id):
+    if re.match(r'^ami-[a-z0-9]{8}$', ami_id) or re.match(r'^ami-[a-z0-9]{17}$', ami_id):
+        return True
+    return False
+
+def validate_cidr(cidr):
+    try:
+        import ipaddress
+        ipaddress.IPv4Network(cidr, strict=False)
+        return True
+    except:
+        return False
+
+def validate_instance_type(instance_type):
+    valid_types = ['t2.micro', 't2.small', 't2.medium', 't2.large', 't3.micro', 't3.small']
+    return instance_type in valid_types
+
+# Test
+print(validate_ami_id('ami-0c55b159cbfafe1f0'))  # True
+print(validate_ami_id('ami-invalid'))            # False
+print(validate_cidr('192.168.1.0/24'))           # True
+print(validate_cidr('192.168.1'))                # False
+print(validate_instance_type('t2.micro'))        # True
+```
+
+---
+
+## PART 2: SERVICE-SPECIFIC ISSUES
+
+### S3 Issues
+
+#### Bucket Access Denied
+```
+AccessDenied: Access Denied
+```
+
+**Check IAM Policy**:
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3')
+
+# Step 1: Can you list buckets?
+try:
+    s3.list_buckets()
+    print("✓ Can list buckets")
+except ClientError as e:
+    print(f"✗ Can't list buckets: {e}")
+
+# Step 2: Can you access this specific bucket?
+try:
+    s3.head_bucket(Bucket='my-bucket')
+    print("✓ Can access bucket")
+except ClientError as e:
+    print(f"✗ Can't access bucket: {e}")
+
+# Step 3: Can you list bucket contents?
+try:
+    s3.list_objects_v2(Bucket='my-bucket')
+    print("✓ Can list bucket contents")
+except ClientError as e:
+    print(f"✗ Can't list bucket: {e}")
+```
+
+**Required IAM Permissions**:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::my-bucket"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::my-bucket/*"
+        }
+    ]
+}
+```
+
+#### Multipart Upload Aborted
+```
+MultipartUploadError: Error uploading object
+```
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+# Check for incomplete uploads
+response = s3.list_multipart_uploads(Bucket='my-bucket')
+
+if 'Uploads' in response:
+    print(f"Found {len(response['Uploads'])} incomplete uploads:")
+    for upload in response['Uploads']:
+        print(f"  - {upload['Key']} (ID: {upload['UploadId']})")
+
+    # Abort them to free up storage
+    for upload in response['Uploads']:
+        s3.abort_multipart_upload(
+            Bucket='my-bucket',
+            Key=upload['Key'],
+            UploadId=upload['UploadId']
+        )
+        print(f"  Aborted: {upload['Key']}")
+```
+
+#### Large File Upload Failing
+```python
+# If you're uploading large files and getting errors:
+
+import boto3
+from botocore.config import Config
+
+# Increase timeouts
+config = Config(
+    connect_timeout=60,
+    read_timeout=60,
+    retries={'max_attempts': 3, 'mode': 'adaptive'}
+)
+
+s3 = boto3.client('s3', config=config)
+
+# Use multipart upload for files > 5GB
+with open('/path/to/large/file', 'rb') as f:
+    s3.upload_fileobj(f, 'my-bucket', 'large-file.zip')
+```
+
+### Lambda Issues
+
+#### Function Not Found
+```
+ResourceNotFoundException: Function not found
+```
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+lambda_client = boto3.client('lambda')
+
+# Check if function exists
+try:
+    response = lambda_client.get_function(FunctionName='my-function')
+    print(f"✓ Function found: {response['Configuration']['FunctionName']}")
+except ClientError as e:
+    if e.response['Error']['Code'] == 'ResourceNotFoundException':
+        print("✗ Function doesn't exist")
+    else:
+        print(f"✗ Error: {e}")
+
+# List all functions
+response = lambda_client.list_functions()
+print("\nYour functions:")
+for func in response['Functions']:
+    print(f"  - {func['FunctionName']}")
+```
+
+#### Timeout Error
+```
+Lambda function timeout: Your Lambda function has timed out
+```
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+lambda_client = boto3.client('lambda')
+
+# Check timeout setting
+response = lambda_client.get_function(FunctionName='my-function')
+timeout = response['Configuration']['Timeout']
+print(f"Current timeout: {timeout} seconds")
+
+# Increase timeout
+lambda_client.update_function_configuration(
+    FunctionName='my-function',
+    Timeout=60  # Increase from default 3 seconds
+)
+print("Timeout increased to 60 seconds")
+
+# Check memory (memory affects execution speed)
+memory = response['Configuration']['MemorySize']
+print(f"Current memory: {memory} MB")
+
+# Increase memory (gets more CPU too)
+lambda_client.update_function_configuration(
+    FunctionName='my-function',
+    MemorySize=512  # Increase from default 128
+)
+```
+
+#### Permission Denied on Invoke
+```
+User: arn:aws:iam::xxx is not authorized to perform: lambda:InvokeFunction
+```
+
+**Add Permission**:
+```python
+lambda_client = boto3.client('lambda')
+
+# Add permission for another AWS service to invoke
+lambda_client.add_permission(
+    FunctionName='my-function',
+    StatementId='allow-s3-invoke',
+    Action='lambda:InvokeFunction',
+    Principal='s3.amazonaws.com',
+    SourceArn='arn:aws:s3:::my-bucket'
+)
+
+# Add permission for another account
+lambda_client.add_permission(
+    FunctionName='my-function',
+    StatementId='allow-cross-account',
+    Action='lambda:InvokeFunction',
+    Principal='arn:aws:iam::123456789:role/RemoteRole'
+)
+```
+
+### EC2 Issues
+
+#### Instance Fails to Launch
+```
+Failed to run instances
+```
+
+**Diagnostic Steps**:
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+ec2 = boto3.client('ec2')
+
+# Step 1: Verify AMI exists in this region
+try:
+    response = ec2.describe_images(ImageIds=['ami-123456'])
+    if response['Images']:
+        print(f"✓ AMI found: {response['Images'][0]['Name']}")
+    else:
+        print("✗ AMI not found in this region")
+except ClientError as e:
+    print(f"✗ AMI error: {e}")
+
+# Step 2: Verify VPC and subnet exist
+try:
+    response = ec2.describe_subnets(SubnetIds=['subnet-123'])
+    print(f"✓ Subnet found: {response['Subnets'][0]['SubnetId']}")
+except ClientError as e:
+    print(f"✗ Subnet error: {e}")
+
+# Step 3: Verify security group exists
+try:
+    response = ec2.describe_security_groups(GroupIds=['sg-123'])
+    print(f"✓ Security group found: {response['SecurityGroups'][0]['GroupId']}")
+except ClientError as e:
+    print(f"✗ Security group error: {e}")
+
+# Step 4: Verify instance type is available
+try:
+    response = ec2.describe_instance_types(InstanceTypes=['t2.micro'])
+    print(f"✓ Instance type available")
+except ClientError as e:
+    print(f"✗ Instance type error: {e}")
+```
+
+### RDS Issues
+
+#### Can't Connect to Database
+```
+OperationalError: can't establish a connection
+```
+
+**Check Database Status**:
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+rds = boto3.client('rds')
+
+response = rds.describe_db_instances(DBInstanceIdentifier='my-db')
+db = response['DBInstances'][0]
+
+print(f"Status: {db['DBInstanceStatus']}")
+print(f"Endpoint: {db['Endpoint']['Address']}")
+print(f"Port: {db['Endpoint']['Port']}")
+
+if db['DBInstanceStatus'] != 'available':
+    print(f"⚠️  Database is {db['DBInstanceStatus']}, not available")
+
+# Check security group
+for sg in db['VpcSecurityGroups']:
+    print(f"Security Group: {sg['VpcSecurityGroupId']} ({sg['Status']})")
+```
+
+**Test Connection with Proper Credentials**:
+```bash
+# For PostgreSQL
+psql -h my-db.xxx.us-east-1.rds.amazonaws.com -p 5432 -U admin -d postgres
+
+# For MySQL
+mysql -h my-db.xxx.us-east-1.rds.amazonaws.com -u admin -p
+
+# For Connection issues, check:
+# 1. Database is in "available" state
+# 2. Security group allows your IP on the port
+# 3. Database username and password are correct
+# 4. Database name exists (don't forget to create it)
+```
+
+---
+
+## PART 3: DEBUGGING TECHNIQUES
+
+### Enable Verbose Logging
+
+#### Basic Logging
+```python
+import logging
+import boto3
+
+# Enable INFO level logging
+logging.basicConfig(level=logging.INFO)
+
+# Now all Boto3 calls show request/response info
+s3 = boto3.client('s3')
 response = s3.list_buckets()
 ```
 
----
+#### Deep Debug Logging
+```python
+import logging
+import boto3
 
-## Technique 5: Wrap API Calls with Timing
+# Enable DEBUG level (very verbose)
+logging.basicConfig(level=logging.DEBUG)
+
+# Or just for Boto3
+logging.getLogger('boto3').setLevel(logging.DEBUG)
+logging.getLogger('botocore').setLevel(logging.DEBUG)
+
+s3 = boto3.client('s3')
+response = s3.list_buckets()
+# Now you see full HTTP requests/responses
+```
+
+**Output Example**:
+```
+DEBUG:botocore.endpoint:Response headers: {'x-amz-id-2': '...', 'x-amz-request-id': 'ABC123'}
+DEBUG:botocore.parsers:Response body: b'<?xml version="1.0" encoding="UTF-8"?>\n<ListAllMyBucketsResult>...'
+```
+
+### CloudTrail Investigation
+
+Track who did what and when:
 
 ```python
 import boto3
-import time
-from functools import wraps
+from datetime import datetime, timedelta
 
-def time_api_calls(func):
-    """Decorator to time AWS API calls."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        try:
-            result = func(*args, **kwargs)
-            duration = time.time() - start
-            print(f"✓ {func.__name__} took {duration:.2f}s")
-            return result
-        except Exception as e:
-            duration = time.time() - start
-            print(f"✗ {func.__name__} failed after {duration:.2f}s: {e}")
-            raise
-    return wrapper
+cloudtrail = boto3.client('cloudtrail')
 
-# Usage
-s3 = boto3.client('s3')
+# Look up API calls from last hour
+response = cloudtrail.lookup_events(
+    LookupAttributes=[
+        {
+            'AttributeKey': 'EventName',
+            'AttributeValue': 'PutObject'  # Find all S3 uploads
+        }
+    ],
+    StartTime=datetime.utcnow() - timedelta(hours=1),
+    MaxResults=50
+)
 
-@time_api_calls
-def list_all_buckets():
-    return s3.list_buckets()
+print("Recent S3 uploads:")
+for event in response['Events']:
+    print(f"  - {event['EventName']} by {event['Username']}")
+    print(f"    Time: {event['EventTime']}")
+    print(f"    Resource: {event['Resources']}")
+```
 
-@time_api_calls
-def list_bucket_objects(bucket):
-    return s3.list_objects_v2(Bucket=bucket, MaxKeys=1000)
+### IAM Policy Simulator
 
-buckets = list_all_buckets()
-for bucket in buckets['Buckets']:
-    list_bucket_objects(bucket['Name'])
+Test if a policy allows an action:
+
+```python
+import boto3
+
+iam = boto3.client('iam')
+
+# Simulate whether user can perform action
+response = iam.simulate_principal_policy(
+    PolicySourceArn='arn:aws:iam::123456789:user/my-user',
+    ActionNames=['s3:GetObject', 's3:PutObject'],
+    ResourceArns=['arn:aws:s3:::my-bucket/file.txt']
+)
+
+for result in response['EvaluationResults']:
+    action = result['EvalActionName']
+    verdict = result['EvalDecision']
+    print(f"  {action}: {verdict}")
+    if 'EvalResourceName' in result:
+        print(f"    Resource: {result['EvalResourceName']}")
+```
+
+### AWS CLI Testing
+
+Sometimes easier than Python:
+
+```bash
+# Test S3 access
+aws s3 ls --debug 2>&1 | grep "Error\|response"
+
+# Test Lambda invocation
+aws lambda invoke --function-name my-function response.json --debug
+
+# Test IAM permissions
+aws iam simulate-principal-policy \
+    --policy-source-arn arn:aws:iam::123456789:user/myuser \
+    --action-names s3:GetObject \
+    --resource-arns arn:aws:s3:::my-bucket/*
+
+# Test EC2 access
+aws ec2 describe-instances --debug 2>&1 | head -20
+```
+
+### Use LocalStack for Local Testing
+
+Test without hitting real AWS:
+
+```bash
+# Install LocalStack
+pip install localstack
+
+# Start LocalStack
+docker run -d -p 4566:4566 localstack/localstack
+
+# Use LocalStack endpoint
+export AWS_ENDPOINT_URL=http://localhost:4566
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+
+# Now test locally
+aws s3 mb s3://my-bucket
+```
+
+```python
+import boto3
+
+# Test with LocalStack
+s3 = boto3.client(
+    's3',
+    endpoint_url='http://localhost:4566',
+    aws_access_key_id='test',
+    aws_secret_access_key='test',
+    region_name='us-east-1'
+)
+
+# Create bucket in LocalStack (not real AWS!)
+s3.create_bucket(Bucket='test-bucket')
+response = s3.list_buckets()
+print(f"LocalStack buckets: {response['Buckets']}")
 ```
 
 ---
 
-## Quick Error Reference Table
+## PART 4: QUICK REFERENCE
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| NoCredentialsError | No AWS credentials | Run `aws configure` |
-| InvalidSignatureException | Wrong credentials | Check access key/secret key |
-| AccessDenied | Missing permissions | Check IAM policy |
-| NoSuchBucket | Bucket doesn't exist | Create bucket or check name |
-| NoSuchKey | Object doesn't exist | Upload object or check key |
-| InsufficientInstanceCapacity | AWS can't provide capacity | Try different AZ or instance type |
-| DBInstanceAlreadyExists | DB already exists | Delete first or use different name |
-| InvalidParameterValueException | Missing/wrong parameters | Check all required parameters |
-| ThrottlingException | Too many API calls | Implement backoff/retry logic |
-| RequestLimitExceeded | Rate limit exceeded | Wait and retry with exponential backoff |
+### Error Code to Solution Map
+
+| Error Code | Service | Cause | Solution |
+|-----------|---------|-------|----------|
+| NoCredentialsError | All | Credentials not found | Check AWS_ACCESS_KEY_ID, ~/.aws/credentials |
+| AccessDenied | All | No permission | Check IAM policy, use IAM simulator |
+| ThrottlingException | All | Too many requests | Enable auto-retries, add delays, batch requests |
+| InvalidParameterValue | All | Bad parameter | Check AWS docs, validate parameter format |
+| NoSuchBucket | S3 | Bucket doesn't exist | Verify bucket name, check region, list buckets |
+| NoSuchKey | S3 | Object doesn't exist | Check object path, list bucket contents |
+| BucketAlreadyExists | S3 | Can't create bucket | Use different name, bucket names are global |
+| InvalidBucketName | S3 | Invalid bucket name | Use lowercase, alphanumeric + hyphens only |
+| EntityAlreadyExists | IAM | Resource exists | Delete first or choose different name |
+| NoSuchEntity | IAM | Resource not found | Verify ARN, list resources, check region |
+| InvalidInstanceID.NotFound | EC2 | Instance doesn't exist | Check instance ID, verify region |
+| InvalidParameterValue | EC2 | Invalid parameter | Check instance type, AMI ID, CIDR format |
+| SecurityGroupLimitExceeded | EC2 | Too many security groups | Delete unused groups |
+| InsufficientInstanceCapacity | EC2 | Can't launch instance | Try different AZ, instance type, or retry |
+| DBInstanceNotFound | RDS | Database doesn't exist | Check database name, verify region |
+| DBInstanceAlreadyExists | RDS | Can't create database | Delete first or choose different name |
+| InvalidDBInstanceIdentifier | RDS | Invalid database name | Use alphanumeric + hyphens, 1-63 characters |
+| ResourceNotFoundException | Lambda | Function not found | Check function name, list functions, verify region |
+| InvalidParameterValueException | Lambda | Invalid parameter | Check timeout (1-900), memory (128-10240) |
+| CodeVerificationFailed | Lambda | Code invalid | Check ZIP format, handler exists |
+| InvalidFunctionNameException | Lambda | Invalid function name | Use alphanumeric + hyphens, 1-64 characters |
+
+### Quick Debugging Checklist
+
+```
+[ ] 1. Verify AWS credentials
+      - export AWS_ACCESS_KEY_ID
+      - export AWS_SECRET_ACCESS_KEY
+      - Check ~/.aws/credentials
+
+[ ] 2. Verify AWS region
+      - export AWS_DEFAULT_REGION=us-east-1
+      - Check resource is in same region
+
+[ ] 3. Verify IAM permissions
+      - Use IAM policy simulator
+      - Check IAM policy attached to user/role
+      - Verify resource ARN in policy
+
+[ ] 4. Verify resource exists
+      - List resources (list_buckets, describe_instances, etc.)
+      - Check resource name and ID
+      - Verify resource in correct region
+
+[ ] 5. Verify parameters
+      - Check parameter format (AMI ID, CIDR, etc.)
+      - Check parameter values match AWS requirements
+      - Consult AWS documentation
+
+[ ] 6. Enable logging
+      - Set logging.basicConfig(level=logging.DEBUG)
+      - Check Boto3 debug output
+      - Check CloudTrail logs
+
+[ ] 7. Check service status
+      - Verify resource status (available, running, etc.)
+      - Check CloudWatch alarms
+      - Check CloudTrail for errors
+```
 
 ---
 
-## Best Practices for Avoiding Errors
+## Key Takeaways
 
-1. **Always handle ClientError**
-   ```python
-   from botocore.exceptions import ClientError
-   try:
-       # AWS operation
-   except ClientError as e:
-       # Check error_code and handle appropriately
-   ```
+1. **Credentials**: 99% of errors start here. Check AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY first.
+2. **IAM**: If credentials are valid but access denied, check IAM policy.
+3. **Region**: Resource not found? Maybe it's in a different region.
+4. **Parameters**: Invalid parameter? Check AWS documentation for exact format.
+5. **Logging**: Enable debug logging to see actual HTTP requests/responses.
+6. **Testing**: Use LocalStack to test locally before deploying.
+7. **Patterns**: Enable auto-retries, batch requests, add delays for throttling.
 
-2. **Check existence before operations**
-   ```python
-   if bucket_exists(bucket_name):
-       # Proceed
-   ```
+---
 
-3. **Use waiters for state changes**
-   ```python
-   waiter = ec2.get_waiter('instance_running')
-   waiter.wait(InstanceIds=['i-1234'])
-   ```
-
-4. **Implement retry logic**
-   ```python
-   from tenacity import retry, stop_after_attempt, wait_exponential
-
-   @retry(stop=stop_after_attempt(3), wait=wait_exponential())
-   def call_aws():
-       # AWS operation
-   ```
-
-5. **Log everything in production**
-   ```python
-   import logging
-   logger = logging.getLogger(__name__)
-   logger.info(f"Starting operation: {operation_name}")
-   ```
-
-6. **Test with AWS CLI first**
-   ```bash
-   aws s3 ls  # Before writing Python code
-   ```
-
+**Last Updated**: 2024
+**Target Audience**: AWS developers debugging issues
+**Estimated Reading Time**: 1-2 hours reference guide
