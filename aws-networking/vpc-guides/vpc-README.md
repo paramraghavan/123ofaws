@@ -800,6 +800,20 @@ aws ec2 authorize-security-group-ingress --group-id sg-db \
 
 ![image](https://user-images.githubusercontent.com/52529498/125170306-7e887b00-e17c-11eb-94ba-81134d2cee4a.png)
 
+**NAT Gateway belongs in the Public Subnet**
+* The NAT Gateway needs a public IP (Elastic IP) to communicate with the internet
+* It sits in the public subnet so it can reach the Internet Gateway
+* The public subnet also has your Jumphost/Bastion instance 
+
+**Private Subnet has NO NAT Gateway**
+* The private subnet's instances (your EC2 + RDS) never directly touch the internet
+* When they need outbound internet access (e.g. to download patches), their traffic goes: Private Instance → Router → NAT Gateway (in public subnet) → Internet Gateway → Internet
+* Inbound traffic from the internet can never directly reach private subnet instances — that's the whole point
+
+> One small thing to double-check: The private subnet instances should have a route table entry pointing 0.0.0.0/0 to
+the NAT Gateway (not the Internet Gateway). The public subnet points 0.0.0.0/0 to the Internet Gateway directly. This
+diagram implies this correctly through the Router. 
+
 ![image](https://user-images.githubusercontent.com/52529498/137606958-956256de-0ccc-410b-82d7-e3ec6ae49b3b.png)
 
 ![image](https://user-images.githubusercontent.com/52529498/137607039-4ec285b8-0ef7-4841-8241-3c8e6f73418a.png)
