@@ -281,84 +281,200 @@ with open('lambda_function.zip', 'rb') as f:
 
 ## DynamoDB: Common Operations
 
-### Put Item
+### Understanding DynamoDB Data Types
+
+DynamoDB requires explicit type specification. The format is `{type_code: value}`:
+- `S` = String: `{'S': 'text'}`
+- `N` = Number: `{'N': '123'}` (note: numbers are strings in the type syntax!)
+- `B` = Binary: `{'B': b'bytes'}`
+- `SS` = String Set: `{'SS': ['a', 'b']}`
+- `NS` = Number Set: `{'NS': ['1', '2']}`
+- `M` = Map/Object: `{'M': {'field': {'S': 'value'}}}`
+- `L` = List: `{'L': [{'S': 'item1'}, {'S': 'item2'}]}`
+- `BOOL` = Boolean: `{'BOOL': True}`
+
+### Put Item (Create/Insert)
 ```python
 dynamodb = boto3.client('dynamodb')
 
+# Insert a new item (overwrites if exists)
 dynamodb.put_item(
     TableName='Users',
     Item={
-        'id': {'S': 'user123'},
-        'name': {'S': 'Alice'},
-        'email': {'S': 'alice@example.com'}
+        'id': {'S': 'user123'},              # String type
+        'name': {'S': 'Alice'},              # String type
+        'email': {'S': 'alice@example.com'}, # String type
+        'age': {'N': '30'}                   # Number (as string!)
     }
 )
 ```
 
-### Get Item
+### Get Item (Fetch by Primary Key)
 ```python
+# Get uses Key parameter (exact match on primary key only)
 response = dynamodb.get_item(
     TableName='Users',
-    Key={'id': {'S': 'user123'}}
+    Key={'id': {'S': 'user123'}}  # Must match exactly
 )
 item = response['Item']
-print(item['name']['S'])  # 'Alice'
+print(item['name']['S'])  # 'Alice' - access type and value
 ```
 
-### Query Items
+### Query Items (Search by Key with Conditions)
+
+**Understanding Query vs Scan:**
+- **Query**: Fast! Uses primary/sort key (KeyConditionExpression)
+- **Scan**: Slow! Searches entire table
+
+**How KeyConditionExpression Works:**
+- `KeyConditionExpression` = The WHERE clause (uses placeholder syntax)
+- `ExpressionAttributeValues` = The actual values for placeholders
+- `:id` is a PLACEHOLDER, the real value is in ExpressionAttributeValues
+
+**Example 1: Simple Query (Partition Key Only)**
 ```python
+# Table structure: id (partition key), name, email
+# Query: Find user with id = 'user123'
+
 response = dynamodb.query(
     TableName='Users',
-    KeyConditionExpression='id = :id',
-    ExpressionAttributeValues={':id': {'S': 'user123'}}
+    KeyConditionExpression='id = :user_id',  # Placeholder :user_id
+    ExpressionAttributeValues={
+        ':user_id': {'S': 'user123'}  # The actual value
+    }
 )
 for item in response['Items']:
-    print(item)
+    print(item['name']['S'])
 ```
 
-### Scan All Items
+**Example 2: Query with Sort Key**
 ```python
+# Table structure: userId (partition key), timestamp (sort key), message
+# Query: Find all messages from userId 'user1' after 2024-01-15
+
+response = dynamodb.query(
+    TableName='Messages',
+    KeyConditionExpression='userId = :uid AND #ts > :start_time',  # #ts is name alias
+    ExpressionAttributeNames={
+        '#ts': 'timestamp'  # Alias because 'timestamp' might be reserved
+    },
+    ExpressionAttributeValues={
+        ':uid': {'S': 'user1'},
+        ':start_time': {'N': '1705276800'}  # Unix timestamp
+    }
+)
+```
+
+**Example 3: Query with Comparison Operators**
+```python
+# Find items where score is between 100 and 500
+response = dynamodb.query(
+    TableName='Scores',
+    KeyConditionExpression='player_id = :pid AND score BETWEEN :min AND :max',
+    ExpressionAttributeValues={
+        ':pid': {'S': 'player123'},
+        ':min': {'N': '100'},
+        ':max': {'N': '500'}
+    }
+)
+```
+
+**Common KeyConditionExpression Operators:**
+- `=` Equal
+- `<` Less than
+- `<=` Less than or equal
+- `>` Greater than
+- `>=` Greater than or equal
+- `BETWEEN :val1 AND :val2` Range
+- `begins_with()` Starts with (for strings)
+
+### Scan All Items (Find Without Key)
+```python
+# WARNING: Scan is SLOW on large tables. Prefer Query when possible!
+
 response = dynamodb.scan(TableName='Users')
 for item in response['Items']:
     print(item)
+
+# Better: Use FilterExpression to reduce results
+response = dynamodb.scan(
+    TableName='Users',
+    FilterExpression='age > :min_age',
+    ExpressionAttributeValues={
+        ':min_age': {'N': '21'}
+    }
+)
 ```
 
-### Update Item
+### Update Item (Modify Existing)
 ```python
+# Update uses Key (to find the item) + UpdateExpression (what to change)
+
 dynamodb.update_item(
     TableName='Users',
-    Key={'id': {'S': 'user123'}},
-    UpdateExpression='SET email = :email',
-    ExpressionAttributeValues={':email': {'S': 'newemail@example.com'}}
+    Key={'id': {'S': 'user123'}},  # Which item to update
+    UpdateExpression='SET email = :new_email, age = :new_age',  # What to change
+    ExpressionAttributeValues={
+        ':new_email': {'S': 'newemail@example.com'},
+        ':new_age': {'N': '31'}
+    }
 )
+
+# UpdateExpression keywords:
+# SET - Add/modify attributes
+# REMOVE - Delete attributes
+# ADD - Add to number or set
+# DELETE - Remove from set
 ```
 
 ### Delete Item
 ```python
 dynamodb.delete_item(
     TableName='Users',
-    Key={'id': {'S': 'user123'}}
+    Key={'id': {'S': 'user123'}}  # Which item to delete
 )
 ```
 
-### Using Resource (simpler)
+### Using Resource (Simpler - Recommended!)
 ```python
+# Resource handles type conversion automatically!
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('Users')
 
-# Put
-table.put_item(Item={'id': 'user123', 'name': 'Alice'})
+# Put - no type annotations needed
+table.put_item(Item={'id': 'user123', 'name': 'Alice', 'age': 30})
 
 # Get
 response = table.get_item(Key={'id': 'user123'})
-print(response['Item'])
+print(response['Item']['name'])  # 'Alice' - direct access!
+
+# Query - simpler syntax
+response = table.query(
+    KeyConditionExpression='id = :uid',
+    ExpressionAttributeValues={':uid': 'user123'}
+)
 
 # Update
 table.update_item(
     Key={'id': 'user123'},
-    UpdateExpression='SET email = :email',
-    ExpressionAttributeValues={':email': 'new@example.com'}
+    UpdateExpression='SET email = :email, age = :age',
+    ExpressionAttributeValues={
+        ':email': 'new@example.com',
+        ':age': 31
+    }
 )
+```
+
+**Key Difference: Client vs Resource**
+```python
+# CLIENT (verbose, explicit types)
+dynamodb.put_item(
+    TableName='Users',
+    Item={'id': {'S': 'user1'}, 'age': {'N': '30'}}
+)
+
+# RESOURCE (clean, automatic types)
+table.put_item(Item={'id': 'user1', 'age': 30})
 ```
 
 ---
