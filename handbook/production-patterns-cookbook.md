@@ -2,14 +2,174 @@
 ## Real-World AWS Solutions from Battle-Tested Code
 
 ### Table of Contents
-1. Pattern 1: Multi-Service Monitoring System
-2. Pattern 2: Cost Management & Chargeback
-3. Pattern 3: Cross-Account Resource Access
-4. Pattern 4: CloudFormation Stack Discovery
-5. Pattern 5: SSM Remote Execution
-6. Pattern 6: S3 SQL Query Engine
-7. Pattern 7: Lambda Layer Deployment
-8. Pattern 8: Step Functions Orchestration
+1. [Setup & Initialization](#setup--initialization)
+2. Pattern 1: Multi-Service Monitoring System
+3. Pattern 2: Cost Management & Chargeback
+4. Pattern 3: Cross-Account Resource Access
+5. Pattern 4: CloudFormation Stack Discovery
+6. Pattern 5: SSM Remote Execution
+7. Pattern 6: S3 SQL Query Engine
+8. Pattern 7: Lambda Layer Deployment
+9. Pattern 8: Step Functions Orchestration
+
+---
+
+## Setup & Initialization
+
+All patterns require proper AWS credentials and initialization. Here are the approved patterns:
+
+### Option 1: Using Default AWS Credentials (Recommended)
+
+```python
+import boto3
+import logging
+
+# Configure logging (use in all patterns)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Use default AWS credentials from:
+# - ~/.aws/credentials
+# - ~/.aws/config
+# - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# - IAM instance role (when running on EC2)
+
+# Initialize any pattern:
+from patterns import LambdaMonitor, EMRCostCalculator, SSMCommandExecutor
+
+# All classes will use default credentials automatically
+lambda_monitor = LambdaMonitor(session_manager, config)
+cost_calc = EMRCostCalculator(region_name='us-east-1')
+executor = SSMCommandExecutor(region_name='us-east-1')
+```
+
+### Option 2: Using SessionManager for Custom Credentials
+
+```python
+import boto3
+
+class SessionManager:
+    """Manages AWS sessions and clients - USE FOR ALL PATTERNS."""
+
+    def __init__(self, region: str = 'us-east-1',
+                 profile: str = None,
+                 aws_access_key_id: str = None,
+                 aws_secret_access_key: str = None,
+                 role_arn: str = None):
+        """
+        Initialize session manager.
+
+        Args:
+            region: AWS region (default: us-east-1)
+            profile: Optional AWS profile name from ~/.aws/credentials
+                     If provided, uses this profile instead of default
+                     Example: 'prod', 'dev', 'staging'
+            aws_access_key_id: Optional explicit access key
+            aws_secret_access_key: Optional explicit secret key
+            role_arn: Optional role ARN to assume (for cross-account)
+
+        Priority order:
+            1. If profile provided: use that profile
+            2. Else if access_key_id + secret provided: use those credentials
+            3. Else: use default credentials (env vars, instance role, etc.)
+        """
+        self.region = region
+        self.profile = profile
+
+        # Create session
+        if profile:
+            # Use specified profile from ~/.aws/credentials
+            self.session = boto3.Session(profile_name=profile, region_name=region)
+        elif aws_access_key_id and aws_secret_access_key:
+            # Use explicit credentials
+            self.session = boto3.Session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=region
+            )
+        else:
+            # Use default credentials (env vars, instance role, ~/.aws/config)
+            self.session = boto3.Session(region_name=region)
+
+        # Assume role if needed
+        if role_arn:
+            sts = self.session.client('sts')
+            assumed = sts.assume_role(
+                RoleArn=role_arn,
+                RoleSessionName='pattern-execution'
+            )
+            creds = assumed['Credentials']
+            self.session = boto3.Session(
+                aws_access_key_id=creds['AccessKeyId'],
+                aws_secret_access_key=creds['SecretAccessKey'],
+                aws_session_token=creds['SessionToken'],
+                region_name=region
+            )
+
+        self._clients = {}
+
+    def get_client(self, service_name: str):
+        """Get or create a boto3 client."""
+        if service_name not in self._clients:
+            self._clients[service_name] = self.session.client(service_name)
+        return self._clients[service_name]
+
+# USAGE EXAMPLES:
+
+# Option 1: Default credentials
+session = SessionManager(region='us-east-1')
+
+# Option 2: Using a specific profile from ~/.aws/credentials
+session = SessionManager(
+    region='us-east-1',
+    profile='prod'  # Uses [prod] section from ~/.aws/credentials
+)
+
+# Option 3: With explicit credentials
+session = SessionManager(
+    region='us-east-1',
+    aws_access_key_id='YOUR_KEY',
+    aws_secret_access_key='YOUR_SECRET'
+)
+
+# Option 4: Using profile from dev environment, then assume cross-account role
+session = SessionManager(
+    region='us-east-1',
+    profile='dev',
+    role_arn='arn:aws:iam::987654321098:role/CrossAccountRole'
+)
+
+# Now use with patterns
+lambda_monitor = LambdaMonitor(session, config)
+```
+
+### Initialization Checklist
+
+Before using any pattern, verify:
+
+```python
+import boto3
+import logging
+
+# ✓ Logging configured
+logging.basicConfig(level=logging.INFO)
+
+# ✓ AWS credentials available (check one of):
+sts = boto3.client('sts')
+identity = sts.get_caller_identity()
+print(f"Using account: {identity['Account']}")
+print(f"Using role: {identity['Arn']}")
+
+# ✓ Correct region set
+import os
+region = os.environ.get('AWS_REGION', 'us-east-1')
+print(f"Using region: {region}")
+
+# ✓ IAM permissions for your pattern
+# Check AWS docs for required permissions per pattern
+```
 
 ---
 
@@ -268,7 +428,128 @@ class LambdaMonitor(BaseMonitor):
 ### Usage Example
 
 ```python
-# Configure monitors
+import boto3
+import logging
+from typing import List, Dict, Any
+
+# STEP 1: Create SessionManager (instantiate session_manager)
+class SessionManager:
+    """Manages AWS sessions and clients."""
+
+    def __init__(self, region: str = 'us-east-1',
+                 profile: str = None,
+                 aws_access_key_id: str = None,
+                 aws_secret_access_key: str = None):
+        """
+        Initialize session manager.
+
+        Args:
+            region: AWS region (default: us-east-1)
+            profile: Optional AWS profile name from ~/.aws/credentials
+            aws_access_key_id: Optional explicit access key
+            aws_secret_access_key: Optional explicit secret key
+        """
+        self.region = region
+        self.profile = profile
+
+        # Create session with priority: profile > explicit creds > default
+        if profile:
+            # Use specified profile from ~/.aws/credentials
+            self.session = boto3.Session(profile_name=profile, region_name=region)
+        elif aws_access_key_id and aws_secret_access_key:
+            # Use explicit credentials
+            self.session = boto3.Session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=region
+            )
+        else:
+            # Use default credentials (env vars, instance role, ~/.aws/config)
+            self.session = boto3.Session(region_name=region)
+
+        self._clients = {}
+
+    def get_client(self, service_name: str):
+        """Get or create a boto3 client."""
+        if service_name not in self._clients:
+            self._clients[service_name] = self.session.client(service_name)
+        return self._clients[service_name]
+
+# STEP 2: Initialize BaseMonitor with logger
+class BaseMonitor:
+    """Abstract base class with proper initialization."""
+
+    def __init__(self, session_manager, config: Dict[str, Any]):
+        self.session_manager = session_manager
+        self.config = config
+        self.region = session_manager.region
+        self.client = session_manager.get_client(self.service_name)
+        self.cloudwatch = session_manager.get_client('cloudwatch')
+        # Add logger initialization
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+# STEP 3: Complete usage example
+def main():
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Instantiate session manager
+    # OPTION 1: Default credentials
+    session_manager = SessionManager(region='us-east-1')
+
+    # OPTION 2: Using a specific AWS profile
+    # session_manager = SessionManager(
+    #     region='us-east-1',
+    #     profile='production'  # From ~/.aws/credentials [production] section
+    # )
+
+    # OPTION 3: Using explicit credentials
+    # session_manager = SessionManager(
+    #     region='us-east-1',
+    #     aws_access_key_id='YOUR_ACCESS_KEY',
+    #     aws_secret_access_key='YOUR_SECRET_KEY'
+    # )
+
+    # Configure monitors
+    config = {
+        'thresholds': {
+            'error_rate_max': 5,
+            'duration_max_ms': 10000,
+            'memory_utilization_max': 80
+        }
+    }
+
+    # Instantiate Lambda monitor (NOW session_manager is ready)
+    lambda_monitor = LambdaMonitor(session_manager, config)
+
+    # Check health of all functions
+    functions = ['process-data', 'api-gateway-handler', 'scheduled-job']
+    health_results = lambda_monitor.check_health(functions)
+
+    # Send alerts for unhealthy resources
+    for health in health_results:
+        if lambda_monitor.should_alert(health):
+            # Define send_alert function or use CloudWatch
+            print(f"ALERT: {health.resource_name} - {health.message}")
+            # send_alert(health.to_dict())
+
+if __name__ == '__main__':
+    main()
+```
+
+**Alternative: If using existing session manager from your organization:**
+
+```python
+# If you already have a custom SessionManager class in your codebase
+from mycompany.aws_utilities import SessionManager
+
+# Just instantiate it
+session_manager = SessionManager(region='us-east-1')
+
+# Then pass it to monitors
 config = {
     'thresholds': {
         'error_rate_max': 5,
@@ -278,15 +559,6 @@ config = {
 }
 
 lambda_monitor = LambdaMonitor(session_manager, config)
-
-# Check health of all functions
-functions = ['process-data', 'api-gateway-handler', 'scheduled-job']
-health_results = lambda_monitor.check_health(functions)
-
-# Send alerts for unhealthy resources
-for health in health_results:
-    if lambda_monitor.should_alert(health):
-        send_alert(health.to_dict())
 ```
 
 ### Why This Pattern Works
@@ -972,6 +1244,7 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass
 import json
 import time
+from datetime import datetime, timedelta
 
 @dataclass
 class CommandExecution:
@@ -1163,30 +1436,90 @@ class SSMCommandExecutor:
 ### Usage Example
 
 ```python
+import logging
+
+def main():
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    # STEP 1: Instantiate SSMCommandExecutor (with proper region)
+    executor = SSMCommandExecutor(region_name='us-east-1')
+
+    # STEP 2: Execute on specific instances
+    instances = ['i-1234567890abcdef0', 'i-0987654321fedcba0']
+    logger.info(f"Executing command on {len(instances)} instances...")
+
+    results = executor.execute_command(
+        instance_ids=instances,
+        command='df -h',  # Show disk space
+        wait_for_completion=True,
+        timeout_seconds=300
+    )
+
+    # Process results
+    logger.info("Command results:")
+    for result in results:
+        logger.info(f"{result.instance_id}: {result.status}")
+        if result.output:
+            logger.info(f"Output:\n{result.output}")
+        if result.error_output:
+            logger.error(f"Error:\n{result.error_output}")
+
+    # STEP 3: Execute on all instances with a tag
+    logger.info("Finding production instances...")
+    results = executor.execute_on_tagged_instances(
+        tag_key='Environment',
+        tag_value='production',
+        command='systemctl restart myservice'
+    )
+
+    logger.info(f"Executed on {len(results)} production instances")
+    for result in results:
+        status = "✓" if result.status == "Success" else "✗"
+        logger.info(f"  {status} {result.instance_id}: {result.status}")
+
+    # STEP 4: Find and execute on least loaded instance
+    logger.info("Finding least loaded API server...")
+    instance_ids = executor.find_instances_by_tag('Application', 'api-server')
+
+    if instance_ids:
+        least_loaded = executor.find_least_loaded_instance(instance_ids)
+        logger.info(f"Least loaded instance: {least_loaded}")
+
+        # Execute command on least loaded instance
+        results = executor.execute_command(
+            instance_ids=[least_loaded],
+            command='curl http://localhost:8080/health',  # Health check
+            wait_for_completion=True
+        )
+
+        if results:
+            logger.info(f"Health check: {results[0].output}")
+    else:
+        logger.warning("No API server instances found with that tag")
+
+if __name__ == '__main__':
+    main()
+```
+
+**Minimal Usage (if region and credentials are already configured):**
+
+```python
+# Quick version - uses default credentials and us-east-1
 executor = SSMCommandExecutor()
 
-# Execute on specific instances
-instances = ['i-1234567890abcdef0', 'i-0987654321fedcba0']
+# Execute immediately
 results = executor.execute_command(
-    instance_ids=instances,
-    command='df -h'  # Show disk space
+    instance_ids=['i-1234567890abcdef0'],
+    command='df -h'
 )
 
 for result in results:
-    print(f"{result.instance_id}: {result.status}")
-    print(f"Output:\n{result.output}")
-
-# Execute on all instances with a tag
-results = executor.execute_on_tagged_instances(
-    tag_key='Environment',
-    tag_value='production',
-    command='systemctl restart myservice'
-)
-
-# Find least loaded instance
-instance_ids = executor.find_instances_by_tag('Application', 'api-server')
-least_loaded = executor.find_least_loaded_instance(instance_ids)
-print(f"Least loaded instance: {least_loaded}")
+    print(f"{result.instance_id}: {result.output}")
 ```
 
 ### Why This Pattern Works
