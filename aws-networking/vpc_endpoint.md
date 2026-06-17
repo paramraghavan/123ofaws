@@ -599,7 +599,9 @@ cursor.execute("SELECT * FROM users")
 ---
 
 ### Scenario 2: EC2/Container in VPC Needs to Call Lambda
-**Use: Lambda VPC ENDPOINT**
+> Lambda VPC Endpoint/Private link introduced in Oct 2020.
+> VPCe uses PrivateLink
+**Use: Lambda VPC ENDPOINT(VPCe)**
 
 Examples:
 - EC2 instance invoking Lambda function
