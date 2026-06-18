@@ -1,734 +1,875 @@
-Here is the combined and cleaned-up version. I kept your strong original explanation, added the clearer **GetItem vs
-Query vs Scan** section, and softened “Scan = danger” into a more accurate production warning. Your attached/pasted note
-was treated as the source text to revise.
+# DynamoDB Complete Guide: Concept to Implementation
 
-# DynamoDB Quick Rundown for SQL Developers
+## Table of Contents
+1. [Core Concepts](#core-concepts)
+2. [Terminology Mapping](#terminology-mapping)
+3. [Primary Keys](#primary-keys)
+4. [Table Creation](#table-creation)
+5. [Search Patterns](#search-patterns)
+6. [Global Secondary Indexes](#global-secondary-indexes)
+7. [Operation Comparison](#operation-comparison)
 
-Transitioning from the relational world of SQL to the NoSQL world of DynamoDB requires a fundamental shift in how you
-think about data.
+---
 
-The biggest hurdle is not the syntax. It is the architecture.
+## Core Concepts
 
-In SQL, you usually model entities first, normalize them, and use joins later. In DynamoDB, you start with your
-application’s **access patterns** — the exact questions your application needs to answer — and design the table around
-those queries.
+### Fundamental Shift from SQL to DynamoDB
 
-## 1. Core Philosophy Shift
-
-| SQL / Relational       | DynamoDB / NoSQL            |
-|------------------------|-----------------------------|
-| Model entities first   | Model access patterns first |
-| Normalize data         | Denormalize data            |
+| SQL / Relational | DynamoDB / NoSQL |
+|---|---|
+| Model entities first | Model access patterns first |
+| Normalize data | Denormalize data |
 | Use joins at read time | Store related data together |
-| Query flexibility      | Query speed at scale        |
-| Schema-first design    | Key-design-first design     |
+| Query flexibility | Query speed at scale |
+| Schema-first design | Key-design-first design |
 
-DynamoDB works best when you know queries like:
+**Golden Rule**: In DynamoDB, design your table around the questions your application needs to answer, not around the entity model.
 
-```text
-Get user by user ID
-Get all orders for a customer
-Get orders for a customer between two dates
-Get latest payments for an account
-Get events by device and timestamp
+---
+
+## Terminology Mapping
+
+| SQL | DynamoDB | Notes |
+|---|---|---|
+| Table | Table | Container for items |
+| Row | Item | One record (max 400 KB) |
+| Column | Attribute | Named data element |
+| Primary Key | Partition Key | Used to distribute data |
+| Composite Key | Partition Key + Sort Key | Groups related items |
+| Index | GSI / LSI | Alternative query pattern |
+
+**Key Size Limits**:
+- Partition Key: Max 2,048 bytes
+- Sort Key: Max 1,024 bytes
+- Item size: Max 400 KB total
+
+---
+
+## Primary Keys
+
+### Concept 1: Partition Key Only
+
+**Design**: Single attribute that uniquely identifies each item
+
 ```
-
-## 2. Terminology Mapping
-
-| SQL           | DynamoDB                 | Notes                                                                                   |
-|---------------|--------------------------|-----------------------------------------------------------------------------------------|
-| Table         | Table                    | Same basic idea, but DynamoDB tables are flexible/schemaless except for key attributes. |
-| Row           | Item                     | One record. Maximum item size is 400 KB.                                                |
-| Column        | Attribute                | Non-key attributes can vary from item to item.                                          |
-| Primary Key   | Partition Key            | Used to distribute and locate data.                                                     |
-| Composite Key | Partition Key + Sort Key | Groups related items together and sorts them.                                           |
-| Index         | GSI / LSI                | Lets you query the same data using a different key pattern.                             |
-
-DynamoDB’s maximum item size is **400 KB**, including attribute names and values. ([AWS Documentation][1])
-
-## 3. Primary Keys: The Biggest Mental Hurdle
-
-In SQL, a primary key often just uniquely identifies a row.
-
-In DynamoDB, the primary key controls how data is stored, distributed, and retrieved.
-
-### Partition Key Only
-
-Example:
-
-```text
 PK = UserID
 ```
 
-Good for direct key-value lookup.
+**Use when**:
+- You primarily retrieve items by a single ID
+- Each item is standalone
+- No range queries needed
 
-Example item:
-
-```text
-UserID = U123
-Name = Diya
-Email = diya@example.com
+**Example data**:
+```
+UserID = U001 | Name = Alice | Email = alice@example.com
+UserID = U002 | Name = Bob   | Email = bob@example.com
+UserID = U003 | Name = Carol | Email = carol@example.com
 ```
 
-Use this when you usually retrieve one item by one known ID.
+---
 
-## 4. Partition Key + Sort Key
+### Concept 2: Partition Key + Sort Key (Composite Key)
 
-A composite key uses:
+**Design**: Two attributes working together
+- Partition Key: Identifies the group
+- Sort Key: Orders items within the group
 
-```text
-Partition Key + Sort Key
 ```
-
-Example:
-
-```text
 PK = CustomerID
 SK = OrderDate
 ```
 
-Multiple items can share the same partition key, as long as their sort keys are different.
+**Use when**:
+- Multiple related items share same partition key
+- You need range queries (date ranges, prefixes)
+- You model one-to-many relationships
+- Items should be grouped and sorted
 
-Example:
-
-```text
-PK=Customer#123   SK=Order#2024-01-05
-PK=Customer#123   SK=Order#2024-02-10
-PK=Customer#123   SK=Payment#2024-02-12
-PK=Customer#456   SK=Order#2024-01-15
+**Example data** (All items with CustomerID=C123):
+```
+PK=C123  SK=2024-01-05  Amount=50    [Order 1]
+PK=C123  SK=2024-02-10  Amount=75    [Order 2]
+PK=C123  SK=2024-03-15  Amount=100   [Order 3]
+PK=C456  SK=2024-01-20  Amount=25    [Order 4]
 ```
 
-This creates an **item collection**: all related items for the same partition key.
-
-This is how DynamoDB models one-to-many relationships without joins.
-
-## 5. GetItem vs Query vs Scan
-
-This is one of the most important DynamoDB concepts.
-
-```text
-GetItem = I know the full primary key.
-Query   = I know the partition key and maybe a sort key condition.
-Scan    = I do not know the key, so DynamoDB must search the table.
-```
-
-## 6. GetItem
-
-Use **GetItem** when you know the complete primary key.
-
-If the table key is:
-
-```text
-PK = CustomerID
-SK = OrderID
-```
-
-Then you must provide both:
-
-```text
-CustomerID = 123
-OrderID = 1005
-```
-
-SQL equivalent:
-
-```sql
-SELECT *
-FROM Orders
-WHERE CustomerID = 123
-  AND OrderID = 1005;
-```
-
-DynamoDB operation:
-
-```text
-GetItem
-PK = 123
-SK = 1005
-```
-
-Result:
-
-```text
-Returns exactly one item, or no item.
-```
-
-## 7. Query: SELECT by Key Condition
-
-Use **Query** when you know the partition key and optionally want to apply a condition on the sort key.
-
-DynamoDB Query requires the partition key value. You can optionally narrow results using the sort key with operators
-like `=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, or `begins_with`. ([AWS Documentation][2])
-
-Example table:
-
-```text
-PK = CustomerID
-SK = OrderDate
-```
-
-Data:
-
-```text
-PK=123   SK=2024-01-05
-PK=123   SK=2024-02-10
-PK=123   SK=2024-03-15
-PK=456   SK=2024-01-20
-```
-
-### Example 1: Get all orders for one customer
-
-SQL:
-
-```sql
-SELECT *
-FROM Orders
-WHERE CustomerID = 123;
-```
-
-DynamoDB Query:
-
-```text
-PK = 123
-```
-
-Returns:
-
-```text
-2024-01-05
-2024-02-10
-2024-03-15
-```
-
-### Example 2: Get orders for one customer between two dates
-
-SQL:
-
-```sql
-SELECT *
-FROM Orders
-WHERE CustomerID = 123
-  AND OrderDate BETWEEN '2024-02-01' AND '2024-03-31';
-```
-
-DynamoDB Query:
-
-```text
-PK = 123
-SK BETWEEN 2024-02-01 AND 2024-03-31
-```
-
-Returns:
-
-```text
-2024-02-10
-2024-03-15
-```
-
-### Example 3: Query using begins_with
-
-Suppose your sort key stores different item types:
-
-```text
-PK=CUSTOMER#123   SK=PROFILE
-PK=CUSTOMER#123   SK=ORDER#1001
-PK=CUSTOMER#123   SK=ORDER#1002
-PK=CUSTOMER#123   SK=PAYMENT#9001
-```
-
-Query:
-
-```text
-PK = CUSTOMER#123
-SK begins_with ORDER#
-```
-
-Returns only:
-
-```text
-ORDER#1001
-ORDER#1002
-```
-
-This works well in single-table design because related records are stored together under the same partition key.
-
-## 8. Scan
-
-Use **Scan** when you do not know the key and DynamoDB must inspect the table or index.
-
-Example:
-
-```sql
-SELECT *
-FROM Orders
-WHERE Status = 'Pending';
-```
-
-If `Status` is not part of the primary key or an index, DynamoDB must check every item.
-
-Think of Scan like this:
-
-```text
-for every item in the table:
-    check if Status = Pending
-```
-
-A Scan reads through the table or index first, then applies filters. It is generally less efficient than Query and can
-become expensive on large tables. ([AWS Documentation][3])
-
-Better wording than “Scan is always danger”:
-
-```text
-Scan is acceptable for small tables, admin tasks, exports, audits, or background jobs.
-Avoid Scan for large tables or user-facing application queries.
-```
-
-## 9. CRUD Translation
-
-| SQL Command                              | DynamoDB API | Key Difference                                                                 |
-|------------------------------------------|--------------|--------------------------------------------------------------------------------|
-| `INSERT INTO table ...`                  | `PutItem`    | Inserts item. If the same key exists, it replaces the whole item.              |
-| `SELECT * WHERE full primary key = X`    | `GetItem`    | Fast lookup. Requires the full primary key.                                    |
-| `SELECT * WHERE pk = X AND sk condition` | `Query`      | Efficient. Requires exact partition key and optional sort key condition.       |
-| `SELECT * WHERE non_indexed_col = Z`     | `Scan`       | Reads the table/index and filters afterward. Avoid for large production paths. |
-| `UPDATE table SET col = X WHERE key = Y` | `UpdateItem` | Updates specific attributes.                                                   |
-| `DELETE FROM table WHERE key = Y`        | `DeleteItem` | Deletes item by primary key.                                                   |
-
-## 10. KeyConditionExpression vs FilterExpression
-
-SQL developers often expect every `WHERE` clause condition to reduce the read cost. In DynamoDB, that is not always
-true.
-
-DynamoDB separates conditions into two main concepts:
-
-## KeyConditionExpression
-
-Used with **Query**.
-
-It applies to key attributes:
-
-```text
-Partition Key
-Sort Key
-```
-
-Rules:
-
-```text
-Partition Key must use equality =
-Sort Key can use =, <, <=, >, >=, BETWEEN, begins_with
-```
-
-Example:
-
-```text
-PK = Customer#123
-SK BETWEEN Order#2024-01-01 AND Order#2024-12-31
-```
-
-This is efficient because DynamoDB goes directly to the matching partition and narrows results by sort key.
-
-## FilterExpression
-
-A **FilterExpression** is applied after DynamoDB has already read the matching data.
-
-Example:
-
-```text
-Query:
-PK = Customer#123
-
-Filter:
-Status = Pending
-```
-
-If Customer#123 has 10,000 orders and only 50 are pending, DynamoDB may still read the 10,000 matching items first and
-then return only 50.
-
-A Query filter reduces the data returned to your application, but it does not reduce the read work already done by the
-Query. AWS also notes that Query can read up to 1 MB before applying a filter expression. ([AWS Documentation][4])
-
-Use FilterExpression only when the initial Query result is already reasonably small.
-
-## 11. Things You Cannot Do Like SQL
-
-### No Joins
-
-DynamoDB does not support joins.
-
-SQL style:
-
-```text
-Customers table
-Orders table
-Payments table
-Join them at read time
-```
-
-DynamoDB style:
-
-```text
-PK=CUSTOMER#123   SK=PROFILE
-PK=CUSTOMER#123   SK=ORDER#1001
-PK=CUSTOMER#123   SK=ORDER#1002
-PK=CUSTOMER#123   SK=PAYMENT#9001
-```
-
-Now one Query can retrieve related customer data.
-
-### No Cheap COUNT(*)
-
-A live full-table count can require scanning the table, which can be expensive.
-
-Common workaround:
-
-```text
-Maintain a separate metadata item with count values.
-Increment/decrement it using UpdateItem.
-```
-
-### No GROUP BY
-
-DynamoDB is not designed for ad hoc aggregation like SQL.
-
-Common workarounds:
-
-```text
-Aggregate in the application
-Pre-calculate totals
-Use DynamoDB Streams + Lambda
-Export to S3 and analyze with Athena/Glue/Spark
-```
-
-## 12. Global Secondary Indexes
-
-A **GSI** lets you query the same table using a different partition key and sort key.
-
-Example base table:
-
-```text
-PK = CustomerID
-SK = OrderDate
-```
-
-This supports:
-
-```text
-Get orders by customer
-```
-
-But suppose you also need:
-
-```text
-Get orders by status
-```
-
-You could create a GSI:
-
-```text
-GSI_PK = Status
-GSI_SK = OrderDate
-```
-
-Now you can Query:
-
-```text
-Status = Pending
-OrderDate between 2024-01-01 and 2024-01-31
-```
-
-Without scanning the full table.
-
-## 13. PartiQL Note
-
-Amazon PartiQL lets you use SQL-like syntax against DynamoDB.
-
-Example:
-
-```sql
-SELECT *
-FROM Orders
-WHERE CustomerID = '123';
-```
-
-This makes DynamoDB feel familiar, but it does not change how DynamoDB works internally.
-
-If your PartiQL statement does not use a key or index properly, it can still result in an inefficient Scan.
-
-## 14. Final Rule of Thumb
-
-Before creating a DynamoDB table, write down your access patterns.
-
-Ask:
-
-```text
-What exact data do I need to read?
-What key will I know at read time?
-Do I need sorting or range filtering?
-Do I need another lookup pattern?
-Should that lookup pattern become a GSI?
-Can I retrieve the data in one Query?
-```
-
-Good DynamoDB design starts with the read patterns, not the entity model.
-
-## 15. Interview-Ready Summary
-
-```text
-GetItem:
-I know the full primary key and want one item.
-
-Query:
-I know the partition key and may use a sort key condition.
-This returns one or more related items efficiently.
-
-Scan:
-I do not know the key, so DynamoDB must inspect the table or index.
-Useful for small/admin/background use cases, but avoid for large user-facing queries.
-```
-
-Use this as your final concise DynamoDB note.
-
-[1]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html?utm_source=chatgpt.com "Constraints in Amazon DynamoDB - AWS Documentation"
-
-[2]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html?utm_source=chatgpt.com "Querying tables in DynamoDB"
-
-[3]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-query-scan.html?utm_source=chatgpt.com "Best practices for querying and scanning data in DynamoDB"
-
-[4]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html?utm_source=chatgpt.com "Filter expressions for the Query operation in DynamoDB"
-
-This is one of the **most important DynamoDB interview questions**.
-
-## Short answer
-
-> **If you know only the Sort Key but not the Partition Key, you cannot use a Query.**
-
-You have three options:
-
-1. **Scan the table** (slow and expensive)
-2. **Create a Global Secondary Index (GSI)** with that attribute as the partition key
-3. **Redesign your table** based on your access patterns
+**Item Collection**: All items with the same Partition Key are stored together and sorted by Sort Key.
 
 ---
 
-# Example
+## Table Creation
 
-Suppose your table is:
+### Method 1: AWS CLI
 
-| Partition Key (PK) | Sort Key (SK) | Amount |
-|--------------------|---------------|--------|
-| Customer123        | Order1001     | 50     |
-| Customer123        | Order1002     | 75     |
-| Customer456        | Order1001     | 25     |
-| Customer789        | Order1003     | 60     |
-
-Notice that **Sort Keys are only unique within a Partition Key**.
-
-```
-Customer123
-    Order1001
-    Order1002
-
-Customer456
-    Order1001
-
-Customer789
-    Order1003
+```bash
+# Simple table - Partition Key only
+aws dynamodb create-table \
+  --table-name Users \
+  --attribute-definitions \
+    AttributeName=UserID,AttributeType=S \
+  --key-schema \
+    AttributeName=UserID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
 ```
 
-The same `Order1001` exists under different customers.
+```bash
+# Composite table - Partition Key + Sort Key
+aws dynamodb create-table \
+  --table-name Orders \
+  --attribute-definitions \
+    AttributeName=CustomerID,AttributeType=S \
+    AttributeName=OrderDate,AttributeType=S \
+  --key-schema \
+    AttributeName=CustomerID,KeyType=HASH \
+    AttributeName=OrderDate,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
+```
+
+**Parameters explained**:
+- `HASH` = Partition Key
+- `RANGE` = Sort Key
+- `S` = String, `N` = Number, `B` = Binary
+- `PAY_PER_REQUEST` = On-demand billing (flexible)
 
 ---
 
-# Case 1: You know both PK and SK
-
-```
-PK = Customer123
-SK = Order1002
-```
-
-Use:
-
-```
-GetItem
-```
-
-Very fast.
-
----
-
-# Case 2: You know only PK
-
-```
-PK = Customer123
-```
-
-Use:
-
-```
-Query
-```
-
-Returns
-
-```
-Order1001
-Order1002
-```
-
-Still very fast.
-
----
-
-# Case 3: You know only SK
-
-Suppose you only know
-
-```
-Order1002
-```
-
-but you **don't know Customer123**.
-
-Can DynamoDB Query?
-
-**No.**
-
-Why?
-
-Because DynamoDB first hashes the **Partition Key** to determine which partition contains the data.
-
-Without the Partition Key, it doesn't know where to look.
-
-It would have to search every partition.
-
----
-
-# What actually happens?
-
-If you execute
-
-```
-Find SK = Order1002
-```
-
-DynamoDB effectively does:
+### Method 2: Boto3 (Python)
 
 ```python
-for every partition:
-    for every item:
-        if item.SK == "Order1002":
-            return item
+import boto3
+
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+
+# Partition Key Only
+table = dynamodb.create_table(
+    TableName='Users',
+    KeySchema=[
+        {'AttributeName': 'UserID', 'KeyType': 'HASH'}  # Partition Key
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'UserID', 'AttributeType': 'S'}  # String
+    ],
+    BillingMode='PAY_PER_REQUEST'  # On-demand pricing
+)
+
+print(f"Table created: {table.table_name}")
+table.wait_until_exists()
 ```
 
-That is a **Scan**.
+```python
+# Partition Key + Sort Key
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},   # Partition Key
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}    # Sort Key
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'}
+    ],
+    BillingMode='PAY_PER_REQUEST'
+)
+
+print(f"Table created: {table.table_name}")
+table.wait_until_exists()
+```
 
 ---
 
-# Better solution: Create a GSI
+### Method 3: CloudFormation (Infrastructure as Code)
 
-Suppose you frequently search by `OrderID`.
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
 
-Create:
+Resources:
+  # Simple Partition Key table
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: UserID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: UserID
+          KeyType: HASH
 
+  # Composite Key table
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: CustomerID
+          AttributeType: S
+        - AttributeName: OrderDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: CustomerID
+          KeyType: HASH
+        - AttributeName: OrderDate
+          KeyType: RANGE
 ```
-Base Table
-
-PK = CustomerID
-SK = OrderDate
-```
-
-Create a GSI:
-
-```
-GSI PK = OrderID
-```
-
-Now you can Query:
-
-```
-OrderID = 1002
-```
-
-DynamoDB goes directly to the GSI partition.
-
-Very fast.
 
 ---
 
-# Real-world example
+### Practical Example: Complete Table with Multiple Attributes
 
-## Base table
+```python
+# Create a realistic Orders table
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'}
+    ],
+    BillingMode='PAY_PER_REQUEST'
+)
+
+table.wait_until_exists()
+
+# Insert items with various attributes
+table.put_item(Item={
+    'CustomerID': 'C001',
+    'OrderDate': '2024-01-15',
+    'OrderID': 'ORD-1001',           # Non-key attribute
+    'Status': 'Completed',            # Non-key attribute
+    'Amount': 150.50,                 # Non-key attribute
+    'Items': ['Widget-A', 'Widget-B'] # Non-key attribute (list)
+})
+
+table.put_item(Item={
+    'CustomerID': 'C001',
+    'OrderDate': '2024-02-20',
+    'OrderID': 'ORD-1002',
+    'Status': 'Pending',
+    'Amount': 75.25,
+    'Items': ['Widget-C']
+})
+
+table.put_item(Item={
+    'CustomerID': 'C002',
+    'OrderDate': '2024-01-10',
+    'OrderID': 'ORD-1003',
+    'Status': 'Completed',
+    'Amount': 200.00,
+    'Items': ['Widget-A', 'Widget-B', 'Widget-D']
+})
+```
+
+---
+
+## Search Patterns
+
+### Pattern 1: Search by Partition Key ONLY
+
+**Scenario**: Retrieve all orders for a specific customer
+
+**Operation**: `Query` (fast, efficient)
+
+```python
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid',
+    ExpressionAttributeValues={
+        ':cid': 'C001'
+    }
+)
+
+# Returns all items where CustomerID = C001
+for item in response['Items']:
+    print(f"Order: {item['OrderDate']} | Amount: {item['Amount']} | Status: {item['Status']}")
+
+# Output:
+# Order: 2024-01-15 | Amount: 150.5 | Status: Completed
+# Order: 2024-02-20 | Amount: 75.25 | Status: Pending
+```
+
+**AWS CLI**:
+```bash
+aws dynamodb query \
+  --table-name Orders \
+  --key-condition-expression "CustomerID = :cid" \
+  --expression-attribute-values '{":cid":{"S":"C001"}}' \
+  --region us-east-1
+```
+
+**Cost**: Only reads items with matching partition key (efficient)
+
+---
+
+### Pattern 2: Search by Partition Key + Sort Key Condition
+
+**Scenario**: Retrieve orders for a customer within a date range
+
+**Operation**: `Query` with Sort Key condition (very fast)
+
+```python
+from datetime import datetime
+
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid AND OrderDate BETWEEN :start AND :end',
+    ExpressionAttributeValues={
+        ':cid': 'C001',
+        ':start': '2024-01-01',
+        ':end': '2024-02-29'
+    }
+)
+
+for item in response['Items']:
+    print(f"{item['OrderDate']} | {item['Amount']} | {item['Status']}")
+
+# Output (only orders in date range):
+# 2024-01-15 | 150.5 | Completed
+# 2024-02-20 | 75.25 | Pending
+```
+
+**Sort Key Operators Available**:
+- `=` : Exact match
+- `<` : Less than
+- `<=` : Less than or equal
+- `>` : Greater than
+- `>=` : Greater than or equal
+- `BETWEEN` : Range
+- `begins_with` : Prefix match
+
+**Example: Orders starting with 'ORD-1'**:
+```python
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid AND OrderID begins_with :prefix',
+    ExpressionAttributeValues={
+        ':cid': 'C001',
+        ':prefix': 'ORD-1'
+    }
+)
+```
+
+**AWS CLI**:
+```bash
+aws dynamodb query \
+  --table-name Orders \
+  --key-condition-expression "CustomerID = :cid AND OrderDate BETWEEN :start AND :end" \
+  --expression-attribute-values '{
+    ":cid":{"S":"C001"},
+    ":start":{"S":"2024-01-01"},
+    ":end":{"S":"2024-02-29"}
+  }' \
+  --region us-east-1
+```
+
+**Cost**: Only reads items matching both conditions (very efficient)
+
+---
+
+### Pattern 3: Search by Both Partition Key AND Sort Key (Exact Match)
+
+**Scenario**: Retrieve ONE specific order
+
+**Operation**: `GetItem` (fastest, single item lookup)
+
+```python
+response = table.get_item(
+    Key={
+        'CustomerID': 'C001',
+        'OrderDate': '2024-01-15'
+    }
+)
+
+item = response['Item']
+print(f"Order: {item['OrderID']}")
+print(f"Amount: {item['Amount']}")
+print(f"Status: {item['Status']}")
+
+# Output:
+# Order: ORD-1001
+# Amount: 150.5
+# Status: Completed
+```
+
+**AWS CLI**:
+```bash
+aws dynamodb get-item \
+  --table-name Orders \
+  --key '{
+    "CustomerID":{"S":"C001"},
+    "OrderDate":{"S":"2024-01-15"}
+  }' \
+  --region us-east-1
+```
+
+**Cost**: Reads only ONE item (most efficient)
+
+---
+
+### Pattern 4: Search by Sort Key ONLY (Without Partition Key)
+
+**Scenario**: Find an order by its Order ID (don't know customer)
+
+**Problem**: DynamoDB Query REQUIRES partition key
+
+**Solution**: Use Scan (slow) OR create a Global Secondary Index
+
+#### Option 4A: Scan (Not Recommended for Large Tables)
+
+```python
+response = table.scan(
+    FilterExpression='OrderID = :oid',
+    ExpressionAttributeValues={
+        ':oid': 'ORD-1002'
+    }
+)
+
+for item in response['Items']:
+    print(f"Found: {item['CustomerID']} | {item['OrderDate']}")
+
+# Output:
+# Found: C001 | 2024-02-20
+```
+
+**⚠️ Warning**: Scan reads ENTIRE table before filtering. On large tables:
+- Slow performance
+- High read costs
+- Not suitable for user-facing queries
+
+**Cost**: Reads ALL items, then filters (expensive)
+
+---
+
+#### Option 4B: Create Global Secondary Index (Recommended)
+
+**Index Design**: Use OrderID as partition key
+
+```python
+# Create table with GSI
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderID', 'AttributeType': 'S'}  # For GSI
+    ],
+    GlobalSecondaryIndexes=[
+        {
+            'IndexName': 'OrderID-Index',
+            'KeySchema': [
+                {'AttributeName': 'OrderID', 'KeyType': 'HASH'}  # GSI Partition Key
+            ],
+            'Projection': {'ProjectionType': 'ALL'},  # Project all attributes
+            'ProvisionedThroughput': {
+                'ReadCapacityUnits': 5,
+                'WriteCapacityUnits': 5
+            }
+        }
+    ],
+    BillingMode='PROVISIONED',
+    ProvisionedThroughput={
+        'ReadCapacityUnits': 5,
+        'WriteCapacityUnits': 5
+    }
+)
+```
+
+**Query the GSI**:
+```python
+response = table.query(
+    IndexName='OrderID-Index',
+    KeyConditionExpression='OrderID = :oid',
+    ExpressionAttributeValues={
+        ':oid': 'ORD-1002'
+    }
+)
+
+for item in response['Items']:
+    print(f"Order {item['OrderID']}: Customer {item['CustomerID']} | {item['Amount']}")
+
+# Output:
+# Order ORD-1002: Customer C001 | 75.25
+```
+
+**Cost**: Only reads items with matching OrderID (efficient)
+
+---
+
+### Pattern 5: Search by Non-Key Attribute (Status, Amount, etc.)
+
+**Scenario**: Find all pending orders
+
+**Problem**: Status is NOT a key attribute
+
+**Solution**: Scan OR create GSI
+
+#### Option 5A: Scan (Not Recommended)
+
+```python
+response = table.scan(
+    FilterExpression='#status = :status',
+    ExpressionAttributeNames={
+        '#status': 'Status'  # 'Status' is reserved word
+    },
+    ExpressionAttributeValues={
+        ':status': 'Pending'
+    }
+)
+
+for item in response['Items']:
+    print(f"{item['CustomerID']} | {item['OrderDate']} | Pending")
+```
+
+**Cost**: Reads ALL items, filters afterward (expensive)
+
+---
+
+#### Option 5B: Create GSI for Status (Recommended)
+
+```python
+# Add Status GSI to table
+client = boto3.client('dynamodb', region_name='us-east-1')
+
+client.update_table(
+    TableName='Orders',
+    AttributeDefinitions=[
+        {'AttributeName': 'Status', 'AttributeType': 'S'}
+    ],
+    GlobalSecondaryIndexUpdates=[
+        {
+            'Create': {
+                'IndexName': 'Status-Index',
+                'KeySchema': [
+                    {'AttributeName': 'Status', 'KeyType': 'HASH'}
+                ],
+                'Projection': {'ProjectionType': 'ALL'},
+                'BillingMode': 'PAY_PER_REQUEST'
+            }
+        }
+    ]
+)
+```
+
+**Query the GSI**:
+```python
+response = table.query(
+    IndexName='Status-Index',
+    KeyConditionExpression='#status = :status',
+    ExpressionAttributeNames={
+        '#status': 'Status'
+    },
+    ExpressionAttributeValues={
+        ':status': 'Pending'
+    }
+)
+
+for item in response['Items']:
+    print(f"{item['CustomerID']} | {item['OrderDate']} | {item['Amount']}")
+
+# Output:
+# C001 | 2024-02-20 | 75.25
+```
+
+**Cost**: Only reads items with Pending status (efficient)
+
+---
+
+## Global Secondary Indexes
+
+### What is a GSI?
+
+A **Global Secondary Index** allows you to query the table using different partition and sort keys.
+
+### When to Use GSI
+
+| Scenario | Use GSI |
+|----------|---------|
+| Need to search by attribute other than PK | ✅ YES |
+| Need to find items by date (when not PK) | ✅ YES |
+| Need to filter by status/category | ✅ YES |
+| Need reverse lookup (e.g., by email instead of UserID) | ✅ YES |
+| Base table Query already fast | ❌ NO |
+
+### Example: Multiple GSIs
+
+```python
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderID', 'AttributeType': 'S'},
+        {'AttributeName': 'Status', 'AttributeType': 'S'},
+        {'AttributeName': 'Email', 'AttributeType': 'S'}
+    ],
+    GlobalSecondaryIndexes=[
+        {
+            'IndexName': 'OrderID-Index',
+            'KeySchema': [
+                {'AttributeName': 'OrderID', 'KeyType': 'HASH'}
+            ],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        },
+        {
+            'IndexName': 'Status-OrderDate-Index',
+            'KeySchema': [
+                {'AttributeName': 'Status', 'KeyType': 'HASH'},
+                {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+            ],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        },
+        {
+            'IndexName': 'Email-Index',
+            'KeySchema': [
+                {'AttributeName': 'Email', 'KeyType': 'HASH'}
+            ],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        }
+    ],
+    BillingMode='PAY_PER_REQUEST'
+)
+```
+
+### GSI Cost Implications
+
+| Index Type | Cost | Use Case |
+|---|---|---|
+| **No Index** | Low (base table only) | Simple primary key queries |
+| **1 GSI** | 2x base cost | One alternative access pattern |
+| **3 GSIs** | 4x base cost | Multiple access patterns (search by status, email, OrderID) |
+| **Many GSIs** | Very expensive | Reconsider design or use Scan |
+
+**Best Practice**: Create only GSIs for your actual access patterns.
+
+---
+
+## Operation Comparison
+
+### GetItem vs Query vs Scan
 
 ```
-PK = CUSTOMER#123
-SK = ORDER#1001
+GetItem
+├─ Use: Know full primary key
+├─ Speed: ⚡⚡⚡ Fastest
+├─ Cost: Reads 1 item
+└─ Example: Get customer C001's order on 2024-01-15
 
-PK = CUSTOMER#123
-SK = ORDER#1002
-
-PK = CUSTOMER#456
-SK = ORDER#1005
-```
-
-Application asks:
-
-```
-Find OrderID = 1002
-```
-
-### Without a GSI
-
-```
-Scan entire table ❌
-```
-
-### With a GSI
-
-```
-GSI_PK = OrderID
-
-1001
-1002
-1005
-```
-
-Now use
-
-```
 Query
-PK = 1002
+├─ Use: Know partition key (and optionally sort key condition)
+├─ Speed: ⚡⚡ Very fast
+├─ Cost: Reads matching items only
+└─ Example: Get all orders for customer C001 in Jan 2024
+
+Scan
+├─ Use: Don't know the key (no index available)
+├─ Speed: 🐢 Slow (large tables)
+├─ Cost: Reads ALL items, then filters
+└─ Example: Find all orders with Status = "Pending" (no Status index)
 ```
 
-and DynamoDB immediately finds the record.
+### Decision Tree
+
+```
+Do you know the full primary key?
+    YES  → GetItem
+    NO   → Continue
+
+Do you know the partition key?
+    YES  → Query
+    NO   → Continue
+
+Is the attribute you're searching indexed (GSI)?
+    YES  → Query on GSI
+    NO   → Scan (expensive!)
+```
 
 ---
 
-# Interview answer
+## KeyConditionExpression vs FilterExpression
 
-If asked:
+**KeyConditionExpression**: Applied to KEY attributes (reduces data READ)
+- Uses: Partition Key, Sort Key
+- Applied BEFORE data is fetched
 
-> **"Can you query using only the Sort Key?"**
+**FilterExpression**: Applied AFTER data is READ (reduces data RETURNED)
+- Uses: Any attribute
+- Reads happen first, then filtering
 
-A strong answer is:
+### Example: Difference
 
-> **No. A DynamoDB `Query` requires an exact Partition Key value. The Sort Key can only be used to further narrow
-results within that partition. If I need to search by Sort Key alone, I would either perform a Scan (not recommended for
-large tables) or create a Global Secondary Index (GSI) that uses that attribute as its Partition Key.**
+```python
+# KeyConditionExpression: Efficient
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid AND OrderDate > :date',
+    ExpressionAttributeValues={
+        ':cid': 'C001',
+        ':date': '2024-01-01'
+    }
+)
+# DynamoDB reads only matching orders (efficient)
 
-## Rule to remember
-
-```text
-Know full PK (+ SK if composite)  --> GetItem
-
-Know PK only                      --> Query
-
-Know PK + SK condition            --> Query
-
-Know only SK                      --> Cannot Query
-                                     Use Scan or create a GSI
-
-Know neither PK nor SK            --> Scan
+# FilterExpression: Less efficient
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid',
+    FilterExpression='OrderDate > :date',  # Applied AFTER reading
+    ExpressionAttributeValues={
+        ':cid': 'C001',
+        ':date': '2024-01-01'
+    }
+)
+# DynamoDB reads ALL orders for C001, then filters by date
+# More reads, higher cost!
 ```
 
-This "know only the sort key" scenario is one of the classic reasons to add a **GSI** in DynamoDB.
+**Rule**: Use FilterExpression only when the Query result is already small.
+
+---
+
+## Real-World Architecture Example
+
+### Scenario: E-commerce Order System
+
+```python
+# Table Design
+dynamodb = boto3.resource('dynamodb')
+
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderID', 'AttributeType': 'S'},
+        {'AttributeName': 'Status', 'AttributeType': 'S'},
+        {'AttributeName': 'Email', 'AttributeType': 'S'}
+    ],
+    GlobalSecondaryIndexes=[
+        {
+            'IndexName': 'OrderID-Index',
+            'KeySchema': [{'AttributeName': 'OrderID', 'KeyType': 'HASH'}],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        },
+        {
+            'IndexName': 'Status-OrderDate-Index',
+            'KeySchema': [
+                {'AttributeName': 'Status', 'KeyType': 'HASH'},
+                {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+            ],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        },
+        {
+            'IndexName': 'Email-Index',
+            'KeySchema': [{'AttributeName': 'Email', 'KeyType': 'HASH'}],
+            'Projection': {'ProjectionType': 'ALL'},
+            'BillingMode': 'PAY_PER_REQUEST'
+        }
+    ],
+    BillingMode='PAY_PER_REQUEST'
+)
+
+# Access Pattern 1: Get all orders for customer
+def get_customer_orders(customer_id):
+    return table.query(
+        KeyConditionExpression='CustomerID = :cid',
+        ExpressionAttributeValues={':cid': customer_id}
+    )
+
+# Access Pattern 2: Get specific order
+def get_order(customer_id, order_date):
+    return table.get_item(Key={
+        'CustomerID': customer_id,
+        'OrderDate': order_date
+    })
+
+# Access Pattern 3: Find order by OrderID
+def find_order_by_id(order_id):
+    return table.query(
+        IndexName='OrderID-Index',
+        KeyConditionExpression='OrderID = :oid',
+        ExpressionAttributeValues={':oid': order_id}
+    )
+
+# Access Pattern 4: Get all pending orders
+def get_pending_orders():
+    return table.query(
+        IndexName='Status-OrderDate-Index',
+        KeyConditionExpression='#status = :status',
+        ExpressionAttributeNames={'#status': 'Status'},
+        ExpressionAttributeValues={':status': 'Pending'}
+    )
+
+# Access Pattern 5: Find customer by email
+def find_customer_by_email(email):
+    return table.query(
+        IndexName='Email-Index',
+        KeyConditionExpression='Email = :email',
+        ExpressionAttributeValues={':email': email}
+    )
+```
+
+---
+
+## Summary Table
+
+| Pattern | Operation | Speed | Cost | Key Required |
+|---------|-----------|-------|------|---|
+| Know full PK+SK | GetItem | ⚡⚡⚡ | 1 item read | YES |
+| Know PK only | Query | ⚡⚡ | Matching items | YES |
+| Know PK + SK condition | Query | ⚡⚡ | Matching items | YES |
+| Know SK only | Scan or GSI | 🐢/⚡⚡ | All items / GSI match | NO |
+| Know non-key attribute | Scan or GSI | 🐢/⚡⚡ | All items / GSI match | NO |
+
+---
+
+## Interview-Ready Answers
+
+### "What's the difference between Query and Scan?"
+
+> **Query** requires you to know the partition key. It goes directly to that partition and retrieves items efficiently. **Scan** doesn't require a key; it reads through the entire table or index and filters afterward. Query is fast; Scan is slow on large tables.
+
+### "Can you query using only the Sort Key?"
+
+> No. A **Query** always requires an exact partition key value. If you need to search by sort key alone, you either perform a **Scan** (not recommended for large tables) or create a **Global Secondary Index** that uses that attribute as its partition key.
+
+### "When should you use a GSI?"
+
+> Create a GSI when you have a frequent access pattern that doesn't use the table's primary key. For example, if you often search orders by Status or by Email, create GSIs for those attributes. But be careful—each GSI doubles your storage and write costs.
+
+---
+
+## Quick Decision Checklist
+
+```
+Before creating a table, answer these:
+
+□ What exact data do I need to read?
+□ What key will I know at read time?
+□ Do I need range queries or sorting?
+□ Do I need alternative lookup patterns?
+□ Should each lookup pattern become a GSI?
+□ Can I retrieve data in one Query?
+□ What are my access patterns (top 3-5)?
+
+Design the table around the answers, not the entity model.
+```
+
