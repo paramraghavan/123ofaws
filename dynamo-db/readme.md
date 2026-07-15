@@ -658,6 +658,391 @@ table = dynamodb.create_table(
 
 ---
 
+## Non-Key Attributes: Variable Schema Per Item
+
+### The Power of Schemaless Design
+
+**Key Insight**: Each item in the same DynamoDB table can have a COMPLETELY DIFFERENT set of non-key attributes.
+
+This is one of the biggest advantages over SQL and the source of DynamoDB's flexibility.
+
+### Example: Same Table, Different Schemas
+
+```python
+# Item 1: Simple order - 2 non-key attributes
+table.put_item(Item={
+    'CustomerID': 'C001',           # Key
+    'OrderDate': '2024-01-15',      # Key
+    'Status': 'Completed',          # Non-key attr 1
+    'Amount': 150.50                # Non-key attr 2
+})
+
+# Item 2: Complex order - 5 non-key attributes
+table.put_item(Item={
+    'CustomerID': 'C002',           # Key
+    'OrderDate': '2024-01-16',      # Key
+    'Status': 'Pending',            # Non-key attr 1
+    'Amount': 75.25,                # Non-key attr 2
+    'Items': ['Widget-A', 'Widget-B'],      # Non-key attr 3
+    'ShippingAddress': '123 Main St',       # Non-key attr 4
+    'TrackingNumber': 'TRK123456'           # Non-key attr 5
+})
+
+# Item 3: Different type - 4 non-key attributes (completely different!)
+table.put_item(Item={
+    'CustomerID': 'C003',           # Key
+    'OrderDate': '2024-01-17',      # Key
+    'Status': 'Cancelled',          # Non-key attr 1
+    'RefundAmount': 100.00,         # Non-key attr 2 (NOT "Amount"!)
+    'CancellationReason': 'Out of stock',  # Non-key attr 3
+    'RefundDate': '2024-01-18'              # Non-key attr 4
+})
+
+# Item 4: Yet another type - 6 different non-key attributes
+table.put_item(Item={
+    'CustomerID': 'C004',           # Key
+    'OrderDate': '2024-01-10',      # Key
+    'Status': 'Returned',           # Non-key attr 1
+    'OriginalAmount': 50.00,        # Non-key attr 2
+    'ReturnedAmount': 50.00,        # Non-key attr 3
+    'ReturnDate': '2024-01-19',     # Non-key attr 4
+    'ReturnReason': 'Defective',    # Non-key attr 5
+    'ReplacementOrder': 'ORD-5005'  # Non-key attr 6
+})
+```
+
+**All in the SAME table with DIFFERENT schemas!**
+
+---
+
+### Why This Matters: SQL vs DynamoDB
+
+#### SQL Approach (Forces Consistency)
+
+```sql
+-- Must define all columns upfront
+CREATE TABLE Orders (
+    CustomerID VARCHAR,
+    OrderDate VARCHAR,
+    Status VARCHAR,
+    Amount DECIMAL,
+    Items VARCHAR,
+    ShippingAddress VARCHAR,
+    TrackingNumber VARCHAR,
+    RefundAmount DECIMAL,
+    CancellationReason VARCHAR,
+    ReturnReason VARCHAR,
+    ReturnDate VARCHAR,
+    ReplacementOrder VARCHAR
+    -- Many columns, most will be NULL
+)
+
+-- Every row has all columns (wastes space!)
+INSERT INTO Orders VALUES (
+    'C001', '2024-01-15', 'Completed', 150.50,
+    NULL, NULL, NULL,              -- Wasted space for non-order types
+    NULL, NULL, NULL, NULL, NULL   -- Wasted space for order types
+);
+```
+
+**Problems**:
+- ✅ Enforces consistency
+- ❌ Wasted space (NULL values)
+- ❌ Hard to add new order types
+- ❌ Schema evolution is difficult
+
+#### DynamoDB Approach (Natural Flexibility)
+
+```python
+# Item 1 stores only what it needs
+item1 = {
+    'CustomerID': 'C001',
+    'OrderDate': '2024-01-15',
+    'Status': 'Completed',
+    'Amount': 150.50
+}
+
+# Item 3 stores different attributes
+item3 = {
+    'CustomerID': 'C003',
+    'OrderDate': '2024-01-17',
+    'Status': 'Cancelled',
+    'RefundAmount': 100.00,
+    'CancellationReason': 'Out of stock',
+    'RefundDate': '2024-01-18'
+}
+
+# Both stored in same table, no wasted space!
+```
+
+**Benefits**:
+- ✅ No wasted NULL values
+- ✅ Smaller item sizes
+- ✅ Easy to add new attributes
+- ✅ Easy to add new order types
+- ✅ Natural polymorphism
+
+---
+
+### Real-World E-commerce Example
+
+```python
+# Table has different ORDER TYPES with different attributes
+
+# Order Type 1: Standard Order
+{
+    'CustomerID': 'C001',
+    'OrderDate': '2024-01-15',
+    'OrderType': 'Standard',
+    'Status': 'Completed',
+    'Amount': 150.50,
+    'Items': ['Widget-A', 'Widget-B'],
+    'ShippingAddress': '123 Main St',
+    'DeliveryDate': '2024-01-17'
+}
+
+# Order Type 2: Express Order
+{
+    'CustomerID': 'C002',
+    'OrderDate': '2024-01-16',
+    'OrderType': 'Express',
+    'Status': 'Shipped',
+    'Amount': 200.00,
+    'Items': ['Widget-C'],
+    'ShippingAddress': '456 Oak Ave',
+    'DeliveryDate': '2024-01-17',
+    'ExpressCharge': 25.00,
+    'TrackingNumber': 'EXP123456',
+    'EstimatedDelivery': '2024-01-16 PM'
+}
+
+# Order Type 3: Subscription Order
+{
+    'CustomerID': 'C003',
+    'OrderDate': '2024-01-10',
+    'OrderType': 'Subscription',
+    'Status': 'Active',
+    'MonthlyAmount': 49.99,
+    'SubscriptionID': 'SUB-001',
+    'RenewalDate': '2024-02-10',
+    'AutoRenew': True,
+    'BillingCycle': 'monthly'
+}
+
+# Order Type 4: Cancelled Order
+{
+    'CustomerID': 'C004',
+    'OrderDate': '2024-01-05',
+    'OrderType': 'Standard',
+    'Status': 'Cancelled',
+    'OriginalAmount': 75.00,
+    'RefundAmount': 75.00,
+    'RefundDate': '2024-01-06',
+    'CancellationReason': 'Customer requested',
+    'RefundTransactionID': 'REF-789456'
+}
+
+# Order Type 5: Return/Exchange
+{
+    'CustomerID': 'C005',
+    'OrderDate': '2024-01-08',
+    'OrderType': 'Standard',
+    'Status': 'Returned',
+    'OriginalAmount': 100.00,
+    'ReturnedAmount': 100.00,
+    'ReturnDate': '2024-01-15',
+    'ReturnReason': 'Defective product',
+    'ReplacementOrder': 'ORD-5005',
+    'ReturnTrackingNumber': 'RTN123456'
+}
+```
+
+**All in SAME table with DIFFERENT attributes!**
+
+---
+
+### Querying with Variable Schemas
+
+**Get all orders for a customer** (regardless of type/schema):
+
+```python
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid',
+    ExpressionAttributeValues={':cid': 'C001'}
+)
+
+# Each item has different attributes, but query works!
+for item in response['Items']:
+    print(f"Order Type: {item['OrderType']}")
+    print(f"Status: {item['Status']}")
+
+    # Handle optional attributes safely
+    if 'Amount' in item:
+        print(f"Amount: {item['Amount']}")
+
+    if 'RefundAmount' in item:
+        print(f"Refund: {item['RefundAmount']}")
+
+    if 'MonthlyAmount' in item:
+        print(f"Monthly: {item['MonthlyAmount']}")
+
+    print("---")
+```
+
+**Using .get() for safe optional access**:
+
+```python
+for item in response['Items']:
+    amount = item.get('Amount')                  # Returns None if missing
+    refund = item.get('RefundAmount', 0)        # Default to 0
+    monthly = item.get('MonthlyAmount', 0)      # Default to 0
+
+    # Process dynamically
+    total_charge = (amount or 0) + (refund or 0) + (monthly or 0)
+```
+
+---
+
+### Adding Attributes Later (No Schema Changes)
+
+```python
+# Table was created with only key attributes
+table = dynamodb.create_table(
+    TableName='Orders',
+    KeySchema=[
+        {'AttributeName': 'CustomerID', 'KeyType': 'HASH'},
+        {'AttributeName': 'OrderDate', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'CustomerID', 'AttributeType': 'S'},
+        {'AttributeName': 'OrderDate', 'AttributeType': 'S'}
+    ],
+    BillingMode='PAY_PER_REQUEST'
+)
+
+# WEEKS LATER: Add a new attribute (no schema changes!)
+table.put_item(Item={
+    'CustomerID': 'C001',
+    'OrderDate': '2024-01-15',
+    'Status': 'Completed',
+    'Amount': 150.50,
+    'ShippingAddress': '123 Main St',     # ✅ NEW attribute
+    'TrackingNumber': 'TRK123456'         # ✅ NEW attribute
+})
+
+# MONTHS LATER: Add completely different attributes (still works!)
+table.put_item(Item={
+    'CustomerID': 'C002',
+    'OrderDate': '2024-02-20',
+    'Status': 'Returned',
+    'ReturnReason': 'Defective',          # ✅ DIFFERENT attribute
+    'ReplacementOrder': 'ORD-6789'        # ✅ DIFFERENT attribute
+})
+
+# No ALTER TABLE needed!
+# No downtime!
+# Just add attributes as needed!
+```
+
+---
+
+### Best Practices for Variable Schemas
+
+#### 1. Use OrderType or Status to Identify Item Type
+```python
+item = {
+    'CustomerID': 'C001',
+    'OrderDate': '2024-01-15',
+    'OrderType': 'Standard',  # ✅ Identify type
+    'Status': 'Completed',    # ✅ Helps distinguish
+    # ... type-specific attributes
+}
+```
+
+#### 2. Use .get() for Optional Attributes
+```python
+amount = item.get('Amount')                    # Safe access
+refund = item.get('RefundAmount', 0)          # Safe with default
+monthly = item.get('MonthlyAmount', 0)        # Safe with default
+```
+
+#### 3. Document Expected Attributes per Type
+```python
+"""
+OrderType = 'Standard':
+  - Status
+  - Amount
+  - Items
+  - ShippingAddress
+  - TrackingNumber
+  - DeliveryDate
+
+OrderType = 'Subscription':
+  - Status
+  - MonthlyAmount
+  - SubscriptionID
+  - RenewalDate
+  - AutoRenew
+  - BillingCycle
+
+OrderType = 'Cancelled':
+  - Status
+  - OriginalAmount
+  - RefundAmount
+  - RefundDate
+  - CancellationReason
+"""
+```
+
+#### 4. Use FilterExpression to Handle Missing Attributes
+```python
+# Only get orders with Amount attribute
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid',
+    FilterExpression='attribute_exists(Amount)',
+    ExpressionAttributeValues={':cid': 'C001'}
+)
+
+# Only get cancelled orders
+response = table.query(
+    KeyConditionExpression='CustomerID = :cid',
+    FilterExpression='#status = :status',
+    ExpressionAttributeNames={'#status': 'Status'},
+    ExpressionAttributeValues={
+        ':cid': 'C001',
+        ':status': 'Cancelled'
+    }
+)
+```
+
+---
+
+### Storage Efficiency Comparison
+
+#### If you have 1 million orders:
+
+**SQL with all columns** (many NULL):
+```
+Order 1: 150 bytes (wasted space from NULL columns)
+Order 2: 150 bytes (wasted space)
+Order 3: 150 bytes (wasted space)
+...
+Total: 150 MB (with wasted space)
+```
+
+**DynamoDB with variable attributes** (only used space):
+```
+Order 1: 50 bytes (only actual attributes)
+Order 2: 120 bytes (different attributes)
+Order 3: 80 bytes (different attributes)
+...
+Total: 85 MB (no wasted space)
+```
+
+**Savings: 65 MB + storage cost reduction** 💰
+
+---
+
 ## Operation Comparison
 
 ### GetItem vs Query vs Scan

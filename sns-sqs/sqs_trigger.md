@@ -2,12 +2,28 @@
 
 ## Triggers for SQS
 
-SQS can trigger several AWS resources:
+SQS is fundamentally pull-based. A Lambda can poll SQS directly, or you can configure SQS as a Lambda event source. In the event-source setup, AWS Lambda polls SQS on your behalf and invokes the function, so it behaves like a trigger even though the underlying model is still polling.
 
-1. **AWS Lambda**: The most common integration - Lambda functions can be invoked when messages arrive in an SQS queue.
-2. **AWS Step Functions**: Step Functions can be triggered by SQS via a Lambda function or Amazon EventBridge.
-3. **Amazon EventBridge**: Can be configured to listen to SQS and trigger various targets.
-4. **AWS Fargate / ECS**: Tasks can be triggered through EventBridge rules that listen to SQS.
+## Push vs Pull
+
+| Mode | What happens |
+| --- | --- |
+| Push-like / managed trigger | Configure SQS as a Lambda event source. AWS Lambda polls SQS for you and invokes the Lambda with message batches. |
+| Pull | Your Lambda, ECS task, EC2 worker, or other consumer calls `ReceiveMessage`, processes messages, and calls `DeleteMessage`. |
+
+
+**Note:**
+> SQS is fundamentally pull-based. A Lambda can poll SQS directly, or you can configure SQS as a Lambda event source. In the event-source setup, AWS Lambda polls SQS on your behalf and invokes the function, so it behaves like a trigger even though the underlying model is still polling.
+> SQS is pull-based because Lambda polls SQS through an event source mapping. The same is true for stream/queue sources like Kinesis, DynamoDB Streams, and Kafka. But event sources like SNS, S3, EventBridge, API Gateway, and ALB are push-style integrations where the service invokes Lambda directly.
+
+## Common Integrations
+
+SQS commonly feeds:
+
+1. **AWS Lambda**: Lambda event source mapping polls SQS and invokes the function.
+2. **AWS Step Functions**: Usually started through Lambda or EventBridge after a message is consumed.
+3. **Amazon EventBridge Pipes**: Can connect SQS to supported targets with filtering/enrichment.
+4. **AWS Fargate / ECS / EC2 workers**: Workers poll SQS directly.
 
 ## Polling Management
 
@@ -105,4 +121,3 @@ Resources:
     - Maximum Batching Window
     - Maximum Concurrency
     - Function Timeout
-
