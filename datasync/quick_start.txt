@@ -1,0 +1,130 @@
+================================================================================
+QUICK START - Copy Files from NFS to AWS S3
+================================================================================
+
+WHAT YOU'LL ACCOMPLISH:
+- Copy files from your on-premises NAS to AWS S3
+- Set it up to run daily automatically
+- Monitor the process easily
+
+================================================================================
+3 SIMPLE STEPS
+================================================================================
+
+STEP 1: SET UP DATASYNC AGENT (30 minutes)
+─────────────────────────────────────────
+1. Launch small EC2 instance (t3.micro is fine)
+2. SSH into EC2
+3. Download and install DataSync Agent:
+
+   cd /opt
+   sudo wget https://s3.amazonaws.com/aws-datasync/latest/aws-datasync-agent-linux.tar.gz
+   sudo tar xzf aws-datasync-agent-linux.tar.gz
+   cd aws-datasync-agent
+   sudo ./install.sh
+   sudo systemctl start aws-datasync-agent
+
+4. Mount your NFS:
+
+   sudo mount -t nfs your-nas-ip:/vol/data /mnt/nfs
+
+5. Verify it's mounted:
+
+   mount | grep nfs
+   ls /mnt/nfs
+
+
+STEP 2: CREATE DATASYNC LOCATIONS (10 minutes)
+───────────────────────────────────────────────
+Run these AWS CLI commands:
+
+   aws datasync create-location-nfs \
+     --subdirectory /mnt/nfs \
+     --server-hostname 10.0.0.50 \
+     --on-prem-config AgentArns=arn:aws:datasync:us-east-1:123456789012:agent/xyz
+
+   aws datasync create-location-s3 \
+     --s3-bucket-arn arn:aws:s3:::my-data-bucket \
+     --s3-config BucketAccessRoleArn=arn:aws:iam::123456789012:role/datasync-s3-role
+
+SAVE THE ARNs FROM THE OUTPUT!
+
+
+STEP 3: COPY FILES (Choose one)
+───────────────────────────────
+
+OPTION A - ONE-TIME COPY (Right now)
+─────────────────────────────────────
+1. Edit copy_now.py:
+   - Add your NFS_ARN
+   - Add your S3_ARN
+
+2. Run:
+   pip install boto3
+   python copy_now.py
+
+3. Watch the progress!
+
+
+OPTION B - DAILY AUTOMATIC COPY (Set and forget)
+─────────────────────────────────────────────────
+1. Follow instructions in DEPLOYMENT.md
+
+2. Lambda runs at 2 AM daily
+
+3. Files copy automatically
+
+
+================================================================================
+FILES IN THIS FOLDER
+================================================================================
+
+SIMPLE_GUIDE.md           ← READ THIS FIRST (explains everything)
+ARCHITECTURE.md           ← Diagrams showing how it works
+DEPLOYMENT.md             ← Detailed deployment steps
+copy_now.py               ← Script for one-time copy
+lambda_daily_copy.py      ← Script for daily automatic copy
+QUICK_START.txt           ← This file
+
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Read SIMPLE_GUIDE.md (15 minutes)
+2. Read ARCHITECTURE.md to understand the flow
+3. Follow DEPLOYMENT.md for your setup
+4. Choose Option A or B above
+5. Run the copy!
+
+
+================================================================================
+PROBLEMS?
+================================================================================
+
+Can't reach NFS?
+→ Check security group allows port 2049
+
+Agent won't start?
+→ SSH to EC2, run: sudo systemctl status aws-datasync-agent
+
+Files not copying?
+→ Check NFS path exists and has files
+
+Permission errors?
+→ Check IAM roles have correct permissions
+
+
+================================================================================
+THAT'S IT!
+================================================================================
+
+You now have the tools to copy files from NFS to S3.
+
+Total setup time: 1-2 hours
+Monthly cost: $100-300 (for small migrations)
+Result: Files safely in AWS S3
+
+Questions? See SIMPLE_GUIDE.md or ARCHITECTURE.md
+
+Ready? Start with SIMPLE_GUIDE.md! 🚀

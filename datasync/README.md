@@ -1,13 +1,13 @@
-# AWS DataSync Orchestrator - NAS to S3 Migration
+# Copy Files from On-Premises NFS to AWS S3 using DataSync
 
-Complete Python solution for copying selected files from NAS to S3 using AWS DataSync. Designed for brownfield server retirement scenarios where daily data migration is required.
+**Simple solution to migrate files from your brownfield server to AWS S3**
 
-## Overview
+## The Problem
 
-This project provides:
-- **Automated daily file copying** from NAS to S3 using DataSync
-- **Date-based filtering** (today, backdated, range scenarios)
-- **Multi-datatype support** (copy multiple datatype paths in parallel)
+You have files on an on-premises NFS mount that you want to copy to AWS S3. Your brownfield server is being retired, so you need an automated solution.
+
+**NFS Location**: `/mydata/prod/icm/datain/poolData/`
+**AWS Destination**: `s3://your-bucket/poolData/`
 - **Complete error handling** and SNS notifications
 - **CloudWatch logging** for monitoring and debugging
 - **Simple Python implementation** - easy to understand and modify
