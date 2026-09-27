@@ -22,84 +22,108 @@ botocore.exceptions.NoCredentialsError: Unable to locate credentials
 
 **Solutions** (in order of preference):
 
-#### Solution 1: Check Environment Variables
+#### Solution 1: Check Current Identity
+
+```bash
+aws sts get-caller-identity
+aws configure list
+
+# For a named profile
+aws sts get-caller-identity --profile dev
+aws configure list --profile dev
+```
+
+If `get-caller-identity` fails, the CLI/SDK does not have usable credentials for that profile.
+
+#### Solution 2: Use a Named Profile
+
+Configure or refresh the profile using your approved login method:
+
+```bash
+# Static-key profile, only if your organization uses IAM user keys
+aws configure --profile dev
+
+# SSO/IAM Identity Center profile
+aws sso login --profile dev
+```
+
+Use the profile in Python:
+
+```python
+import boto3
+
+session = boto3.Session(profile_name="dev", region_name="us-east-1")
+s3 = session.client("s3")
+```
+
+#### Solution 3: Check Environment Variables
+
+Environment variables override many profile settings. They are useful for short-lived diagnostics, but avoid putting
+long-lived credentials in shell startup files.
+
 ```bash
 # On Mac/Linux
 echo $AWS_ACCESS_KEY_ID
 echo $AWS_SECRET_ACCESS_KEY
+echo $AWS_SESSION_TOKEN
 
 # On Windows (PowerShell)
 $env:AWS_ACCESS_KEY_ID
 $env:AWS_SECRET_ACCESS_KEY
+$env:AWS_SESSION_TOKEN
 ```
 
-If empty, set them:
+To clear accidental overrides:
+
 ```bash
 # Mac/Linux
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_DEFAULT_REGION="us-east-1"
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
 # Windows (PowerShell)
-$env:AWS_ACCESS_KEY_ID="your-access-key"
-$env:AWS_SECRET_ACCESS_KEY="your-secret-key"
+Remove-Item Env:AWS_ACCESS_KEY_ID
+Remove-Item Env:AWS_SECRET_ACCESS_KEY
+Remove-Item Env:AWS_SESSION_TOKEN
 ```
 
-#### Solution 2: Check AWS Credentials File
+#### Solution 4: Check AWS Credentials File
+
+Do not paste the file contents into chat, logs, tickets, or docs.
+
 ```bash
 # Credentials should be at:
 # Mac/Linux: ~/.aws/credentials
 # Windows: %USERPROFILE%\.aws\credentials
 
-cat ~/.aws/credentials  # Mac/Linux
-type %USERPROFILE%\.aws\credentials  # Windows
+ls -l ~/.aws/credentials
+aws configure list-profiles
 ```
 
 **File Format**:
-```
+```ini
 [default]
-aws_access_key_id = YOUR_ACCESS_KEY
-aws_secret_access_key = YOUR_SECRET_KEY
+aws_access_key_id = <access-key-id>
+aws_secret_access_key = <secret-access-key>
 
 [production]
-aws_access_key_id = PROD_ACCESS_KEY
-aws_secret_access_key = PROD_SECRET_KEY
+aws_access_key_id = <prod-access-key-id>
+aws_secret_access_key = <prod-secret-access-key>
 ```
 
-#### Solution 3: Create Credentials File
+#### Solution 5: Create Credentials File
+
+Prefer `aws configure --profile <name>` over manually writing this file.
+
 ```bash
 mkdir -p ~/.aws
 
 cat > ~/.aws/credentials << 'EOF'
 [default]
-aws_access_key_id = YOUR_ACCESS_KEY
-aws_secret_access_key = YOUR_SECRET_KEY
+aws_access_key_id = <access-key-id>
+aws_secret_access_key = <secret-access-key>
 EOF
 
 chmod 600 ~/.aws/credentials  # Secure file permissions
 ```
-
-#### Solution 4: Use AWS CLI to Configure
-```bash
-aws configure
-
-# Or configure specific profile
-aws configure --profile production
-```
-
-#### Solution 5: Explicitly Pass Credentials
-```python
-import boto3
-
-s3 = boto3.client(
-    's3',
-    aws_access_key_id='your-access-key',
-    aws_secret_access_key='your-secret-key',
-    region_name='us-east-1'
-)
-```
-
-**⚠️ WARNING**: Never hardcode credentials in code. Use environment variables or credential files.
 
 #### Solution 6: Check IAM Role (if on EC2/Lambda/ECS)
 ```python
@@ -109,11 +133,10 @@ from botocore.exceptions import ClientError
 # If you're on EC2, Lambda, or ECS, credentials come from IAM role
 # Check the role is attached:
 
-iam = boto3.client('iam')
+sts = boto3.client('sts')
 try:
-    # This will fail if no credentials at all
-    response = iam.get_user()
-    print(f"Current user: {response['User']['UserName']}")
+    identity = sts.get_caller_identity()
+    print(f"Current identity: {identity['Arn']}")
 except ClientError as e:
     print(f"Error: {e}")
 ```

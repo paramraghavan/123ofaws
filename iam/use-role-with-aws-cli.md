@@ -1,84 +1,83 @@
-I'll explain how to assume a role using AWS CLI. There are two main parts to this:
+# Use a Role with AWS CLI
 
-1. First, Configure the Role in your AWS CLI credentials file (`~/.aws/credentials`):
+There are two clean AWS CLI patterns:
 
-> The ACCOUNT_ID in the role_arn belongs to the Trusting Account (the account that owns the role, the one you want to
-> access).
+- native role profile with `role_arn` and `source_profile`
+- custom `credential_process` when a script must produce credentials
+
+## Native Role Profile
+
+`~/.aws/credentials`:
 
 ```ini
-[default]
-aws_access_key_id = YOUR_ACCESS_KEY
-aws_secret_access_key = YOUR_SECRET_KEY
-
-[profile role-profile]
-role_arn = arn:aws:iam::ACCOUNT-ID:role/ROLE-NAME
-source_profile = default
+[base]
+aws_access_key_id = <access-key-id>
+aws_secret_access_key = <secret-access-key>
 ```
 
-2. Configure the corresponding config file (`~/.aws/config`):
+`~/.aws/config`:
 
 ```ini
 [profile role-profile]
-region = us-west-2
+region = us-east-1
 output = json
-role_arn = arn:aws:iam::ACCOUNT-ID:role/ROLE-NAME
-source_profile = default
+role_arn = arn:aws:iam::111111111111:role/OperatorRole
+source_profile = base
+duration_seconds = 3600
 ```
 
-3. To use the role, you have two options:
-
-Option 1 - Use the `--profile` flag:
+Use it:
 
 ```bash
+aws sts get-caller-identity --profile role-profile
 aws s3 ls --profile role-profile
 ```
 
-Option 2 - Set the profile in your environment:
+Or set it for the current shell:
 
 ```bash
 export AWS_PROFILE=role-profile
-aws s3 ls
+aws sts get-caller-identity
 ```
 
-4. To assume the role temporarily using STS:
+## Direct STS Call
+
+You can also call STS directly:
 
 ```bash
 aws sts assume-role \
-    --role-arn arn:aws:iam::ACCOUNT-ID:role/ROLE-NAME \
-    --role-session-name my-session \
-    --duration-seconds 3600
+  --role-arn arn:aws:iam::111111111111:role/OperatorRole \
+  --role-session-name manual-session \
+  --duration-seconds 3600
 ```
 
-This will return temporary credentials that you can use by setting them as environment variables:
+The response contains temporary credentials. Prefer AWS CLI profiles or `credential_process` for normal use so you do
+not manually export credentials.
 
-```bash
-export AWS_ACCESS_KEY_ID=<from-sts-response>
-export AWS_SECRET_ACCESS_KEY=<from-sts-response>
-export AWS_SESSION_TOKEN=<from-sts-response>
-```
+## Custom `credential_process`
 
-## Trusting and Trusted Account
-
-In this context, when setting up a role to be used from AWS CLI:
-
-The ACCOUNT_ID in the role_arn belongs to the Trusting Account (the account that owns the role, the one you want to
-access).
-
-Here's a clear example:
-
-- Account A (ID: 111111111111) - Trusting Account (owns the role)
-- Account B (ID: 222222222222) - Trusted Account (wants to use the role)
-
-The role_arn would use Account A's ID:
+`~/.aws/config`:
 
 ```ini
-[profile cross-account]
-role_arn = arn:aws:iam::111111111111:role/CrossAccountRole
-source_profile = default
+[profile profile-oper]
+region = us-east-1
+credential_process = /Users/paramraghavan/dev/123ofaws/iam/credential_helper.py profile-oper
 ```
 
-Think of it this way:
+The helper reads `~/.aws/credential-helper.json`, assumes the configured role, caches temporary credentials, and prints
+the JSON shape expected by AWS CLI/SDKs.
 
-1. Account A (111111111111) creates a role and trusts Account B to use it
-2. Users in Account B (222222222222) reference Account A's ID in their CLI config to say "I want to assume that role in
-   Account A"
+## Trusted vs Trusting Account
+
+For cross-account access:
+
+- **Trusting account**: owns the role and resources you want to access.
+- **Trusted account**: owns the user or role that is allowed to assume the target role.
+
+If Account `111111111111` owns the role, the role ARN uses that account ID:
+
+```ini
+role_arn = arn:aws:iam::111111111111:role/OperatorRole
+```
+
+The target role's trust policy must allow the source user, source role, or source account.

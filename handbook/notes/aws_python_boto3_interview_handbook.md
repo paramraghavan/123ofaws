@@ -28,16 +28,16 @@ A standalone handbook for AWS services, cloud architecture, Python automation wi
 23. [Infrastructure as code](#23-infrastructure-as-code)
 24. [Most commonly used AWS architecture patterns](#24-most-commonly-used-aws-architecture-patterns)
 25. [Testing Boto3 applications](#25-testing-boto3-applications)
-26. [Production-ready Boto3 patterns](#26-productionready-boto3-patterns)
+26. [Production-ready Boto3 patterns](#26-production-ready-boto3-patterns)
 27. [Performance, reliability, and cost optimization](#27-performance-reliability-and-cost-optimization)
 28. [Troubleshooting guide](#28-troubleshooting-guide)
 29. [Frequently used Boto3 snippets](#29-frequently-used-boto3-snippets)
 30. [Runnable LocalStack projects](#30-runnable-localstack-projects)
 31. [AWS interview questions and answers](#31-aws-interview-questions-and-answers)
 32. [Boto3 interview questions](#32-boto3-interview-questions)
-33. [Scenario-based interview questions](#33-scenariobased-interview-questions)
+33. [Scenario-based interview questions](#33-scenario-based-interview-questions)
 34. [Architecture interview exercises](#34-architecture-interview-exercises)
-35. [Quick-revision sheets](#35-quickrevision-sheets)
+35. [Quick-revision sheets](#35-quick-revision-sheets)
 
 ## 1. How to use this handbook
 
@@ -51,6 +51,18 @@ Use it in three ways:
 - As a daily reference: jump to service sections, snippets, troubleshooting, and production patterns.
 - As interview preparation: practice the concise answers, then expand into trade-offs and failure modes.
 
+Teaching order for new AWS learners:
+
+| Stage | Goal | Sections |
+| --- | --- | --- |
+| 1. Cloud basics | Understand what AWS provides and how resources are organized. | 2, 3 |
+| 2. Identity first | Understand accounts, IAM, credentials, and safe access. | 4, 10, 22 |
+| 3. Developer setup | Run examples safely without touching production. | 5, 6, 7 |
+| 4. Boto3 fundamentals | Create clients, call APIs, handle responses and errors. | 8, 9, 11, 12 |
+| 5. Core services | Learn storage, messaging, database, compute, and networking. | 13-20 |
+| 6. Production thinking | Add observability, IaC, testing, reliability, and cost controls. | 21, 23-28 |
+| 7. Interview practice | Turn knowledge into concise answers and trade-off discussions. | 31-35 |
+
 Examples are labeled:
 
 - **Runs with LocalStack:** safe local examples using Docker and dummy credentials.
@@ -63,6 +75,17 @@ Examples are labeled:
 - **Common mistake:** frequent pitfalls and corrected patterns.
 
 Code style note: examples intentionally prefer clear step-by-step code over compact tricks. You will often see explicit loops, `if` checks, and named intermediate variables instead of nested comprehensions or dense one-liners.
+
+When teaching or interviewing, use this answer shape:
+
+```text
+1. Define the service or concept.
+2. Explain when you would use it.
+3. Name the security boundary and IAM model.
+4. Describe failure modes and retries.
+5. Describe cost/performance trade-offs.
+6. Give one concrete example.
+```
 
 **Beginner learning path**
 
@@ -125,6 +148,159 @@ Cloud computing is on-demand access to compute, storage, networking, databases, 
 - Availability vs durability: availability is access; durability is data survival.
 - Backup vs disaster recovery: backup is a copy; DR is a tested restoration strategy.
 - Vertical vs horizontal scaling: vertical uses larger machines; horizontal uses more machines.
+
+### AWS resource mental model
+
+An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. An AWS **resource** is an object inside a
+service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
+
+Most AWS work follows this pattern:
+
+```text
+caller identity
+  -> signed API request
+  -> AWS service control plane
+  -> IAM/resource/KMS/SCP checks
+  -> resource is created, read, updated, deleted, or invoked
+  -> CloudTrail records management events
+```
+
+Example: uploading a file to S3 with Boto3.
+
+```text
+Python code calls s3.put_object
+  -> Boto3 signs the request with current credentials
+  -> S3 receives the request in the selected Region
+  -> IAM checks identity policy, bucket policy, SCPs, and KMS permissions if encrypted
+  -> S3 writes the object
+  -> CloudTrail can record the API event
+```
+
+Resource lifecycle questions to ask for any AWS service:
+
+| Question | Why it matters |
+| --- | --- |
+| Who owns it? | Tags, account placement, billing, and support ownership. |
+| Who can access it? | IAM identity policy, resource policy, KMS key policy, network controls. |
+| Where does it live? | Region, AZ, VPC, subnet, edge/global scope. |
+| How does it scale? | Quotas, partitions, concurrency, throughput, autoscaling. |
+| How does it fail? | Retries, DLQs, backups, Multi-AZ, restore process. |
+| How is it observed? | Metrics, logs, traces, CloudTrail, alarms. |
+| How is it cleaned up? | Lifecycle policy, retention, deletion protection, IaC destroy plan. |
+
+Important terms:
+
+| Term | Meaning |
+| --- | --- |
+| Control plane | APIs that create/configure resources, such as `CreateBucket`, `RunInstances`, or `UpdateFunctionConfiguration`. |
+| Data plane | APIs that move or read application data, such as `GetObject`, `PutItem`, or `Invoke`. |
+| ARN | Amazon Resource Name, a structured identifier such as `arn:aws:s3:::my-bucket/path/file.csv`. |
+| Tag | Key/value metadata used for ownership, cost allocation, automation, and access conditions. |
+| Quota | Service limit, such as Lambda concurrency or VPC security group rule count. |
+| Region | Geographic scope for most resources. Some services, such as IAM, Route 53, and CloudFront, are global. |
+
+### Most commonly used AWS resources
+
+Use this table as the "what should I learn first?" map.
+
+| Area | Common services/resources | What to know first |
+| --- | --- | --- |
+| Identity and access | IAM users, groups, roles, policies, STS, IAM Identity Center | Prefer roles and temporary credentials; understand trust policy vs permission policy. |
+| Networking | VPC, subnets, route tables, internet/NAT gateways, security groups, NACLs, VPC endpoints | Security groups are stateful instance/service firewalls; private subnets need NAT or endpoints for outbound AWS/API access. |
+| Object storage | S3 buckets, objects, versioning, lifecycle rules, bucket policies | S3 is durable object storage; design prefixes, encryption, lifecycle, and access policies deliberately. |
+| Compute | Lambda, EC2, ECS/Fargate, Batch | Lambda for event-driven functions; EC2 for full VM control; ECS/Fargate for containers; Batch for batch compute. |
+| Databases | DynamoDB, RDS/Aurora, Redshift | DynamoDB is key-value/document NoSQL; RDS/Aurora are relational; Redshift is analytical warehouse. |
+| Messaging/events | SQS, SNS, EventBridge, Step Functions | SQS buffers work; SNS fans out notifications; EventBridge routes events; Step Functions orchestrates workflows. |
+| Analytics/data engineering | Glue, Athena, EMR, Lake Formation, Kinesis, MSK | Glue catalogs/runs ETL; Athena queries S3; EMR runs Spark/Hadoop; Kinesis/MSK stream data. |
+| Security/secrets | KMS keys, Secrets Manager, SSM Parameter Store, CloudTrail, GuardDuty | KMS encrypts keys/data; Secrets Manager rotates secrets; CloudTrail records API activity. |
+| Observability | CloudWatch metrics/logs/alarms, X-Ray, CloudTrail | Metrics tell health, logs explain behavior, traces show request paths, CloudTrail audits API calls. |
+| Deployment/IaC | CloudFormation, CDK, Terraform, SAM, ECR | Keep infrastructure repeatable, reviewed, versioned, and tagged. |
+
+### How to choose a service quickly
+
+| Need | Start with |
+| --- | --- |
+| Store files, logs, exports, lake data | S3 |
+| Run a small event-driven function | Lambda |
+| Run containers without managing servers | ECS on Fargate |
+| Run a VM or custom OS workload | EC2 |
+| Durable queue between producers and workers | SQS |
+| Publish one event to many subscribers | SNS or EventBridge |
+| Orchestrate multi-step workflow with retries | Step Functions |
+| Low-latency key-value access | DynamoDB |
+| SQL relational application database | RDS/Aurora |
+| Query data directly in S3 | Athena + Glue Data Catalog |
+| Spark ETL over large datasets | Glue or EMR |
+| Store application config | SSM Parameter Store |
+| Store rotating/high-value secret | Secrets Manager |
+| Encrypt and control key usage | KMS |
+| Audit who did what | CloudTrail |
+
+### Best use cases by resource
+
+| Resource/service | Best use cases | Avoid or reconsider when |
+| --- | --- | --- |
+| IAM role | Workload access, cross-account access, temporary human elevation | You need a permanent human login; use IAM Identity Center instead |
+| IAM Identity Center | Workforce SSO across accounts | Machine-to-machine workload credentials |
+| STS | Temporary credentials and `AssumeRole` | Long-running static access; use refreshable roles/profiles |
+| S3 | Object storage, logs, data lake, backups, static assets | Low-latency row updates or relational transactions |
+| EBS | Block storage attached to EC2 | Shared object storage or serverless storage |
+| EFS | Shared POSIX file system across compute | High-throughput object analytics; use S3/lake formats |
+| Lambda | Event-driven code, APIs, automation, file processing | Long-running jobs, custom OS needs, stable high CPU workloads |
+| EC2 | Full OS control, custom agents, special hardware, stateful workloads | Simple event-driven tasks or managed container workloads |
+| ECS/Fargate | Containers without managing servers | Kubernetes-specific platform requirements |
+| EKS | Kubernetes ecosystem, portability, platform teams | Small teams that do not need Kubernetes complexity |
+| AWS Batch | Queued batch compute, scientific jobs, large parallel jobs | Low-latency request/response APIs |
+| SQS | Durable work queue, decoupling, backpressure, retries, DLQ | Push fan-out to many subscribers; use SNS/EventBridge |
+| SNS | Fan-out notifications to SQS, Lambda, HTTP, email/SMS | Stateful workflow orchestration |
+| EventBridge | Event routing, SaaS/AWS events, schedules, loose coupling | High-throughput ordered queueing |
+| Step Functions | Multi-step workflows, retries, waits, branching, compensation | Simple one-step async work; use SQS/Lambda |
+| DynamoDB | Low-latency key-value/document access at scale | Ad hoc SQL joins, complex relational transactions |
+| RDS/Aurora | Relational OLTP, SQL, joins, transactions | Massive analytical scans; use Redshift/Athena |
+| Redshift | Data warehouse analytics and BI | Small operational database |
+| Athena | Serverless SQL over S3 data | Low-latency OLTP or heavy repeated warehouse queries |
+| Glue Data Catalog | Shared table metadata for S3 data lakes | Application metadata unrelated to analytics |
+| Glue ETL | Managed Spark/serverless ETL | Highly customized clusters; use EMR |
+| EMR | Spark/Hadoop with cluster/runtime control | Simple ETL where Glue is enough |
+| Kinesis | Managed streaming ingestion | Simple async work queue; use SQS |
+| MSK | Kafka-compatible streaming | Teams without Kafka operational need |
+| VPC | Network isolation and routing boundary | Purely public/serverless-only prototypes may need little VPC design |
+| Security group | Stateful allow rules for resources | Organization-wide guardrails; use SCPs/IAM/resource policies |
+| VPC endpoint | Private AWS API access from VPC | Public internet access is acceptable and simpler |
+| KMS | Encryption keys, key policies, audit of key use | Non-sensitive disposable data |
+| Secrets Manager | Rotating secrets, database credentials, API keys | Low-change non-secret config; use Parameter Store |
+| SSM Parameter Store | App configuration and simple secure strings | Automatic secret rotation requirements |
+| CloudWatch | Metrics, logs, alarms, dashboards | API audit history; use CloudTrail |
+| CloudTrail | AWS API audit trail | Application logs and metrics |
+| AWS Config | Resource configuration history/compliance | Runtime app performance |
+| CloudFormation/CDK/Terraform | Repeatable infrastructure | One-off console experiments only |
+
+### Best use cases for common combinations
+
+| Combination | Best use case | Why this combination works |
+| --- | --- | --- |
+| S3 + CloudFront + Route 53 | Static website or asset delivery | S3 stores assets, CloudFront caches globally, Route 53 manages DNS |
+| API Gateway + Lambda + DynamoDB | Serverless API | Managed HTTPS endpoint, event-driven compute, low-latency storage |
+| ALB + ECS/Fargate + RDS/Aurora | Containerized web application | Load balancing, managed containers, relational persistence |
+| S3 + Lambda + SQS | Reliable file-processing pipeline | S3 event starts work, SQS buffers/retries, Lambda processes |
+| EventBridge + SQS + Lambda | Decoupled event-driven processing | Event routing, durable queue, scalable consumers |
+| SNS + SQS | Durable fan-out | One publish creates independent queues for multiple consumers |
+| SQS + Lambda + DLQ | Async worker with failure isolation | Queue buffers load, Lambda scales consumers, DLQ captures poison messages |
+| Step Functions + Lambda + DynamoDB | Stateful business workflow | Explicit state/retries plus durable workflow data |
+| S3 + Glue Data Catalog + Athena | Serverless data lake query | S3 stores data, Glue stores schema, Athena runs SQL |
+| S3 + Glue/EMR + Iceberg/Delta/Hudi | Transactional data lake | Spark ETL plus table snapshots, schema evolution, and rollback |
+| Kinesis/MSK + Lambda/Flink + S3 | Streaming ingestion and analytics | Stream capture, stream processing, durable lake storage |
+| DMS + S3 + Glue + Athena | Database replication into analytics lake | DMS extracts, S3 stores, Glue catalogs, Athena queries |
+| Redshift + S3 + Glue | Warehouse plus data lake | Redshift serves BI, S3 holds raw/curated data, Glue tracks metadata |
+| VPC + private subnets + NAT/VPC endpoints | Private workload networking | Private compute with controlled outbound internet or private AWS API access |
+| IAM Identity Center + Organizations + SCPs | Multi-account enterprise access | Central workforce access plus account-level guardrails |
+| IAM role + STS + CloudTrail | Auditable temporary access | Short-lived credentials and traceable role sessions |
+| Secrets Manager + KMS + RDS | Secure database credentials | Encrypted secrets with rotation and database integration |
+| CloudWatch + X-Ray + CloudTrail | Operations and audit visibility | Metrics/logs, traces, and API audit history answer different questions |
+| CloudFormation/CDK/Terraform + CI/CD | Repeatable deployments | Versioned infrastructure, review, promotion, rollback |
+| Route 53 + ALB + Auto Scaling | Highly available web entry point | DNS, health-checked load balancing, elastic compute capacity |
+| Multi-AZ RDS + backups + read replicas | Reliable relational database | AZ failure tolerance, restore path, and read scaling |
+| S3 versioning + lifecycle + replication | Durable governed object storage | Recovery, cost control, and cross-Region/cross-account protection |
 
 **Interview answer:** "I design cloud systems around failure domains, identity boundaries, automation, observability, and cost. AWS gives me Regions, Availability Zones, managed services, and APIs so I can build systems that scale and recover predictably."
 
@@ -209,6 +385,8 @@ An AWS account is a strong isolation boundary for billing, quotas, identity, bla
 
 **Safe trust policy**
 
+Put this on the target role. It says who may assume the role.
+
 ```json
 {
   "Version": "2012-10-17",
@@ -223,6 +401,36 @@ An AWS account is a strong isolation boundary for billing, quotas, identity, bla
   ]
 }
 ```
+
+The caller also needs an identity policy allowing the `sts:AssumeRole` action on that role:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<TARGET_ROLE_NAME>"
+    }
+  ]
+}
+```
+
+**AssumeRole flow**
+
+```text
+source identity
+  -> has permission: sts:AssumeRole on target role ARN
+  -> calls AWS STS AssumeRole
+  -> target role trust policy allows the source principal
+  -> STS returns temporary credentials
+  -> caller uses temporary credentials with the target role's permissions
+```
+
+Temporary credentials contain an access key, secret key, session token, and expiration. The requested session length is
+`DurationSeconds`; AWS requires at least 900 seconds, and the maximum is bounded by the target role's maximum session
+duration. Role chaining is limited to 1 hour for the chained session.
 
 **Interview answer:** "Least privilege means granting only the actions, resources, conditions, and duration required. I prefer roles and temporary credentials, verify with CloudTrail and Access Analyzer, and use SCPs or permission boundaries for guardrails."
 
@@ -258,6 +466,15 @@ python3 --version
 git --version
 aws --version
 localstack --version
+```
+
+For real AWS, prefer AWS CLI v2 plus SSO/IAM Identity Center or an approved office credential tool. Use `aws configure`
+only when your organization explicitly uses IAM user access keys.
+
+```bash
+aws --version
+aws configure list-profiles
+aws sts get-caller-identity --profile <profile-name>
 ```
 
 Install Docker Desktop from https://www.docker.com/products/docker-desktop/ and start it before running LocalStack. On Apple Silicon, keep Docker Desktop updated; older images and Lambda runtimes may need multi-architecture support.
@@ -361,7 +578,8 @@ export AWS_DEFAULT_REGION=us-east-1
 export AWS_ENDPOINT_URL=http://localhost:4566
 ```
 
-These values are local placeholders. They are not real AWS credentials and must not be used for real AWS access.
+These values are local placeholders. They are not real AWS credentials and must not be used for real AWS access. Keep
+`AWS_ENDPOINT_URL=http://localhost:4566` set when using them so requests go to LocalStack, not AWS.
 
 **Two equivalent CLI styles**
 
@@ -452,6 +670,28 @@ s3_resource = boto3.resource("s3")
 
 Clients are usually preferred for production automation because they expose complete service APIs and map closely to AWS API documentation. Resources can be convenient but are not available for every service.
 
+**Boto3 request lifecycle**
+
+```text
+your Python code
+  -> boto3 client method
+  -> botocore validates parameters from service model
+  -> credentials are resolved from provider chain
+  -> request is signed with SigV4
+  -> HTTPS call is sent to the regional service endpoint
+  -> AWS evaluates IAM/resource/KMS/SCP/session policies
+  -> response dictionary or ClientError returns
+```
+
+**Client creation checklist**
+
+- Pick the correct `service_name`, such as `s3`, `dynamodb`, `lambda`, or `sts`.
+- Set `region_name` explicitly unless the resource is truly global.
+- Use a named profile locally; use attached roles in AWS.
+- Use `endpoint_url` only for LocalStack or custom-compatible endpoints.
+- Use standard retries and reasonable timeouts for production automation.
+- Inject clients into functions so tests can use Stubber, Moto, or LocalStack.
+
 **Dependency injection**
 
 ```python
@@ -527,8 +767,9 @@ Boto3 searches for credentials in a provider chain: explicit parameters, environ
 
 Important files and variables:
 
-- `~/.aws/credentials`: access keys or SSO/role cached credentials by profile.
+- `~/.aws/credentials`: static access keys by profile, when your organization uses IAM user keys.
 - `~/.aws/config`: Region, output format, role, SSO, and profile settings.
+- `~/.aws/sso/cache`: cached IAM Identity Center/SSO tokens.
 - `AWS_PROFILE`: selected profile.
 - `AWS_REGION` and `AWS_DEFAULT_REGION`: Region selection.
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`: environment credentials.
@@ -687,6 +928,14 @@ def wait_for_athena_query(athena_client, query_execution_id: str) -> str:
 **Beginner** **Runs with LocalStack** **Security note**
 
 S3 stores objects in buckets. Keys are flat strings; prefixes create folder-like organization. Know storage classes, versioning, lifecycle, encryption, bucket policies, Block Public Access, object ownership, multipart uploads, presigned URLs, notifications, replication, and strong consistency.
+
+What to know first:
+
+- Bucket names are globally unique; object keys are strings, not real folders.
+- S3 is strongly consistent for reads after writes and list operations.
+- Access can be controlled by IAM policies, bucket policies, ACLs, KMS key policies, and Block Public Access.
+- Use lifecycle policies for cost control and versioning for object-level recovery.
+- For data lakes, table formats such as Iceberg, Delta, or Hudi provide dataset-level snapshots; S3 versioning alone does not.
 
 **Runnable LocalStack example**
 
@@ -954,6 +1203,14 @@ if __name__ == "__main__":
 
 SQS decouples producers and consumers. Standard queues provide at-least-once delivery and best-effort ordering. FIFO queues add ordering and deduplication. Consumers must be idempotent because duplicates can happen.
 
+What to know first:
+
+- SQS is pull-based; consumers poll for messages.
+- Standard queues can deliver duplicates, so consumers must be idempotent.
+- Visibility timeout must be longer than normal processing time.
+- DLQs capture messages that repeatedly fail.
+- Long polling reduces empty receives and cost.
+
 ```python
 import json
 import boto3
@@ -1084,6 +1341,14 @@ print(response["FailedEntryCount"])
 
 DynamoDB is a low-latency NoSQL database. Model access patterns first. Prefer `query` when you know a partition key; `scan` reads broadly and is expensive at scale.
 
+What to know first:
+
+- Design partition and sort keys from access patterns, not from object models.
+- `Query` is targeted and efficient; `Scan` reads broadly and should be rare at scale.
+- Conditional writes are the standard idempotency and optimistic-locking tool.
+- Hot partitions cause throttling even when table-level capacity looks sufficient.
+- GSIs add access patterns but introduce write amplification and eventual consistency.
+
 ```python
 from decimal import Decimal
 import boto3
@@ -1138,6 +1403,14 @@ Use conditional writes for idempotency and optimistic locking. Use transactions 
 **Intermediate**
 
 Lambda runs code in response to events. Know handlers, events, context, execution environments, cold starts, warm starts, execution roles, environment variables, memory/CPU, timeouts, concurrency, layers, event source mappings, destinations, DLQs, idempotency, and partial batch failures.
+
+What to know first:
+
+- The execution role controls what the function can do.
+- Memory setting also affects CPU allocation.
+- Clients created outside the handler can be reused by warm invocations.
+- Timeouts, reserved concurrency, retries, and DLQs/destinations are production controls.
+- Event source mappings such as SQS require idempotent handlers and batch-failure handling.
 
 **Basic handler - Runs locally as plain Python**
 
@@ -1196,6 +1469,14 @@ EC2 provides virtual machines. Know AMIs, instance types, EBS, security groups, 
 | ECS | AWS-native container orchestration. |
 | EKS | Kubernetes ecosystem and portability. |
 | Fargate | Containers without managing servers. |
+
+Interview shortcut:
+
+- Choose Lambda for short event-driven work and minimal operations.
+- Choose ECS/Fargate for containerized services without managing EC2 hosts.
+- Choose EC2 when you need OS-level control, special agents, GPUs, or custom networking.
+- Choose Batch for queued batch jobs.
+- Choose EKS when Kubernetes ecosystem requirements are real, not assumed.
 
 Safe EC2 state-changing examples must validate account, Region, environment, and tags, and support dry-run.
 
@@ -1309,12 +1590,34 @@ Security group vs NACL: security groups are stateful and resource-level; NACLs a
 
 Gateway endpoint vs interface endpoint: gateway endpoints are route-table targets for S3/DynamoDB; interface endpoints create ENIs and use PrivateLink.
 
+Beginner mental model:
+
+```text
+VPC = private network boundary
+subnet = IP range inside an AZ
+route table = where packets go next
+security group = stateful allow rules on resources
+NACL = stateless subnet guardrail
+VPC endpoint = private path to AWS service APIs
+```
+
 
 ## 21. Monitoring, logging, and auditing
 
 **Intermediate**
 
 CloudWatch collects metrics, logs, alarms, dashboards, and Logs Insights. CloudTrail records API activity. AWS Config records resource configuration and compliance. X-Ray traces distributed applications.
+
+Do not mix these up in interviews:
+
+| Tool | Primary question answered |
+| --- | --- |
+| CloudWatch Metrics | Is the system healthy numerically? |
+| CloudWatch Logs | What did the application or service write? |
+| CloudWatch Alarms | Should someone or something react? |
+| CloudTrail | Who called which AWS API, from where, and when? |
+| AWS Config | What changed in resource configuration? |
+| X-Ray/tracing | Where did time/errors happen across a request path? |
 
 ```python
 import time
@@ -1344,6 +1647,15 @@ CloudWatch vs CloudTrail: CloudWatch monitors workload behavior; CloudTrail audi
 **Intermediate** **Security note**
 
 Use IAM least privilege, KMS for encryption keys, Secrets Manager for secrets and rotation, Parameter Store for configuration and simple secure strings, resource policies for resource-side authorization, and public-access controls.
+
+Security baseline:
+
+- authenticate humans with SSO/IAM Identity Center where possible
+- run workloads with roles, not embedded access keys
+- encrypt sensitive data with KMS-managed keys
+- keep secrets out of code, images, and logs
+- log API activity with CloudTrail
+- use least privilege and review access regularly
 
 ```python
 import json
@@ -1665,6 +1977,7 @@ def session(profile: str | None = None, region: str = "us-east-1"):
 
 
 def local_client(service: str):
+    # Dummy credentials are safe only with the LocalStack endpoint.
     return boto3.client(
         service,
         region_name="us-east-1",

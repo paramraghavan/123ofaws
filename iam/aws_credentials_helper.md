@@ -1,121 +1,66 @@
-Two approaches. Start with built-in if it covers you; reach for a custom helper only when it doesn't.
+# AWS Credentials and `credential_process`
 
-## Approach 1: Built-in (no helper needed)
+Use the native AWS CLI role profile when it is enough. Use `credential_process` when credentials come from a custom
+office login flow, Vault, 1Password, hardware MFA, or another non-standard source.
 
-For "assume a role from a base IAM user, with optional MFA" — the most common case — the AWS CLI handles this natively.
-No script required.
+## Native Role Profile
 
-`~/.aws/credentials` (base IAM user with permission to assume roles):
+`~/.aws/credentials`:
 
 ```ini
 [base]
-aws_access_key_id = AKIA....
-aws_secret_access_key = wJalrXUtnFEMI/K7....
+aws_access_key_id = <access-key-id>
+aws_secret_access_key = <secret-access-key>
 ```
 
 `~/.aws/config`:
 
 ```ini
-[default]
+[profile profile-oper]
 region = us-east-1
-
-[profile emr-prod]
-region         = us-east-1
-role_arn       = arn:aws:iam::111111111111:role/EMRHygieneRole
+role_arn = arn:aws:iam::111111111111:role/OperatorRole
 source_profile = base
-mfa_serial     = arn:aws:iam::222222222222:mfa/yourusername
+mfa_serial = arn:aws:iam::222222222222:mfa/your-user
 duration_seconds = 3600
-
-[profile emr-dev]
-region         = us-east-1
-role_arn       = arn:aws:iam::333333333333:role/EMRHygieneRole
-source_profile = base
 ```
 
-The CLI prompts for the MFA code on first use, caches the assumed-role credentials in `~/.aws/cli/cache/`, and reuses
-them until expiration. `boto3` reads the same cache, so the EMR hygiene CLI works without any extra setup:
+The AWS CLI uses `base`, calls STS `AssumeRole`, caches temporary credentials under `~/.aws/cli/cache`, and refreshes
+when needed.
 
-```bash
-./emr_hygiene_cli.py --profile emr-prod --vc-ids vc-abc123
-```
-
-**Use this when**: source credentials live in a standard credentials file, you only need AssumeRole (± MFA), and you're
-happy with the AWS CLI's built-in cache.
-
----
-
-## Approach 2: Custom credential helper
-
-Use a helper when the built-in doesn't fit — e.g. credentials come from a secrets manager / Vault / 1Password / hardware
-token, you need custom MFA flows, you want richer caching, or you want to log every credential issuance for audit.
-
-The pattern is: `credential_process` in your AWS config points to a script. The script prints JSON on stdout in a
-specific format; the SDK reads it.
+## Custom Helper Profile
 
 `~/.aws/config`:
 
 ```ini
-[default]
+[profile profile-oper]
 region = us-east-1
-
-[profile emr-prod]
-region = us-east-1
-credential_process = /opt/aws-helper/aws_creds_helper.py emr-prod
-
-[profile emr-dev]
-region = us-east-1
-credential_process = /opt/aws-helper/aws_creds_helper.py emr-dev
+credential_process = /Users/paramraghavan/dev/123ofaws/iam/credential_helper.py profile-oper
 ```
 
-`~/.aws/helper-roles.json` (role configs, kept out of the main AWS config):
+`~/.aws/credential-helper.json`:
 
 ```json
 {
-  "emr-prod": {
-    "role_arn": "arn:aws:iam::111111111111:role/EMRHygieneRole",
+  "profile-oper": {
+    "role_arn": "arn:aws:iam::111111111111:role/OperatorRole",
     "source_profile": "base",
-    "mfa_serial": "arn:aws:iam::222222222222:mfa/yourusername",
-    "duration_seconds": 3600
-  },
-  "emr-dev": {
-    "role_arn": "arn:aws:iam::333333333333:role/EMRHygieneRole",
-    "source_profile": "base",
+    "mfa_serial": "arn:aws:iam::222222222222:mfa/your-user",
     "duration_seconds": 3600
   }
 }
 ```
 
-And here's the helper itself — basic but actually functional:**How the pieces fit together**
-
-```
-~/.aws/credentials       ← base IAM user (long-lived key)
-~/.aws/config            ← profile with credential_process = helper.py
-~/.aws/helper-roles.json ← role configs (chmod 600)
-~/.aws/helper-cache/     ← assumed-role creds, auto-managed (chmod 700)
-```
-
-**Install / first use**
+Test:
 
 ```bash
-# Put the helper somewhere stable and lock it down
-sudo mkdir -p /opt/aws-helper
-sudo cp aws_creds_helper.py /opt/aws-helper/
-sudo chmod 755 /opt/aws-helper/aws_creds_helper.py
-
-# Create the roles config
-nano ~/.aws/helper-roles.json
-chmod 600 ~/.aws/helper-roles.json
-
-# Sanity check — should prompt for MFA, then print JSON to stdout
-/opt/aws-helper/aws_creds_helper.py emr-prod
-
-# Verify the SDK picks it up
-aws sts get-caller-identity --profile emr-prod
+chmod 600 ~/.aws/credential-helper.json
+/Users/paramraghavan/dev/123ofaws/iam/credential_helper.py profile-oper
+aws sts get-caller-identity --profile profile-oper
 ```
 
-**The output contract** (this is the part you can't change)
+## Output Contract
 
-The helper must print exactly this JSON shape on stdout:
+`credential_process` must print only this JSON shape to stdout:
 
 ```json
 {
@@ -123,20 +68,25 @@ The helper must print exactly this JSON shape on stdout:
   "AccessKeyId": "ASIA...",
   "SecretAccessKey": "...",
   "SessionToken": "...",
-  "Expiration": "2026-05-17T18:30:00+00:00"
+  "Expiration": "2026-09-26T18:30:00+00:00"
 }
 ```
 
-Anything else on stdout breaks the SDK. That's why the helper sends MFA prompts and errors to **stderr** — stdout is
-reserved.
+Prompts, warnings, and errors must go to stderr.
 
-**Where you'd extend it**
+## Refresh Model
 
-The helper is small on purpose. The three swap-in points are:
+- `base` is the source profile. It may be static keys, SSO, or office-managed credentials.
+- `credential_helper.py` does not rotate `base`.
+- The helper refreshes assumed-role STS credentials before expiration.
+- `duration_seconds` controls the requested STS session length.
+- AWS STS minimum is `900` seconds.
+- The maximum is the target role's maximum session duration, except role chaining is limited to 1 hour.
 
-- **`get_mfa_code()`** — replace `input()` with a call to `oathtool`, a YubiKey, 1Password CLI (`op item get`), or your
-  password manager's TOTP function. Lets you skip the manual prompt.
-- **`assume_role()`** — replace the `boto3.Session(profile_name=...)` line with whatever fetches your source
-  credentials (Vault, AWS Secrets Manager, gpg-encrypted file, hardware token).
-- **`write_cache()`** — if you want centralized audit, also POST the issuance event to a logging endpoint at the same
-  time as writing the file.
+## Quick Checks
+
+```bash
+aws configure list --profile base
+aws sts get-caller-identity --profile base
+aws sts get-caller-identity --profile profile-oper
+```

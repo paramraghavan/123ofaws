@@ -520,10 +520,11 @@ Example:
          - Run Glue jobs (your team's jobs only)"
 ```
 
-### **Exercise 5.1: Create an IAM User with Limited Permissions**
+### **Exercise 5.1: Create an IAM Identity with Limited Permissions**
 
 **Problem:**
-Create an IAM user that can only read from a specific S3 bucket.
+Create an IAM identity policy that can only read from a specific S3 bucket. In production, prefer attaching this
+permission to a role or group instead of creating long-lived IAM user access keys.
 
 **Solution:**
 
@@ -532,20 +533,12 @@ import boto3
 
 iam = boto3.client('iam')
 
-# Step 1: Create IAM user
+# Step 1: Create IAM user for the exercise
 user_name = 'data-analyst-user'
 iam.create_user(UserName=user_name)
 print(f"✓ User {user_name} created")
 
-# Step 2: Create an access key (like password) for this user
-response = iam.create_access_key(UserName=user_name)
-access_key = response['AccessKey']['AccessKeyId']
-secret_key = response['AccessKey']['SecretAccessKey']
-
-print(f"Access Key: {access_key}")
-print(f"Secret Key: {secret_key}")
-
-# Step 3: Create a policy (permission document)
+# Step 2: Create a policy (permission document)
 policy_doc = {
     "Version": "2012-10-17",
     "Statement": [
@@ -1928,7 +1921,7 @@ ssm = boto3.client('ssm')
 ssm.put_parameter(
     Name='/myapp/database/connection_string',
     # Name: Path-like structure for organization
-    Value='postgresql://user:password@db.example.com:5432/mydb',
+    Value='postgresql://<user>:<password>@db.example.com:5432/mydb',
     Type='SecureString',  # Encrypted with KMS
     # Type options:
     # - String: Plain text (not recommended for secrets)
@@ -2320,7 +2313,7 @@ def setup_ssm_parameters():
 
     ssm.put_parameter(
         Name='/data-pipeline/db/password',
-        Value='secretpassword123',
+        Value='<database-password>',
         Type='SecureString'
     )
 
@@ -2595,17 +2588,17 @@ Total Free Usage: Enough to learn!
 - Click "Create an AWS Account"
 - Add payment method (required, but won't charge for free tier)
 
-**Step 2: Create IAM User**
-- Sign in as root
-- Go to IAM service
-- Create new user with programmatic access
-- Download credentials (Access Key + Secret Key)
+**Step 2: Configure identity**
+- Enable MFA on the root user and avoid root for daily work.
+- Prefer AWS IAM Identity Center/SSO for human access.
+- Prefer IAM roles for workloads.
+- Create IAM user access keys only when your organization explicitly requires them.
 
 **Step 3: Configure AWS CLI**
 ```bash
 aws configure
-# Enter Access Key
-# Enter Secret Key
+# Enter Access Key, only if your org uses IAM user keys
+# Enter Secret Key, only if your org uses IAM user keys
 # Enter region: us-east-1
 # Enter output format: json
 ```
@@ -2690,4 +2683,3 @@ You now have a complete handbook covering:
 **Ready to Use**: Yes ✓
 
 Good luck on your data engineering journey!
-

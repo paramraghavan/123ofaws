@@ -768,14 +768,13 @@ s3 = session.client('s3')
 s3 = boto3.client('s3', region_name='eu-west-1')
 ```
 
-### Custom Credentials
+### Named Profile
 ```python
-session = boto3.Session(
-    aws_access_key_id='YOUR_KEY',
-    aws_secret_access_key='YOUR_SECRET',
-    region_name='us-east-1'
-)
+session = boto3.Session(profile_name='dev', region_name='us-east-1')
+s3 = session.client('s3')
 ```
+
+Use explicit credential parameters only for short-lived credentials returned by STS, not for hardcoded IAM user keys.
 
 ---
 
@@ -1107,19 +1106,15 @@ print(session.available_services)     # All available AWS services
 
 #### Configuration: Where Credentials Come From
 
-Boto3 looks for credentials in this order:
-1. **Passed to Session/Client**: `boto3.client('s3', aws_access_key_id='...', aws_secret_access_key='...')`
-2. **Environment Variables**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`
-3. **Credentials File**: `~/.aws/credentials`
-4. **Config File**: `~/.aws/config`
-5. **IAM Role**: If running on EC2, ECS, Lambda, etc.
+Boto3 looks for credentials through its provider chain, including explicit parameters, environment variables, shared
+config/credentials files, SSO cache, assume-role profiles, container credentials, Lambda execution roles, and EC2
+instance metadata. Prefer profiles, SSO, and roles over long-lived access keys.
 
 **Best Practice**:
 ```python
-# DON'T: Hardcode credentials
-client = boto3.client('s3', aws_access_key_id='...', aws_secret_access_key='...')
+# DON'T: hardcode long-lived IAM user keys in source code
 
-# DO: Use environment variables or IAM role
+# DO: use the default provider chain for AWS workloads
 client = boto3.client('s3')
 
 # DO: Use profiles for multiple accounts

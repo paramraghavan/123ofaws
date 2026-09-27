@@ -418,7 +418,7 @@ resource "aws_security_group" "emr" {
       ],
       "Condition": {
         "StringEquals": {
-          "sts:ExternalId": "unique-secret-xyz"
+          "sts:ExternalId": "<external-id-from-partner>"
         }
       }
     }
@@ -450,7 +450,7 @@ resource "aws_security_group" "emr" {
       "Resource": "arn:aws:iam::222222222222:role/prod-data-access",
       "Condition": {
         "StringEquals": {
-          "sts:ExternalId": "unique-secret-xyz"
+          "sts:ExternalId": "<external-id-from-partner>"
         }
       }
     }
@@ -466,7 +466,7 @@ sts = boto3.client('sts')
 assumed_role = sts.assume_role(
     RoleArn='arn:aws:iam::222222222222:role/prod-data-access',
     RoleSessionName='dev-session',
-    ExternalId='unique-secret-xyz',
+    ExternalId='<external-id-from-partner>',
     DurationSeconds=3600
 )
 
@@ -562,7 +562,7 @@ resource "aws_s3_bucket_replication_configuration" "replication" {
   "Action": "sts:AssumeRole",
   "Condition": {
     "StringEquals": {
-      "sts:ExternalId": "unique-secret-12345"  # ← Required!
+      "sts:ExternalId": "<external-id-from-partner>"  # Required
     }
   }
 }
@@ -583,7 +583,7 @@ ssm = boto3.client('ssm')
 # Store securely (encrypted)
 ssm.put_parameter(
     Name='/myapp/database/password',
-    Value='secret123',
+    Value='<database-password>',
     Type='SecureString'  # Encrypted
 )
 
@@ -745,7 +745,7 @@ ssm = boto3.client('ssm')
 # Store encrypted password
 ssm.put_parameter(
     Name='/prod/database/password',
-    Value='secret-here',
+    Value='<database-password>',
     Type='SecureString'  # Encrypted with KMS
 )
 

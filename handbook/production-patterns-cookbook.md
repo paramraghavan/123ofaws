@@ -55,8 +55,6 @@ class SessionManager:
 
     def __init__(self, region: str = 'us-east-1',
                  profile: str = None,
-                 aws_access_key_id: str = None,
-                 aws_secret_access_key: str = None,
                  role_arn: str = None):
         """
         Initialize session manager.
@@ -66,14 +64,11 @@ class SessionManager:
             profile: Optional AWS profile name from ~/.aws/credentials
                      If provided, uses this profile instead of default
                      Example: 'prod', 'dev', 'staging'
-            aws_access_key_id: Optional explicit access key
-            aws_secret_access_key: Optional explicit secret key
             role_arn: Optional role ARN to assume (for cross-account)
 
         Priority order:
             1. If profile provided: use that profile
-            2. Else if access_key_id + secret provided: use those credentials
-            3. Else: use default credentials (env vars, instance role, etc.)
+            2. Else: use default credentials (env vars, instance role, SSO, etc.)
         """
         self.region = region
         self.profile = profile
@@ -82,13 +77,6 @@ class SessionManager:
         if profile:
             # Use specified profile from ~/.aws/credentials
             self.session = boto3.Session(profile_name=profile, region_name=region)
-        elif aws_access_key_id and aws_secret_access_key:
-            # Use explicit credentials
-            self.session = boto3.Session(
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
-                region_name=region
-            )
         else:
             # Use default credentials (env vars, instance role, ~/.aws/config)
             self.session = boto3.Session(region_name=region)
@@ -127,14 +115,7 @@ session = SessionManager(
     profile='prod'  # Uses [prod] section from ~/.aws/credentials
 )
 
-# Option 3: With explicit credentials
-session = SessionManager(
-    region='us-east-1',
-    aws_access_key_id='YOUR_KEY',
-    aws_secret_access_key='YOUR_SECRET'
-)
-
-# Option 4: Using profile from dev environment, then assume cross-account role
+# Option 3: Using profile from dev environment, then assume cross-account role
 session = SessionManager(
     region='us-east-1',
     profile='dev',
@@ -437,32 +418,21 @@ class SessionManager:
     """Manages AWS sessions and clients."""
 
     def __init__(self, region: str = 'us-east-1',
-                 profile: str = None,
-                 aws_access_key_id: str = None,
-                 aws_secret_access_key: str = None):
+                 profile: str = None):
         """
         Initialize session manager.
 
         Args:
             region: AWS region (default: us-east-1)
             profile: Optional AWS profile name from ~/.aws/credentials
-            aws_access_key_id: Optional explicit access key
-            aws_secret_access_key: Optional explicit secret key
         """
         self.region = region
         self.profile = profile
 
-        # Create session with priority: profile > explicit creds > default
+        # Create session with priority: profile > default provider chain.
         if profile:
             # Use specified profile from ~/.aws/credentials
             self.session = boto3.Session(profile_name=profile, region_name=region)
-        elif aws_access_key_id and aws_secret_access_key:
-            # Use explicit credentials
-            self.session = boto3.Session(
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
-                region_name=region
-            )
         else:
             # Use default credentials (env vars, instance role, ~/.aws/config)
             self.session = boto3.Session(region_name=region)
@@ -504,13 +474,6 @@ def main():
     # session_manager = SessionManager(
     #     region='us-east-1',
     #     profile='production'  # From ~/.aws/credentials [production] section
-    # )
-
-    # OPTION 3: Using explicit credentials
-    # session_manager = SessionManager(
-    #     region='us-east-1',
-    #     aws_access_key_id='YOUR_ACCESS_KEY',
-    #     aws_secret_access_key='YOUR_SECRET_KEY'
     # )
 
     # Configure monitors
@@ -826,21 +789,13 @@ class AssumedRoleCredentials:
 class CrossAccountAccessManager:
     """Manage cross-account access using STS AssumeRole."""
 
-    def __init__(self, source_account_credentials: Optional[Dict[str, str]] = None):
-        """
-        Initialize the manager.
-
-        Args:
-            source_account_credentials: Optional explicit credentials for source account
-        """
-        if source_account_credentials:
-            session = Session(
-                aws_access_key_id=source_account_credentials['access_key'],
-                aws_secret_access_key=source_account_credentials['secret_key']
-            )
-            self.sts = session.client('sts')
+    def __init__(self, profile: Optional[str] = None, region: str = "us-east-1"):
+        """Initialize from a named profile or the default credential provider chain."""
+        if profile:
+            session = Session(profile_name=profile, region_name=region)
         else:
-            self.sts = boto3.client('sts')
+            session = Session(region_name=region)
+        self.sts = session.client('sts')
 
     def assume_role(self, role_arn: str,
                    role_session_name: str,

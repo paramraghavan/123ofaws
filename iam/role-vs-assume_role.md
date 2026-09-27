@@ -1,118 +1,70 @@
-## IAM Role vs. Assume Role in AWS
+# IAM Role vs `sts:AssumeRole`
 
-These are related but distinct concepts — one is a **resource**, the other is an **action**.
-Great question — let me break that down clearly.
+An IAM role and `sts:AssumeRole` are related, but they are not the same thing.
 
----
+| Item | Meaning |
+|------|---------|
+| IAM role | AWS identity/resource with a trust policy and permission policies |
+| `sts:AssumeRole` | STS API action that returns temporary credentials for a role |
 
-### IAM Role → It's a "Resource"
+## IAM Role
 
-A **resource** in AWS means it's a **thing that exists** — it has an ARN, it's stored, it can be
-created/updated/deleted.
+An IAM role is a permission set that can be assumed by trusted principals.
 
-```
-arn:aws:iam::123456789012:role/MyRole  ← it EXISTS as an object in AWS
-```
+It has:
 
-Just like an S3 bucket or an EC2 instance is a resource — an **IAM Role is a resource** sitting in AWS IAM. It does
-nothing on its own. It just *exists* with policies attached to it.
+- **Trust policy**: who may assume the role
+- **Permission policies**: what the role can do after it is assumed
+- **Maximum session duration**: upper bound for STS credentials
 
----
+It does not have permanent access keys.
 
-### Assume Role → It's an "Action"
+## `sts:AssumeRole`
 
-An **action** means it's something you **do** — it's an API call, a verb, an operation.
+`sts:AssumeRole` is the API call used to obtain temporary credentials for a role.
 
-```
-sts:AssumeRole  ← it's a CALL you make to AWS STS
-```
+The response contains:
 
-It's the same concept as:
+- `AccessKeyId`
+- `SecretAccessKey`
+- `SessionToken`
+- `Expiration`
 
-- `s3:GetObject` → an action (downloading a file)
-- `ec2:StartInstances` → an action (starting a server)
-- `sts:AssumeRole` → an action (borrowing a role's permissions temporarily)
+The caller uses those temporary credentials to call AWS APIs with the role's permissions.
 
----
+## Required Policies
 
-### Simple Analogy
+The source identity needs permission:
 
-|                | Analogy                                                                            |
-|----------------|------------------------------------------------------------------------------------|
-| **IAM Role**   | A **key card** hanging on the wall (it exists, has permissions programmed into it) |
-| **AssumeRole** | The act of **picking up and using** that key card                                  |
-
-The key card does nothing until someone picks it up and swipes it. Similarly, the IAM Role does nothing until someone
-calls `sts:AssumeRole` on it.
-
----
-
-So in short:
-
-- **IAM Role** = a *noun* (a thing)
-- **AssumeRole** = a *verb* (an action you perform on that thing)
-
----
-
-### IAM Role
-
-An **IAM Role** is an identity (similar to a user) that defines a set of permissions. Key characteristics:
-
-- It's a **static object** stored in AWS IAM
-- Has a **trust policy** (who can use it) and a **permissions policy** (what it can do)
-- Has **no long-term credentials** (no username/password or permanent access keys)
-- Can be attached to AWS services (EC2, Lambda, ECS, etc.), users, or other accounts
-
-Think of it as a **hat with permissions** sitting on a shelf — it does nothing on its own.
-
----
-
-### Assume Role (`sts:AssumeRole`)
-
-**Assuming a role** is the **act of temporarily adopting** an IAM Role's permissions. Key characteristics:
-
-- It's an **API call** made to AWS STS (Security Token Service)
-- Returns **temporary credentials** (Access Key, Secret Key, Session Token) — valid for 15 min to 12 hours
-- Can be done by users, services, or other AWS accounts
-- Enables **cross-account access** and **privilege escalation within policy bounds**
-
-Think of it as **putting on the hat** — you temporarily gain those permissions.
-
----
-
-### How They Work Together
-
-```
-[Entity: User / Service / Account]
-        |
-        |  calls sts:AssumeRole
-        ▼
-[IAM Role] ──── Trust Policy: "Who is allowed to assume me?"
-        |
-        |  returns temporary credentials
-        ▼
-[Caller now acts with Role's permissions]
+```json
+{
+  "Effect": "Allow",
+  "Action": "sts:AssumeRole",
+  "Resource": "arn:aws:iam::111111111111:role/OperatorRole"
+}
 ```
 
----
+The target role must trust the source identity:
 
-### Quick Comparison
+```json
+{
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "arn:aws:iam::222222222222:user/your-user"
+  },
+  "Action": "sts:AssumeRole"
+}
+```
 
-|                   | IAM Role                   | Assume Role                       |
-|-------------------|----------------------------|-----------------------------------|
-| **What it is**    | An AWS identity/resource   | An API action (`sts:AssumeRole`)  |
-| **Credentials**   | None (permanent)           | Temporary (STS tokens)            |
-| **Defined by**    | Permissions + Trust policy | The caller invoking STS           |
-| **Used for**      | Granting permissions       | Temporarily acquiring permissions |
-| **Cross-account** | Configured in trust policy | Triggered by the assuming entity  |
+## Session Duration
 
----
+- Minimum: `900` seconds.
+- Maximum: target role's maximum session duration, up to 12 hours for many roles.
+- Role chaining: 1 hour maximum for the chained role session.
 
-### Common Use Cases
+## Common Uses
 
-- **EC2/Lambda** → assigned an IAM Role directly (service assumes it automatically)
-- **Cross-account access** → Account A calls `AssumeRole` on a role in Account B
-- **CI/CD pipelines** → GitHub Actions assumes a role to deploy to AWS
-- **Temporary privilege escalation** → A restricted user assumes a more powerful role for a specific task
-
-The key mental model: **the Role is the permission set; AssumeRole is how you claim it temporarily.**
+- EC2, ECS, Lambda, and other AWS services assuming service roles.
+- Cross-account access.
+- CI/CD deployment roles.
+- Short-lived operational access for humans.

@@ -1,45 +1,78 @@
-'''
-Cross account bucket access.
-Ref:
- https://stackoverflow.com/questions/44171849/aws-boto3-assumerole-example-which-includes-role-usage
-'''
+#!/usr/bin/env python3
+"""Minimal boto3 STS AssumeRole example.
 
-import boto3
-import os
+Usage:
+    ./cross_account_access_sts.py arn:aws:iam::111111111111:role/OperatorRole
 
-'''
-In this case cross account bucket access has been  provisioned
-'''
-def cross_account_bucket_access():
-    sts_default_provider_chain = boto3.client('sts')
-    role_to_assume_arn=os.environ['cross_bucket_access_role_arn']
-    role_session_name='bucket_session'
-    response = sts_default_provider_chain.assume_role(
-        RoleArn=role_to_assume_arn,
-        RoleSessionName=role_session_name
+The caller credentials are resolved by boto3's normal provider chain:
+environment variables, AWS profiles, SSO cache, EC2/ECS role credentials, etc.
+"""
+
+from __future__ import annotations
+
+import argparse
+from datetime import timezone
+from typing import Any
+
+
+def assume_role(
+    role_arn: str,
+    session_name: str,
+    duration_seconds: int = 3600,
+) -> dict[str, Any]:
+    """Assume role and return the STS Credentials object."""
+    import boto3
+
+    sts = boto3.client("sts")
+    response = sts.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName=session_name,
+        DurationSeconds=duration_seconds,
     )
-    # From the response that contains the assumed role, get the temporary
-    # credentials that can be used to make subsequent API calls
-    credentials = response['Credentials']
-    s3_resource=boto3.resource('s3',
-                               aws_access_key_id=credentials['AccessKeyId'],
-                               aws_secret_access_key=credentials['SecretAccessKey'],
-                               aws_session_token=credentials['SessionToken']
-                               )
+    return response["Credentials"]
 
-    # Use the Amazon S3 resource object that is now configured with the
-    # credentials to access cross account S3 buckets.
-    for bucket in s3_resource.buckets.all():
-        print(bucket.name)
 
-from boto3 import Session
+def s3_client_for_credentials(credentials: dict[str, Any]):
+    """Create an S3 client from temporary STS credentials."""
+    import boto3
 
-class Boto3STSService(object):
-    def __init__(self, arn, arn_access_key, arn_secret_key, role_session_name ):
-        sess = Session(aws_access_key_id=arn_access_key,
-                       aws_secret_access_key=arn_secret_key)
-        sts_connection = sess.client('sts')
-        assume_role_object = sts_connection.assume_role(
-            RoleArn=arn, RoleSessionName=role_session_name,
-            DurationSeconds=30)
-        self.credentials = assume_role_object['Credentials']
+    return boto3.client(
+        "s3",
+        aws_access_key_id=credentials["AccessKeyId"],
+        aws_secret_access_key=credentials["SecretAccessKey"],
+        aws_session_token=credentials["SessionToken"],
+    )
+
+
+def list_buckets(role_arn: str, session_name: str, duration_seconds: int) -> None:
+    credentials = assume_role(role_arn, session_name, duration_seconds)
+    expiration = credentials["Expiration"].astimezone(timezone.utc).isoformat()
+    print(f"Assumed role until {expiration}")
+
+    s3 = s3_client_for_credentials(credentials)
+    for bucket in s3.list_buckets().get("Buckets", []):
+        print(bucket["Name"])
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Assume a role and list S3 buckets.")
+    parser.add_argument("role_arn", help="Role ARN to assume.")
+    parser.add_argument(
+        "--session-name",
+        default="cross-account-s3",
+        help="STS role session name.",
+    )
+    parser.add_argument(
+        "--duration-seconds",
+        type=int,
+        default=3600,
+        help="Requested STS session duration. Minimum is 900 seconds.",
+    )
+    args = parser.parse_args()
+
+    list_buckets(args.role_arn, args.session_name, args.duration_seconds)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
