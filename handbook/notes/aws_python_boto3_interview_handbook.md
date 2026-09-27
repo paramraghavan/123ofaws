@@ -113,19 +113,11 @@ domains.
 | Shared responsibility | AWS secures the cloud; customers secure what they run in the cloud.                                                                     |
 | CapEx vs OpEx         | Cloud shifts many large capital purchases to operating expenses.                                                                        |
 
-**Key comparisons**
-
-- Scalability vs elasticity: scalability is capacity growth; elasticity is automatic capacity adjustment.
-- High availability vs fault tolerance: HA reduces downtime; fault tolerance hides failures from users.
-- Availability vs durability: availability is access; durability is data survival.
-- Backup vs disaster recovery: backup is a copy; DR is a tested restoration strategy.
-- Vertical vs horizontal scaling: vertical uses larger machines; horizontal uses more machines.
 
 ### AWS resource mental model
 
-An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. An AWS **resource** is an object inside
-a
-service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
+An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. 
+An AWS **resource** is an object inside a service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
 
 Most AWS work follows this pattern:
 
