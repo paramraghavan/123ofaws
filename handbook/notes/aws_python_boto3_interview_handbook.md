@@ -1,8 +1,10 @@
 # AWS Python Boto3 Interview Handbook
 
-A standalone handbook for AWS services, cloud architecture, Python automation with Boto3, LocalStack development, production engineering practices, troubleshooting, and interview preparation.
+A standalone handbook for AWS services, cloud architecture, Python automation with Boto3, LocalStack development,
+production engineering practices, troubleshooting, and interview preparation.
 
 ## Table of contents
+
 1. [How to use this handbook](#1-how-to-use-this-handbook)
 2. [Cloud computing and AWS fundamentals](#2-cloud-computing-and-aws-fundamentals)
 3. [AWS global infrastructure](#3-aws-global-infrastructure)
@@ -43,7 +45,8 @@ A standalone handbook for AWS services, cloud architecture, Python automation wi
 
 **Beginner** **Intermediate** **Advanced** **Interview answer**
 
-This handbook is a standalone desk reference for AWS architecture and Python automation with Boto3. It assumes you already know Python syntax and focuses on how to use Python safely with AWS APIs.
+This handbook is a standalone desk reference for AWS architecture and Python automation with Boto3. It assumes you
+already know Python syntax and focuses on how to use Python safely with AWS APIs.
 
 Use it in three ways:
 
@@ -53,39 +56,27 @@ Use it in three ways:
 
 Teaching order for new AWS learners:
 
-| Stage | Goal | Sections |
-| --- | --- | --- |
-| 1. Cloud basics | Understand what AWS provides and how resources are organized. | 2, 3 |
-| 2. Identity first | Understand accounts, IAM, credentials, and safe access. | 4, 10, 22 |
-| 3. Developer setup | Run examples safely without touching production. | 5, 6, 7 |
-| 4. Boto3 fundamentals | Create clients, call APIs, handle responses and errors. | 8, 9, 11, 12 |
-| 5. Core services | Learn storage, messaging, database, compute, and networking. | 13-20 |
-| 6. Production thinking | Add observability, IaC, testing, reliability, and cost controls. | 21, 23-28 |
-| 7. Interview practice | Turn knowledge into concise answers and trade-off discussions. | 31-35 |
+| Stage                  | Goal                                                             | Sections     |
+|------------------------|------------------------------------------------------------------|--------------|
+| 1. Cloud basics        | Understand what AWS provides and how resources are organized.    | 2, 3         |
+| 2. Identity first      | Understand accounts, IAM, credentials, and safe access.          | 4, 10, 22    |
+| 3. Developer setup     | Run examples safely without touching production.                 | 5, 6, 7      |
+| 4. Boto3 fundamentals  | Create clients, call APIs, handle responses and errors.          | 8, 9, 11, 12 |
+| 5. Core services       | Learn storage, messaging, database, compute, and networking.     | 13-20        |
+| 6. Production thinking | Add observability, IaC, testing, reliability, and cost controls. | 21, 23-28    |
+| 7. Interview practice  | Turn knowledge into concise answers and trade-off discussions.   | 31-35        |
 
 Examples are labeled:
 
 - **Runs with LocalStack:** safe local examples using Docker and dummy credentials.
-- **Requires real AWS:** examples that need AWS features, IAM, networking, or managed services not fully simulated locally.
+- **Requires real AWS:** examples that need AWS features, IAM, networking, or managed services not fully simulated
+  locally.
 - **Production note:** guidance for real systems.
 - **Security note:** identity, secrets, encryption, and blast-radius guidance.
 - **Performance note:** throughput, latency, API count, and memory guidance.
 - **Reliability note:** retries, idempotency, and failure handling.
 - **Cost note:** billing and waste-prevention guidance.
 - **Common mistake:** frequent pitfalls and corrected patterns.
-
-Code style note: examples intentionally prefer clear step-by-step code over compact tricks. You will often see explicit loops, `if` checks, and named intermediate variables instead of nested comprehensions or dense one-liners.
-
-When teaching or interviewing, use this answer shape:
-
-```text
-1. Define the service or concept.
-2. Explain when you would use it.
-3. Name the security boundary and IAM model.
-4. Describe failure modes and retries.
-5. Describe cost/performance trade-offs.
-6. Give one concrete example.
-```
 
 **Beginner learning path**
 
@@ -116,30 +107,31 @@ When teaching or interviewing, use this answer shape:
 - LocalStack documentation: https://docs.localstack.cloud/
 - Docker Compose documentation: https://docs.docker.com/compose/
 
-
 ## 2. Cloud computing and AWS fundamentals
 
 **Beginner** **Interview answer**
 
-Cloud computing is on-demand access to compute, storage, networking, databases, analytics, and security services through APIs. AWS lets teams provision infrastructure quickly, pay for usage, and design applications across isolated failure domains.
+Cloud computing is on-demand access to compute, storage, networking, databases, analytics, and security services through
+APIs. AWS lets teams provision infrastructure quickly, pay for usage, and design applications across isolated failure
+domains.
 
-| Concept | Plain-English explanation |
-| --- | --- |
-| IaaS | Infrastructure as a Service: you manage the OS and app; AWS manages physical facilities and virtualization. EC2 is the classic example. |
-| PaaS | Platform as a Service: AWS manages more runtime details. Lambda, Elastic Beanstalk, and managed databases reduce platform work. |
-| SaaS | Software as a Service: complete software consumed as a service. |
-| Public cloud | Provider-operated infrastructure shared across tenants with logical isolation. |
-| Private cloud | Cloud operating model dedicated to one organization. |
-| Hybrid cloud | Integrated on-premises and cloud systems. |
-| Scalability | Ability to handle more load by adding capacity. |
-| Elasticity | Automatic scaling up and down with demand. |
-| High availability | Designing to remain available through component failure. |
-| Fault tolerance | Continuing operation with little or no interruption after failure. |
-| Reliability | Consistent correct operation over time. |
-| Durability | Likelihood that stored data will not be lost. |
-| Disaster recovery | Plans and systems to restore service after a major event. |
-| Shared responsibility | AWS secures the cloud; customers secure what they run in the cloud. |
-| CapEx vs OpEx | Cloud shifts many large capital purchases to operating expenses. |
+| Concept               | Plain-English explanation                                                                                                               |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| IaaS                  | Infrastructure as a Service: you manage the OS and app; AWS manages physical facilities and virtualization. EC2 is the classic example. |
+| PaaS                  | Platform as a Service: AWS manages more runtime details. Lambda, Elastic Beanstalk, and managed databases reduce platform work.         |
+| SaaS                  | Software as a Service: complete software consumed as a service.                                                                         |
+| Public cloud          | Provider-operated infrastructure shared across tenants with logical isolation.                                                          |
+| Private cloud         | Cloud operating model dedicated to one organization.                                                                                    |
+| Hybrid cloud          | Integrated on-premises and cloud systems.                                                                                               |
+| Scalability           | Ability to handle more load by adding capacity.                                                                                         |
+| Elasticity            | Automatic scaling up and down with demand.                                                                                              |
+| High availability     | Designing to remain available through component failure.                                                                                |
+| Fault tolerance       | Continuing operation with little or no interruption after failure.                                                                      |
+| Reliability           | Consistent correct operation over time.                                                                                                 |
+| Durability            | Likelihood that stored data will not be lost.                                                                                           |
+| Disaster recovery     | Plans and systems to restore service after a major event.                                                                               |
+| Shared responsibility | AWS secures the cloud; customers secure what they run in the cloud.                                                                     |
+| CapEx vs OpEx         | Cloud shifts many large capital purchases to operating expenses.                                                                        |
 
 **Key comparisons**
 
@@ -151,7 +143,8 @@ Cloud computing is on-demand access to compute, storage, networking, databases, 
 
 ### AWS resource mental model
 
-An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. An AWS **resource** is an object inside a
+An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. An AWS **resource** is an object inside
+a
 service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
 
 Most AWS work follows this pattern:
@@ -178,138 +171,140 @@ Python code calls s3.put_object
 
 Resource lifecycle questions to ask for any AWS service:
 
-| Question | Why it matters |
-| --- | --- |
-| Who owns it? | Tags, account placement, billing, and support ownership. |
-| Who can access it? | IAM identity policy, resource policy, KMS key policy, network controls. |
-| Where does it live? | Region, AZ, VPC, subnet, edge/global scope. |
-| How does it scale? | Quotas, partitions, concurrency, throughput, autoscaling. |
-| How does it fail? | Retries, DLQs, backups, Multi-AZ, restore process. |
-| How is it observed? | Metrics, logs, traces, CloudTrail, alarms. |
-| How is it cleaned up? | Lifecycle policy, retention, deletion protection, IaC destroy plan. |
+| Question              | Why it matters                                                          |
+|-----------------------|-------------------------------------------------------------------------|
+| Who owns it?          | Tags, account placement, billing, and support ownership.                |
+| Who can access it?    | IAM identity policy, resource policy, KMS key policy, network controls. |
+| Where does it live?   | Region, AZ, VPC, subnet, edge/global scope.                             |
+| How does it scale?    | Quotas, partitions, concurrency, throughput, autoscaling.               |
+| How does it fail?     | Retries, DLQs, backups, Multi-AZ, restore process.                      |
+| How is it observed?   | Metrics, logs, traces, CloudTrail, alarms.                              |
+| How is it cleaned up? | Lifecycle policy, retention, deletion protection, IaC destroy plan.     |
 
 Important terms:
 
-| Term | Meaning |
-| --- | --- |
+| Term          | Meaning                                                                                                         |
+|---------------|-----------------------------------------------------------------------------------------------------------------|
 | Control plane | APIs that create/configure resources, such as `CreateBucket`, `RunInstances`, or `UpdateFunctionConfiguration`. |
-| Data plane | APIs that move or read application data, such as `GetObject`, `PutItem`, or `Invoke`. |
-| ARN | Amazon Resource Name, a structured identifier such as `arn:aws:s3:::my-bucket/path/file.csv`. |
-| Tag | Key/value metadata used for ownership, cost allocation, automation, and access conditions. |
-| Quota | Service limit, such as Lambda concurrency or VPC security group rule count. |
-| Region | Geographic scope for most resources. Some services, such as IAM, Route 53, and CloudFront, are global. |
+| Data plane    | APIs that move or read application data, such as `GetObject`, `PutItem`, or `Invoke`.                           |
+| ARN           | Amazon Resource Name, a structured identifier such as `arn:aws:s3:::my-bucket/path/file.csv`.                   |
+| Tag           | Key/value metadata used for ownership, cost allocation, automation, and access conditions.                      |
+| Quota         | Service limit, such as Lambda concurrency or VPC security group rule count.                                     |
+| Region        | Geographic scope for most resources. Some services, such as IAM, Route 53, and CloudFront, are global.          |
 
 ### Most commonly used AWS resources
 
 Use this table as the "what should I learn first?" map.
 
-| Area | Common services/resources | What to know first |
-| --- | --- | --- |
-| Identity and access | IAM users, groups, roles, policies, STS, IAM Identity Center | Prefer roles and temporary credentials; understand trust policy vs permission policy. |
-| Networking | VPC, subnets, route tables, internet/NAT gateways, security groups, NACLs, VPC endpoints | Security groups are stateful instance/service firewalls; private subnets need NAT or endpoints for outbound AWS/API access. |
-| Object storage | S3 buckets, objects, versioning, lifecycle rules, bucket policies | S3 is durable object storage; design prefixes, encryption, lifecycle, and access policies deliberately. |
-| Compute | Lambda, EC2, ECS/Fargate, Batch | Lambda for event-driven functions; EC2 for full VM control; ECS/Fargate for containers; Batch for batch compute. |
-| Databases | DynamoDB, RDS/Aurora, Redshift | DynamoDB is key-value/document NoSQL; RDS/Aurora are relational; Redshift is analytical warehouse. |
-| Messaging/events | SQS, SNS, EventBridge, Step Functions | SQS buffers work; SNS fans out notifications; EventBridge routes events; Step Functions orchestrates workflows. |
-| Analytics/data engineering | Glue, Athena, EMR, Lake Formation, Kinesis, MSK | Glue catalogs/runs ETL; Athena queries S3; EMR runs Spark/Hadoop; Kinesis/MSK stream data. |
-| Security/secrets | KMS keys, Secrets Manager, SSM Parameter Store, CloudTrail, GuardDuty | KMS encrypts keys/data; Secrets Manager rotates secrets; CloudTrail records API activity. |
-| Observability | CloudWatch metrics/logs/alarms, X-Ray, CloudTrail | Metrics tell health, logs explain behavior, traces show request paths, CloudTrail audits API calls. |
-| Deployment/IaC | CloudFormation, CDK, Terraform, SAM, ECR | Keep infrastructure repeatable, reviewed, versioned, and tagged. |
+| Area                       | Common services/resources                                                                | What to know first                                                                                                          |
+|----------------------------|------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| Identity and access        | IAM users, groups, roles, policies, STS, IAM Identity Center                             | Prefer roles and temporary credentials; understand trust policy vs permission policy.                                       |
+| Networking                 | VPC, subnets, route tables, internet/NAT gateways, security groups, NACLs, VPC endpoints | Security groups are stateful instance/service firewalls; private subnets need NAT or endpoints for outbound AWS/API access. |
+| Object storage             | S3 buckets, objects, versioning, lifecycle rules, bucket policies                        | S3 is durable object storage; design prefixes, encryption, lifecycle, and access policies deliberately.                     |
+| Compute                    | Lambda, EC2, ECS/Fargate, Batch                                                          | Lambda for event-driven functions; EC2 for full VM control; ECS/Fargate for containers; Batch for batch compute.            |
+| Databases                  | DynamoDB, RDS/Aurora, Redshift                                                           | DynamoDB is key-value/document NoSQL; RDS/Aurora are relational; Redshift is analytical warehouse.                          |
+| Messaging/events           | SQS, SNS, EventBridge, Step Functions                                                    | SQS buffers work; SNS fans out notifications; EventBridge routes events; Step Functions orchestrates workflows.             |
+| Analytics/data engineering | Glue, Athena, EMR, Lake Formation, Kinesis, MSK                                          | Glue catalogs/runs ETL; Athena queries S3; EMR runs Spark/Hadoop; Kinesis/MSK stream data.                                  |
+| Security/secrets           | KMS keys, Secrets Manager, SSM Parameter Store, CloudTrail, GuardDuty                    | KMS encrypts keys/data; Secrets Manager rotates secrets; CloudTrail records API activity.                                   |
+| Observability              | CloudWatch metrics/logs/alarms, X-Ray, CloudTrail                                        | Metrics tell health, logs explain behavior, traces show request paths, CloudTrail audits API calls.                         |
+| Deployment/IaC             | CloudFormation, CDK, Terraform, SAM, ECR                                                 | Keep infrastructure repeatable, reviewed, versioned, and tagged.                                                            |
 
 ### How to choose a service quickly
 
-| Need | Start with |
-| --- | --- |
-| Store files, logs, exports, lake data | S3 |
-| Run a small event-driven function | Lambda |
-| Run containers without managing servers | ECS on Fargate |
-| Run a VM or custom OS workload | EC2 |
-| Durable queue between producers and workers | SQS |
-| Publish one event to many subscribers | SNS or EventBridge |
-| Orchestrate multi-step workflow with retries | Step Functions |
-| Low-latency key-value access | DynamoDB |
-| SQL relational application database | RDS/Aurora |
-| Query data directly in S3 | Athena + Glue Data Catalog |
-| Spark ETL over large datasets | Glue or EMR |
-| Store application config | SSM Parameter Store |
-| Store rotating/high-value secret | Secrets Manager |
-| Encrypt and control key usage | KMS |
-| Audit who did what | CloudTrail |
+| Need                                         | Start with                 |
+|----------------------------------------------|----------------------------|
+| Store files, logs, exports, lake data        | S3                         |
+| Run a small event-driven function            | Lambda                     |
+| Run containers without managing servers      | ECS on Fargate             |
+| Run a VM or custom OS workload               | EC2                        |
+| Durable queue between producers and workers  | SQS                        |
+| Publish one event to many subscribers        | SNS or EventBridge         |
+| Orchestrate multi-step workflow with retries | Step Functions             |
+| Low-latency key-value access                 | DynamoDB                   |
+| SQL relational application database          | RDS/Aurora                 |
+| Query data directly in S3                    | Athena + Glue Data Catalog |
+| Spark ETL over large datasets                | Glue or EMR                |
+| Store application config                     | SSM Parameter Store        |
+| Store rotating/high-value secret             | Secrets Manager            |
+| Encrypt and control key usage                | KMS                        |
+| Audit who did what                           | CloudTrail                 |
 
 ### Best use cases by resource
 
-| Resource/service | Best use cases | Avoid or reconsider when |
-| --- | --- | --- |
-| IAM role | Workload access, cross-account access, temporary human elevation | You need a permanent human login; use IAM Identity Center instead |
-| IAM Identity Center | Workforce SSO across accounts | Machine-to-machine workload credentials |
-| STS | Temporary credentials and `AssumeRole` | Long-running static access; use refreshable roles/profiles |
-| S3 | Object storage, logs, data lake, backups, static assets | Low-latency row updates or relational transactions |
-| EBS | Block storage attached to EC2 | Shared object storage or serverless storage |
-| EFS | Shared POSIX file system across compute | High-throughput object analytics; use S3/lake formats |
-| Lambda | Event-driven code, APIs, automation, file processing | Long-running jobs, custom OS needs, stable high CPU workloads |
-| EC2 | Full OS control, custom agents, special hardware, stateful workloads | Simple event-driven tasks or managed container workloads |
-| ECS/Fargate | Containers without managing servers | Kubernetes-specific platform requirements |
-| EKS | Kubernetes ecosystem, portability, platform teams | Small teams that do not need Kubernetes complexity |
-| AWS Batch | Queued batch compute, scientific jobs, large parallel jobs | Low-latency request/response APIs |
-| SQS | Durable work queue, decoupling, backpressure, retries, DLQ | Push fan-out to many subscribers; use SNS/EventBridge |
-| SNS | Fan-out notifications to SQS, Lambda, HTTP, email/SMS | Stateful workflow orchestration |
-| EventBridge | Event routing, SaaS/AWS events, schedules, loose coupling | High-throughput ordered queueing |
-| Step Functions | Multi-step workflows, retries, waits, branching, compensation | Simple one-step async work; use SQS/Lambda |
-| DynamoDB | Low-latency key-value/document access at scale | Ad hoc SQL joins, complex relational transactions |
-| RDS/Aurora | Relational OLTP, SQL, joins, transactions | Massive analytical scans; use Redshift/Athena |
-| Redshift | Data warehouse analytics and BI | Small operational database |
-| Athena | Serverless SQL over S3 data | Low-latency OLTP or heavy repeated warehouse queries |
-| Glue Data Catalog | Shared table metadata for S3 data lakes | Application metadata unrelated to analytics |
-| Glue ETL | Managed Spark/serverless ETL | Highly customized clusters; use EMR |
-| EMR | Spark/Hadoop with cluster/runtime control | Simple ETL where Glue is enough |
-| Kinesis | Managed streaming ingestion | Simple async work queue; use SQS |
-| MSK | Kafka-compatible streaming | Teams without Kafka operational need |
-| VPC | Network isolation and routing boundary | Purely public/serverless-only prototypes may need little VPC design |
-| Security group | Stateful allow rules for resources | Organization-wide guardrails; use SCPs/IAM/resource policies |
-| VPC endpoint | Private AWS API access from VPC | Public internet access is acceptable and simpler |
-| KMS | Encryption keys, key policies, audit of key use | Non-sensitive disposable data |
-| Secrets Manager | Rotating secrets, database credentials, API keys | Low-change non-secret config; use Parameter Store |
-| SSM Parameter Store | App configuration and simple secure strings | Automatic secret rotation requirements |
-| CloudWatch | Metrics, logs, alarms, dashboards | API audit history; use CloudTrail |
-| CloudTrail | AWS API audit trail | Application logs and metrics |
-| AWS Config | Resource configuration history/compliance | Runtime app performance |
-| CloudFormation/CDK/Terraform | Repeatable infrastructure | One-off console experiments only |
+| Resource/service             | Best use cases                                                       | Avoid or reconsider when                                            |
+|------------------------------|----------------------------------------------------------------------|---------------------------------------------------------------------|
+| IAM role                     | Workload access, cross-account access, temporary human elevation     | You need a permanent human login; use IAM Identity Center instead   |
+| IAM Identity Center          | Workforce SSO across accounts                                        | Machine-to-machine workload credentials                             |
+| STS                          | Temporary credentials and `AssumeRole`                               | Long-running static access; use refreshable roles/profiles          |
+| S3                           | Object storage, logs, data lake, backups, static assets              | Low-latency row updates or relational transactions                  |
+| EBS                          | Block storage attached to EC2                                        | Shared object storage or serverless storage                         |
+| EFS                          | Shared POSIX file system across compute                              | High-throughput object analytics; use S3/lake formats               |
+| Lambda                       | Event-driven code, APIs, automation, file processing                 | Long-running jobs, custom OS needs, stable high CPU workloads       |
+| EC2                          | Full OS control, custom agents, special hardware, stateful workloads | Simple event-driven tasks or managed container workloads            |
+| ECS/Fargate                  | Containers without managing servers                                  | Kubernetes-specific platform requirements                           |
+| EKS                          | Kubernetes ecosystem, portability, platform teams                    | Small teams that do not need Kubernetes complexity                  |
+| AWS Batch                    | Queued batch compute, scientific jobs, large parallel jobs           | Low-latency request/response APIs                                   |
+| SQS                          | Durable work queue, decoupling, backpressure, retries, DLQ           | Push fan-out to many subscribers; use SNS/EventBridge               |
+| SNS                          | Fan-out notifications to SQS, Lambda, HTTP, email/SMS                | Stateful workflow orchestration                                     |
+| EventBridge                  | Event routing, SaaS/AWS events, schedules, loose coupling            | High-throughput ordered queueing                                    |
+| Step Functions               | Multi-step workflows, retries, waits, branching, compensation        | Simple one-step async work; use SQS/Lambda                          |
+| DynamoDB                     | Low-latency key-value/document access at scale                       | Ad hoc SQL joins, complex relational transactions                   |
+| RDS/Aurora                   | Relational OLTP, SQL, joins, transactions                            | Massive analytical scans; use Redshift/Athena                       |
+| Redshift                     | Data warehouse analytics and BI                                      | Small operational database                                          |
+| Athena                       | Serverless SQL over S3 data                                          | Low-latency OLTP or heavy repeated warehouse queries                |
+| Glue Data Catalog            | Shared table metadata for S3 data lakes                              | Application metadata unrelated to analytics                         |
+| Glue ETL                     | Managed Spark/serverless ETL                                         | Highly customized clusters; use EMR                                 |
+| EMR                          | Spark/Hadoop with cluster/runtime control                            | Simple ETL where Glue is enough                                     |
+| Kinesis                      | Managed streaming ingestion                                          | Simple async work queue; use SQS                                    |
+| MSK                          | Kafka-compatible streaming                                           | Teams without Kafka operational need                                |
+| VPC                          | Network isolation and routing boundary                               | Purely public/serverless-only prototypes may need little VPC design |
+| Security group               | Stateful allow rules for resources                                   | Organization-wide guardrails; use SCPs/IAM/resource policies        |
+| VPC endpoint                 | Private AWS API access from VPC                                      | Public internet access is acceptable and simpler                    |
+| KMS                          | Encryption keys, key policies, audit of key use                      | Non-sensitive disposable data                                       |
+| Secrets Manager              | Rotating secrets, database credentials, API keys                     | Low-change non-secret config; use Parameter Store                   |
+| SSM Parameter Store          | App configuration and simple secure strings                          | Automatic secret rotation requirements                              |
+| CloudWatch                   | Metrics, logs, alarms, dashboards                                    | API audit history; use CloudTrail                                   |
+| CloudTrail                   | AWS API audit trail                                                  | Application logs and metrics                                        |
+| AWS Config                   | Resource configuration history/compliance                            | Runtime app performance                                             |
+| CloudFormation/CDK/Terraform | Repeatable infrastructure                                            | One-off console experiments only                                    |
 
 ### Best use cases for common combinations
 
-| Combination | Best use case | Why this combination works |
-| --- | --- | --- |
-| S3 + CloudFront + Route 53 | Static website or asset delivery | S3 stores assets, CloudFront caches globally, Route 53 manages DNS |
-| API Gateway + Lambda + DynamoDB | Serverless API | Managed HTTPS endpoint, event-driven compute, low-latency storage |
-| ALB + ECS/Fargate + RDS/Aurora | Containerized web application | Load balancing, managed containers, relational persistence |
-| S3 + Lambda + SQS | Reliable file-processing pipeline | S3 event starts work, SQS buffers/retries, Lambda processes |
-| EventBridge + SQS + Lambda | Decoupled event-driven processing | Event routing, durable queue, scalable consumers |
-| SNS + SQS | Durable fan-out | One publish creates independent queues for multiple consumers |
-| SQS + Lambda + DLQ | Async worker with failure isolation | Queue buffers load, Lambda scales consumers, DLQ captures poison messages |
-| Step Functions + Lambda + DynamoDB | Stateful business workflow | Explicit state/retries plus durable workflow data |
-| S3 + Glue Data Catalog + Athena | Serverless data lake query | S3 stores data, Glue stores schema, Athena runs SQL |
-| S3 + Glue/EMR + Iceberg/Delta/Hudi | Transactional data lake | Spark ETL plus table snapshots, schema evolution, and rollback |
-| Kinesis/MSK + Lambda/Flink + S3 | Streaming ingestion and analytics | Stream capture, stream processing, durable lake storage |
-| DMS + S3 + Glue + Athena | Database replication into analytics lake | DMS extracts, S3 stores, Glue catalogs, Athena queries |
-| Redshift + S3 + Glue | Warehouse plus data lake | Redshift serves BI, S3 holds raw/curated data, Glue tracks metadata |
-| VPC + private subnets + NAT/VPC endpoints | Private workload networking | Private compute with controlled outbound internet or private AWS API access |
-| IAM Identity Center + Organizations + SCPs | Multi-account enterprise access | Central workforce access plus account-level guardrails |
-| IAM role + STS + CloudTrail | Auditable temporary access | Short-lived credentials and traceable role sessions |
-| Secrets Manager + KMS + RDS | Secure database credentials | Encrypted secrets with rotation and database integration |
-| CloudWatch + X-Ray + CloudTrail | Operations and audit visibility | Metrics/logs, traces, and API audit history answer different questions |
-| CloudFormation/CDK/Terraform + CI/CD | Repeatable deployments | Versioned infrastructure, review, promotion, rollback |
-| Route 53 + ALB + Auto Scaling | Highly available web entry point | DNS, health-checked load balancing, elastic compute capacity |
-| Multi-AZ RDS + backups + read replicas | Reliable relational database | AZ failure tolerance, restore path, and read scaling |
-| S3 versioning + lifecycle + replication | Durable governed object storage | Recovery, cost control, and cross-Region/cross-account protection |
+| Combination                                | Best use case                            | Why this combination works                                                  |
+|--------------------------------------------|------------------------------------------|-----------------------------------------------------------------------------|
+| S3 + CloudFront + Route 53                 | Static website or asset delivery         | S3 stores assets, CloudFront caches globally, Route 53 manages DNS          |
+| API Gateway + Lambda + DynamoDB            | Serverless API                           | Managed HTTPS endpoint, event-driven compute, low-latency storage           |
+| ALB + ECS/Fargate + RDS/Aurora             | Containerized web application            | Load balancing, managed containers, relational persistence                  |
+| S3 + Lambda + SQS                          | Reliable file-processing pipeline        | S3 event starts work, SQS buffers/retries, Lambda processes                 |
+| EventBridge + SQS + Lambda                 | Decoupled event-driven processing        | Event routing, durable queue, scalable consumers                            |
+| SNS + SQS                                  | Durable fan-out                          | One publish creates independent queues for multiple consumers               |
+| SQS + Lambda + DLQ                         | Async worker with failure isolation      | Queue buffers load, Lambda scales consumers, DLQ captures poison messages   |
+| Step Functions + Lambda + DynamoDB         | Stateful business workflow               | Explicit state/retries plus durable workflow data                           |
+| S3 + Glue Data Catalog + Athena            | Serverless data lake query               | S3 stores data, Glue stores schema, Athena runs SQL                         |
+| S3 + Glue/EMR + Iceberg/Delta/Hudi         | Transactional data lake                  | Spark ETL plus table snapshots, schema evolution, and rollback              |
+| Kinesis/MSK + Lambda/Flink + S3            | Streaming ingestion and analytics        | Stream capture, stream processing, durable lake storage                     |
+| DMS + S3 + Glue + Athena                   | Database replication into analytics lake | DMS extracts, S3 stores, Glue catalogs, Athena queries                      |
+| Redshift + S3 + Glue                       | Warehouse plus data lake                 | Redshift serves BI, S3 holds raw/curated data, Glue tracks metadata         |
+| VPC + private subnets + NAT/VPC endpoints  | Private workload networking              | Private compute with controlled outbound internet or private AWS API access |
+| IAM Identity Center + Organizations + SCPs | Multi-account enterprise access          | Central workforce access plus account-level guardrails                      |
+| IAM role + STS + CloudTrail                | Auditable temporary access               | Short-lived credentials and traceable role sessions                         |
+| Secrets Manager + KMS + RDS                | Secure database credentials              | Encrypted secrets with rotation and database integration                    |
+| CloudWatch + X-Ray + CloudTrail            | Operations and audit visibility          | Metrics/logs, traces, and API audit history answer different questions      |
+| CloudFormation/CDK/Terraform + CI/CD       | Repeatable deployments                   | Versioned infrastructure, review, promotion, rollback                       |
+| Route 53 + ALB + Auto Scaling              | Highly available web entry point         | DNS, health-checked load balancing, elastic compute capacity                |
+| Multi-AZ RDS + backups + read replicas     | Reliable relational database             | AZ failure tolerance, restore path, and read scaling                        |
+| S3 versioning + lifecycle + replication    | Durable governed object storage          | Recovery, cost control, and cross-Region/cross-account protection           |
 
-**Interview answer:** "I design cloud systems around failure domains, identity boundaries, automation, observability, and cost. AWS gives me Regions, Availability Zones, managed services, and APIs so I can build systems that scale and recover predictably."
-
+**Interview answer:** "I design cloud systems around failure domains, identity boundaries, automation, observability,
+and cost. AWS gives me Regions, Availability Zones, managed services, and APIs so I can build systems that scale and
+recover predictably."
 
 ## 3. AWS global infrastructure
 
 **Beginner** **Intermediate**
 
-AWS global infrastructure is organized into Regions, Availability Zones, edge locations, Local Zones, and Wavelength Zones.
+AWS global infrastructure is organized into Regions, Availability Zones, edge locations, Local Zones, and Wavelength
+Zones.
 
 - Region: a geographic area such as `us-east-1`.
 - Availability Zone: one or more isolated data centers inside a Region.
@@ -317,49 +312,53 @@ AWS global infrastructure is organized into Regions, Availability Zones, edge lo
 - Local Zone: infrastructure near large metro areas for low latency.
 - Wavelength Zone: AWS infrastructure inside 5G provider networks.
 - Regional service: service resources exist in a Region, such as EC2, Lambda, RDS, DynamoDB tables, and S3 buckets.
-- Global service: service has a global control plane or namespace, such as IAM, Route 53, CloudFront, and AWS Organizations.
+- Global service: service has a global control plane or namespace, such as IAM, Route 53, CloudFront, and AWS
+  Organizations.
 
 **Region selection checklist**
 
-| Factor | Questions to ask |
-| --- | --- |
-| Customer location | Where are users and data producers? |
-| Latency | What round-trip time is acceptable? |
-| Compliance | Must data stay in a country or jurisdiction? |
-| Cost | Are compute, transfer, and managed-service costs materially different? |
-| Service availability | Is every required feature available in that Region? |
-| DR | Which second Region meets RTO/RPO and compliance requirements? |
+| Factor               | Questions to ask                                                       |
+|----------------------|------------------------------------------------------------------------|
+| Customer location    | Where are users and data producers?                                    |
+| Latency              | What round-trip time is acceptable?                                    |
+| Compliance           | Must data stay in a country or jurisdiction?                           |
+| Cost                 | Are compute, transfer, and managed-service costs materially different? |
+| Service availability | Is every required feature available in that Region?                    |
+| DR                   | Which second Region meets RTO/RPO and compliance requirements?         |
 
 **Multi-AZ architecture:** deploy across multiple AZs in one Region for normal high availability.
 
-**Multi-Region architecture:** replicate or redeploy across Regions for disaster recovery, global latency, or data residency. It adds DNS failover, data replication, KMS/secrets planning, consistency trade-offs, and cost.
-
+**Multi-Region architecture:** replicate or redeploy across Regions for disaster recovery, global latency, or data
+residency. It adds DNS failover, data replication, KMS/secrets planning, consistency trade-offs, and cost.
 
 ## 4. AWS accounts, organizations, and identity
 
 **Beginner** **Intermediate** **Security note**
 
-An AWS account is a strong isolation boundary for billing, quotas, identity, blast radius, and audit. Production organizations usually use AWS Organizations with multiple accounts.
+An AWS account is a strong isolation boundary for billing, quotas, identity, blast radius, and audit. Production
+organizations usually use AWS Organizations with multiple accounts.
 
-| Term | Meaning |
-| --- | --- |
-| Root user | The original all-powerful account identity. Lock it down with MFA and do not use it for daily work. |
-| IAM user | Long-lived identity, usually for humans or legacy automation. Prefer roles. |
-| IAM role | Assumable identity with temporary credentials. Best for workloads and cross-account access. |
-| IAM policy | JSON permissions document describing allowed or denied actions. |
-| Trust policy | Defines who can assume a role. |
-| Resource policy | Policy attached to a resource, such as an S3 bucket or KMS key. |
-| Permission boundary | Maximum permissions a principal can receive. |
-| SCP | AWS Organizations guardrail that limits account permissions. |
-| STS | Service that issues temporary credentials. |
-| IAM Identity Center | Central workforce access and SSO for AWS accounts and applications. |
+| Term                | Meaning                                                                                             |
+|---------------------|-----------------------------------------------------------------------------------------------------|
+| Root user           | The original all-powerful account identity. Lock it down with MFA and do not use it for daily work. |
+| IAM user            | Long-lived identity, usually for humans or legacy automation. Prefer roles.                         |
+| IAM role            | Assumable identity with temporary credentials. Best for workloads and cross-account access.         |
+| IAM policy          | JSON permissions document describing allowed or denied actions.                                     |
+| Trust policy        | Defines who can assume a role.                                                                      |
+| Resource policy     | Policy attached to a resource, such as an S3 bucket or KMS key.                                     |
+| Permission boundary | Maximum permissions a principal can receive.                                                        |
+| SCP                 | AWS Organizations guardrail that limits account permissions.                                        |
+| STS                 | Service that issues temporary credentials.                                                          |
+| IAM Identity Center | Central workforce access and SSO for AWS accounts and applications.                                 |
 
 **Comparisons**
 
 - IAM user vs role: users have long-term credentials; roles provide temporary credentials.
 - Identity policy vs resource policy: identity policies attach to identities; resource policies attach to resources.
-- Trust policy vs permissions policy: trust policy controls role assumption; permissions policy controls actions after assumption.
-- Permission boundary vs SCP: boundary limits an IAM principal; SCP limits an account or OU. Neither grants access by itself.
+- Trust policy vs permissions policy: trust policy controls role assumption; permissions policy controls actions after
+  assumption.
+- Permission boundary vs SCP: boundary limits an IAM principal; SCP limits an account or OU. Neither grants access by
+  itself.
 - Explicit allow vs explicit deny: explicit deny always wins.
 - Long-term vs temporary credentials: temporary credentials expire and reduce exposure.
 
@@ -371,7 +370,10 @@ An AWS account is a strong isolation boundary for billing, quotas, identity, bla
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
       "Resource": "arn:aws:s3:::<BUCKET_NAME>/incoming/*",
       "Condition": {
         "StringEquals": {
@@ -432,14 +434,16 @@ Temporary credentials contain an access key, secret key, session token, and expi
 `DurationSeconds`; AWS requires at least 900 seconds, and the maximum is bounded by the target role's maximum session
 duration. Role chaining is limited to 1 hour for the chained session.
 
-**Interview answer:** "Least privilege means granting only the actions, resources, conditions, and duration required. I prefer roles and temporary credentials, verify with CloudTrail and Access Analyzer, and use SCPs or permission boundaries for guardrails."
-
+**Interview answer:** "Least privilege means granting only the actions, resources, conditions, and duration required. I
+prefer roles and temporary credentials, verify with CloudTrail and Access Analyzer, and use SCPs or permission
+boundaries for guardrails."
 
 ## 5. macOS development environment
 
 **Beginner** **Runs with LocalStack**
 
-These commands target macOS. Apple Silicon and Intel Macs mostly use the same commands; Apple Silicon Homebrew usually lives under `/opt/homebrew`, while Intel Homebrew usually lives under `/usr/local`.
+These commands target macOS. Apple Silicon and Intel Macs mostly use the same commands; Apple Silicon Homebrew usually
+lives under `/opt/homebrew`, while Intel Homebrew usually lives under `/usr/local`.
 
 **Install Homebrew**
 
@@ -477,7 +481,8 @@ aws configure list-profiles
 aws sts get-caller-identity --profile <profile-name>
 ```
 
-Install Docker Desktop from https://www.docker.com/products/docker-desktop/ and start it before running LocalStack. On Apple Silicon, keep Docker Desktop updated; older images and Lambda runtimes may need multi-architecture support.
+Install Docker Desktop from https://www.docker.com/products/docker-desktop/ and start it before running LocalStack. On
+Apple Silicon, keep Docker Desktop updated; older images and Lambda runtimes may need multi-architecture support.
 
 **Create a virtual environment**
 
@@ -506,9 +511,9 @@ name = "aws-automation"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-  "boto3",
-  "botocore",
-  "python-dotenv",
+    "boto3",
+    "botocore",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]
@@ -522,24 +527,26 @@ dev = ["pytest", "moto", "localstack", "awscli-local"]
 - Apple Silicon image issue: update Docker Desktop; use current images; avoid old Lambda runtimes.
 - Permission denied on Docker socket: Docker Desktop should manage this on macOS; restart Docker if stale.
 
-
 ## 6. Running AWS locally without an AWS account
 
 **Beginner** **Runs with LocalStack**
 
-LocalStack runs local emulations of many AWS APIs. It is excellent for fast feedback, CLI practice, and integration-style tests that should not touch a real AWS account.
+LocalStack runs local emulations of many AWS APIs. It is excellent for fast feedback, CLI practice, and
+integration-style tests that should not touch a real AWS account.
 
-**Use LocalStack for:** S3, SQS, SNS, DynamoDB, Lambda basics, EventBridge basics, Secrets Manager, SSM Parameter Store, CloudWatch Logs, IAM/STS simulations, and many CloudFormation workflows.
+**Use LocalStack for:** S3, SQS, SNS, DynamoDB, Lambda basics, EventBridge basics, Secrets Manager, SSM Parameter Store,
+CloudWatch Logs, IAM/STS simulations, and many CloudFormation workflows.
 
-**Use real AWS for:** exact IAM behavior, VPC networking, service quotas, production Lambda runtime behavior, managed databases, advanced analytics, multi-account access, regional feature differences, and cost/latency validation.
+**Use real AWS for:** exact IAM behavior, VPC networking, service quotas, production Lambda runtime behavior, managed
+databases, advanced analytics, multi-account access, regional feature differences, and cost/latency validation.
 
 **LocalStack vs Moto vs Stubber**
 
-| Tool | Best use |
-| --- | --- |
-| Botocore Stubber | Unit tests that verify exact request and response shapes. |
-| Moto | Fast in-process mock tests for many services. |
-| LocalStack | Local integration tests through AWS-compatible HTTP endpoints. |
+| Tool             | Best use                                                                      |
+|------------------|-------------------------------------------------------------------------------|
+| Botocore Stubber | Unit tests that verify exact request and response shapes.                     |
+| Moto             | Fast in-process mock tests for many services.                                 |
+| LocalStack       | Local integration tests through AWS-compatible HTTP endpoints.                |
 | Real AWS account | Final validation of IAM, networking, service limits, and production behavior. |
 
 **Docker Compose**
@@ -592,14 +599,15 @@ aws --endpoint-url=http://localhost:4566 s3api list-buckets
 
 - Connection refused: LocalStack is not running or port `4566` is blocked.
 - Signature or credential errors: export dummy credentials and Region.
-- Unsupported behavior: confirm whether the feature is supported in your LocalStack edition, then use real AWS for final validation.
-
+- Unsupported behavior: confirm whether the feature is supported in your LocalStack edition, then use real AWS for final
+  validation.
 
 ## 7. Recommended AWS automation project structure
 
 **Intermediate** **Production note**
 
-A maintainable AWS automation project separates configuration, client creation, service logic, command entry points, and tests.
+A maintainable AWS automation project separates configuration, client creation, service logic, command entry points, and
+tests.
 
 ```text
 aws-automation/
@@ -632,12 +640,12 @@ aws-automation/
 - Integration tests can run against LocalStack.
 - Real AWS tests should run only in a sandbox account with least-privilege roles.
 
-
 ## 8. Boto3 fundamentals
 
 **Beginner** **Intermediate**
 
-Boto3 is the AWS SDK for Python. Botocore handles service models, signing, retries, HTTP behavior, exceptions, and low-level clients. Boto3 adds sessions, clients, and some resource abstractions.
+Boto3 is the AWS SDK for Python. Botocore handles service models, signing, retries, HTTP behavior, exceptions, and
+low-level clients. Boto3 adds sessions, clients, and some resource abstractions.
 
 ```python
 import boto3
@@ -668,7 +676,8 @@ s3_client = boto3.client("s3")
 s3_resource = boto3.resource("s3")
 ```
 
-Clients are usually preferred for production automation because they expose complete service APIs and map closely to AWS API documentation. Resources can be convenient but are not available for every service.
+Clients are usually preferred for production automation because they expose complete service APIs and map closely to AWS
+API documentation. Resources can be convenient but are not available for every service.
 
 **Boto3 request lifecycle**
 
@@ -703,7 +712,6 @@ def list_bucket_names(s3_client) -> list[str]:
     return names
 ```
 
-
 ## 9. Reusable client configuration
 
 **Intermediate** **Production note**
@@ -719,11 +727,11 @@ from botocore.config import Config
 
 
 def create_client(
-    service_name: str,
-    *,
-    region_name: str = "us-east-1",
-    profile_name: str | None = None,
-    endpoint_url: str | None = None,
+        service_name: str,
+        *,
+        region_name: str = "us-east-1",
+        profile_name: str | None = None,
+        endpoint_url: str | None = None,
 ) -> BaseClient:
     session = boto3.Session(
         profile_name=profile_name,
@@ -758,12 +766,13 @@ def create_client(
 - `read_timeout`: bounds time waiting for a response.
 - `max_pool_connections`: important for threaded I/O.
 
-
 ## 10. Credentials and authentication
 
 **Beginner** **Security note**
 
-Boto3 searches for credentials in a provider chain: explicit parameters, environment variables, shared credentials/config files, named profiles, IAM Identity Center, assume-role profiles, web identity, container credentials, Lambda execution roles, and EC2 instance metadata.
+Boto3 searches for credentials in a provider chain: explicit parameters, environment variables, shared
+credentials/config files, named profiles, IAM Identity Center, assume-role profiles, web identity, container
+credentials, Lambda execution roles, and EC2 instance metadata.
 
 Important files and variables:
 
@@ -776,18 +785,17 @@ Important files and variables:
 
 Troubleshooting:
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Unable to locate credentials | No env vars, profile, or role | Configure SSO/profile or attach a role. |
-| Expired credentials | STS or SSO session expired | Refresh login/session. |
-| Invalid security token | Wrong or stale keys | Check `aws sts get-caller-identity`. |
-| Incorrect profile | `AWS_PROFILE` points elsewhere | Print active profile and caller identity. |
-| Incorrect Region | Resource is in a different Region | Set `region_name` explicitly. |
-| Access denied | IAM, resource policy, SCP, or KMS deny | Check CloudTrail, policies, boundaries, and key policy. |
-| Failed role assumption | Trust policy or caller permissions | Verify trust policy and `sts:AssumeRole`. |
+| Symptom                      | Likely cause                           | Fix                                                     |
+|------------------------------|----------------------------------------|---------------------------------------------------------|
+| Unable to locate credentials | No env vars, profile, or role          | Configure SSO/profile or attach a role.                 |
+| Expired credentials          | STS or SSO session expired             | Refresh login/session.                                  |
+| Invalid security token       | Wrong or stale keys                    | Check `aws sts get-caller-identity`.                    |
+| Incorrect profile            | `AWS_PROFILE` points elsewhere         | Print active profile and caller identity.               |
+| Incorrect Region             | Resource is in a different Region      | Set `region_name` explicitly.                           |
+| Access denied                | IAM, resource policy, SCP, or KMS deny | Check CloudTrail, policies, boundaries, and key policy. |
+| Failed role assumption       | Trust policy or caller permissions     | Verify trust policy and `sts:AssumeRole`.               |
 
 **Common mistake:** hard-coding access keys. Use roles, profiles, or SSO instead.
-
 
 ## 11. Boto3 responses and error handling
 
@@ -842,7 +850,6 @@ except Exception:
 ```
 
 It hides authorization, throttling, validation, credential, and network failures.
-
 
 ## 12. Pagination, retries, waiters, and idempotency
 
@@ -920,14 +927,16 @@ def wait_for_athena_query(athena_client, query_execution_id: str) -> str:
     raise TimeoutError("Athena query did not finish before deadline")
 ```
 
-**Idempotency:** repeat requests safely by using deterministic names, idempotency tokens, conditional writes, state checks, or exactly-once business keys.
-
+**Idempotency:** repeat requests safely by using deterministic names, idempotency tokens, conditional writes, state
+checks, or exactly-once business keys.
 
 ## 13. Amazon S3
 
 **Beginner** **Runs with LocalStack** **Security note**
 
-S3 stores objects in buckets. Keys are flat strings; prefixes create folder-like organization. Know storage classes, versioning, lifecycle, encryption, bucket policies, Block Public Access, object ownership, multipart uploads, presigned URLs, notifications, replication, and strong consistency.
+S3 stores objects in buckets. Keys are flat strings; prefixes create folder-like organization. Know storage classes,
+versioning, lifecycle, encryption, bucket policies, Block Public Access, object ownership, multipart uploads, presigned
+URLs, notifications, replication, and strong consistency.
 
 What to know first:
 
@@ -935,11 +944,13 @@ What to know first:
 - S3 is strongly consistent for reads after writes and list operations.
 - Access can be controlled by IAM policies, bucket policies, ACLs, KMS key policies, and Block Public Access.
 - Use lifecycle policies for cost control and versioning for object-level recovery.
-- For data lakes, table formats such as Iceberg, Delta, or Hudi provide dataset-level snapshots; S3 versioning alone does not.
+- For data lakes, table formats such as Iceberg, Delta, or Hudi provide dataset-level snapshots; S3 versioning alone
+  does not.
 
 **Runnable LocalStack example**
 
-Purpose: create a bucket, upload/download/list/copy/delete objects, write/read JSON, generate a presigned URL, and clean up.
+Purpose: create a bucket, upload/download/list/copy/delete objects, write/read JSON, generate a presigned URL, and clean
+up.
 
 Dependencies: `boto3`, `botocore`, LocalStack running.
 
@@ -1033,11 +1044,14 @@ if __name__ == "__main__":
     main()
 ```
 
-Setup: `docker compose up -d`; run: `python s3_demo.py`; expected output includes object keys and `True`; cleanup is included.
+Setup: `docker compose up -d`; run: `python s3_demo.py`; expected output includes object keys and `True`; cleanup is
+included.
 
-Unit test idea: test `object_exists` with Botocore Stubber. Integration test: run the script against LocalStack in CI after `docker compose up -d`.
+Unit test idea: test `object_exists` with Botocore Stubber. Integration test: run the script against LocalStack in CI
+after `docker compose up -d`.
 
-Security: block public access in real AWS, use SSE-S3 or SSE-KMS, short presigned URL expirations, and least-privilege bucket policies.
+Security: block public access in real AWS, use SSE-S3 or SSE-KMS, short presigned URL expirations, and least-privilege
+bucket policies.
 
 Performance: use paginators, multipart transfers, batch deletion, streaming bodies, and server-side prefix filtering.
 
@@ -1045,9 +1059,13 @@ Cost: use lifecycle policies, storage classes, and avoid unnecessary data transf
 
 ### S3 versioning and point-in-time restore
 
-**Interview question:** If S3 versioning is enabled, can you time travel? Example: an EMR job ran from 10:30 AM to 1:00 PM and failed while updating S3 data. How do you restore the data to the state before 10:30 AM?
+**Interview question:** If S3 versioning is enabled, can you time travel? Example: an EMR job ran from 10:30 AM to 1:00
+PM and failed while updating S3 data. How do you restore the data to the state before 10:30 AM?
 
-**Short answer:** S3 versioning gives object-level rollback, not automatic table-level time travel. You can restore each affected object key to the latest version that existed before the cutoff time. For true table time travel, use a table format such as Apache Iceberg, Delta Lake, or Apache Hudi, because those systems track consistent snapshots across many files.
+**Short answer:** S3 versioning gives object-level rollback, not automatic table-level time travel. You can restore each
+affected object key to the latest version that existed before the cutoff time. For true table time travel, use a table
+format such as Apache Iceberg, Delta Lake, or Apache Hudi, because those systems track consistent snapshots across many
+files.
 
 **How to restore a failed EMR overwrite safely**
 
@@ -1061,7 +1079,9 @@ Cost: use lifecycle policies, storage classes, and avoid unnecessary data transf
 8. Re-run row counts, file counts, partition validation, and downstream queries.
 9. Keep an audit log of restored keys and version IDs.
 
-Important limitation: if the EMR job wrote many files, S3 versioning alone does not know which file versions form a consistent dataset snapshot. For data lakes, prefer table formats with snapshot metadata or write new data to a staging prefix and swap/commit only after validation.
+Important limitation: if the EMR job wrote many files, S3 versioning alone does not know which file versions form a
+consistent dataset snapshot. For data lakes, prefer table formats with snapshot metadata or write new data to a staging
+prefix and swap/commit only after validation.
 
 Python note for the restore code:
 
@@ -1098,10 +1118,10 @@ import boto3
 
 
 def restore_s3_prefix_to_cutoff(
-    bucket: str,
-    prefix: str,
-    cutoff: datetime,
-    dry_run: bool = True,
+        bucket: str,
+        prefix: str,
+        cutoff: datetime,
+        dry_run: bool = True,
 ):
     """Restore every key under prefix to the newest version at or before cutoff.
 
@@ -1196,12 +1216,12 @@ if __name__ == "__main__":
         print(planned_action)
 ```
 
-
 ## 14. Amazon SQS
 
 **Beginner** **Runs with LocalStack** **Reliability note**
 
-SQS decouples producers and consumers. Standard queues provide at-least-once delivery and best-effort ordering. FIFO queues add ordering and deduplication. Consumers must be idempotent because duplicates can happen.
+SQS decouples producers and consumers. Standard queues provide at-least-once delivery and best-effort ordering. FIFO
+queues add ordering and deduplication. Consumers must be idempotent because duplicates can happen.
 
 What to know first:
 
@@ -1271,19 +1291,20 @@ sqs.delete_queue(QueueUrl=queue_url)
 sqs.delete_queue(QueueUrl=dlq_url)
 ```
 
-Common errors: messages reappear when not deleted, visibility timeout too short, missing DLQ, and non-idempotent consumers.
-
+Common errors: messages reappear when not deleted, visibility timeout too short, missing DLQ, and non-idempotent
+consumers.
 
 ## 15. Amazon SNS and EventBridge
 
 **Intermediate** **Runs with LocalStack**
 
-SNS publishes messages to subscribers. SQS stores work for consumers. EventBridge routes structured events by patterns and can schedule automation.
+SNS publishes messages to subscribers. SQS stores work for consumers. EventBridge routes structured events by patterns
+and can schedule automation.
 
-| Service | Use when |
-| --- | --- |
-| SNS | You need fan-out push delivery to multiple subscribers. |
-| SQS | You need durable queued work and consumer backpressure. |
+| Service     | Use when                                                           |
+|-------------|--------------------------------------------------------------------|
+| SNS         | You need fan-out push delivery to multiple subscribers.            |
+| SQS         | You need durable queued work and consumer backpressure.            |
 | EventBridge | You need event routing, patterns, SaaS integrations, or schedules. |
 
 **SNS to SQS fan-out**
@@ -1334,12 +1355,12 @@ response = events.put_events(
 print(response["FailedEntryCount"])
 ```
 
-
 ## 16. Amazon DynamoDB
 
 **Beginner** **Runs with LocalStack**
 
-DynamoDB is a low-latency NoSQL database. Model access patterns first. Prefer `query` when you know a partition key; `scan` reads broadly and is expensive at scale.
+DynamoDB is a low-latency NoSQL database. Model access patterns first. Prefer `query` when you know a partition key;
+`scan` reads broadly and is expensive at scale.
 
 What to know first:
 
@@ -1397,12 +1418,13 @@ table.delete()
 
 Use conditional writes for idempotency and optimistic locking. Use transactions for multi-item invariants.
 
-
 ## 17. AWS Lambda
 
 **Intermediate**
 
-Lambda runs code in response to events. Know handlers, events, context, execution environments, cold starts, warm starts, execution roles, environment variables, memory/CPU, timeouts, concurrency, layers, event source mappings, destinations, DLQs, idempotency, and partial batch failures.
+Lambda runs code in response to events. Know handlers, events, context, execution environments, cold starts, warm
+starts, execution roles, environment variables, memory/CPU, timeouts, concurrency, layers, event source mappings,
+destinations, DLQs, idempotency, and partial batch failures.
 
 What to know first:
 
@@ -1455,20 +1477,20 @@ def handler(event, context):
 
 **Production note:** create Boto3 clients outside the handler so warm invocations reuse them.
 
-
 ## 18. Amazon EC2 and compute choices
 
 **Intermediate** **Requires real AWS**
 
-EC2 provides virtual machines. Know AMIs, instance types, EBS, security groups, key pairs, user data, instance profiles, Auto Scaling, Spot Instances, Savings Plans, ECS, EKS, Fargate, and Lambda.
+EC2 provides virtual machines. Know AMIs, instance types, EBS, security groups, key pairs, user data, instance profiles,
+Auto Scaling, Spot Instances, Savings Plans, ECS, EKS, Fargate, and Lambda.
 
-| Compute | Use when |
-| --- | --- |
-| EC2 | You need OS control, custom agents, or long-running stateful workloads. |
-| Lambda | Event-driven code with short duration and managed scaling. |
-| ECS | AWS-native container orchestration. |
-| EKS | Kubernetes ecosystem and portability. |
-| Fargate | Containers without managing servers. |
+| Compute | Use when                                                                |
+|---------|-------------------------------------------------------------------------|
+| EC2     | You need OS control, custom agents, or long-running stateful workloads. |
+| Lambda  | Event-driven code with short duration and managed scaling.              |
+| ECS     | AWS-native container orchestration.                                     |
+| EKS     | Kubernetes ecosystem and portability.                                   |
+| Fargate | Containers without managing servers.                                    |
 
 Interview shortcut:
 
@@ -1501,10 +1523,10 @@ def stop_dev_instances(session: boto3.Session, dry_run: bool = True) -> None:
     paginator = ec2.get_paginator("describe_instances")
     instance_ids = []
     for page in paginator.paginate(
-        Filters=[
-            {"Name": "tag:Environment", "Values": ["dev"]},
-            {"Name": "instance-state-name", "Values": ["running"]},
-        ]
+            Filters=[
+                {"Name": "tag:Environment", "Values": ["dev"]},
+                {"Name": "instance-state-name", "Values": ["running"]},
+            ]
     ):
         for reservation in page.get("Reservations", []):
             for instance in reservation.get("Instances", []):
@@ -1513,19 +1535,19 @@ def stop_dev_instances(session: boto3.Session, dry_run: bool = True) -> None:
         ec2.stop_instances(InstanceIds=instance_ids, DryRun=dry_run)
 ```
 
-
 ## 19. Databases, analytics, and data platforms
 
 **Intermediate** **Requires real AWS**
 
-RDS and Aurora are relational operational databases. DynamoDB is key-value/document NoSQL. Athena queries data in S3. Glue provides Data Catalog and ETL. EMR runs Spark/Hadoop clusters. Redshift is a data warehouse.
+RDS and Aurora are relational operational databases. DynamoDB is key-value/document NoSQL. Athena queries data in S3.
+Glue provides Data Catalog and ETL. EMR runs Spark/Hadoop clusters. Redshift is a data warehouse.
 
-| Compare | Guidance |
-| --- | --- |
-| RDS vs DynamoDB | RDS for relational joins/transactions; DynamoDB for low-latency key-value at scale. |
-| RDS vs Redshift | RDS for OLTP; Redshift for analytics/OLAP. |
+| Compare            | Guidance                                                                              |
+|--------------------|---------------------------------------------------------------------------------------|
+| RDS vs DynamoDB    | RDS for relational joins/transactions; DynamoDB for low-latency key-value at scale.   |
+| RDS vs Redshift    | RDS for OLTP; Redshift for analytics/OLAP.                                            |
 | Athena vs Redshift | Athena for serverless query-on-S3; Redshift for high-performance warehouse workloads. |
-| Glue vs EMR | Glue for managed/serverless ETL; EMR for custom cluster control. |
+| Glue vs EMR        | Glue for managed/serverless ETL; EMR for custom cluster control.                      |
 
 ```python
 import time
@@ -1557,38 +1579,38 @@ def run_athena_query(sql: str, database: str, output: str) -> list[list[str]]:
     return result_rows
 ```
 
-
 ## 20. AWS networking
 
 **Beginner** **Intermediate**
 
 VPC networking controls how workloads communicate.
 
-| Concept | Meaning |
-| --- | --- |
-| VPC | Isolated virtual network. |
-| CIDR block | IP address range. |
-| Public subnet | Subnet with route to Internet Gateway. |
-| Private subnet | Subnet without direct inbound internet route. |
-| Route table | Routes traffic to gateways, NAT, peers, endpoints, or local network. |
-| Security group | Stateful firewall attached to ENIs/resources. |
-| NACL | Stateless subnet-level firewall. |
-| VPC endpoint | Private path to AWS services. |
-| PrivateLink | Private connectivity to services through interface endpoints. |
-| Transit Gateway | Hub for many VPCs and on-prem networks. |
+| Concept         | Meaning                                                              |
+|-----------------|----------------------------------------------------------------------|
+| VPC             | Isolated virtual network.                                            |
+| CIDR block      | IP address range.                                                    |
+| Public subnet   | Subnet with route to Internet Gateway.                               |
+| Private subnet  | Subnet without direct inbound internet route.                        |
+| Route table     | Routes traffic to gateways, NAT, peers, endpoints, or local network. |
+| Security group  | Stateful firewall attached to ENIs/resources.                        |
+| NACL            | Stateless subnet-level firewall.                                     |
+| VPC endpoint    | Private path to AWS services.                                        |
+| PrivateLink     | Private connectivity to services through interface endpoints.        |
+| Transit Gateway | Hub for many VPCs and on-prem networks.                              |
 
 ```mermaid
 flowchart TB
-  Internet --> IGW[Internet Gateway]
-  IGW --> Public[Public subnet: ALB and NAT]
-  Public --> Private[Private subnet: app tasks]
-  Private --> DB[Private database subnet]
-  Private --> Endpoint[S3/DynamoDB VPC endpoint]
+    Internet --> IGW[Internet Gateway]
+    IGW --> Public[Public subnet: ALB and NAT]
+    Public --> Private[Private subnet: app tasks]
+    Private --> DB[Private database subnet]
+    Private --> Endpoint[S3/DynamoDB VPC endpoint]
 ```
 
 Security group vs NACL: security groups are stateful and resource-level; NACLs are stateless and subnet-level.
 
-Gateway endpoint vs interface endpoint: gateway endpoints are route-table targets for S3/DynamoDB; interface endpoints create ENIs and use PrivateLink.
+Gateway endpoint vs interface endpoint: gateway endpoints are route-table targets for S3/DynamoDB; interface endpoints
+create ENIs and use PrivateLink.
 
 Beginner mental model:
 
@@ -1601,23 +1623,23 @@ NACL = stateless subnet guardrail
 VPC endpoint = private path to AWS service APIs
 ```
 
-
 ## 21. Monitoring, logging, and auditing
 
 **Intermediate**
 
-CloudWatch collects metrics, logs, alarms, dashboards, and Logs Insights. CloudTrail records API activity. AWS Config records resource configuration and compliance. X-Ray traces distributed applications.
+CloudWatch collects metrics, logs, alarms, dashboards, and Logs Insights. CloudTrail records API activity. AWS Config
+records resource configuration and compliance. X-Ray traces distributed applications.
 
 Do not mix these up in interviews:
 
-| Tool | Primary question answered |
-| --- | --- |
-| CloudWatch Metrics | Is the system healthy numerically? |
-| CloudWatch Logs | What did the application or service write? |
-| CloudWatch Alarms | Should someone or something react? |
-| CloudTrail | Who called which AWS API, from where, and when? |
-| AWS Config | What changed in resource configuration? |
-| X-Ray/tracing | Where did time/errors happen across a request path? |
+| Tool               | Primary question answered                           |
+|--------------------|-----------------------------------------------------|
+| CloudWatch Metrics | Is the system healthy numerically?                  |
+| CloudWatch Logs    | What did the application or service write?          |
+| CloudWatch Alarms  | Should someone or something react?                  |
+| CloudTrail         | Who called which AWS API, from where, and when?     |
+| AWS Config         | What changed in resource configuration?             |
+| X-Ray/tracing      | Where did time/errors happen across a request path? |
 
 ```python
 import time
@@ -1641,12 +1663,12 @@ print(response["queryId"])
 
 CloudWatch vs CloudTrail: CloudWatch monitors workload behavior; CloudTrail audits AWS API calls.
 
-
 ## 22. Security and secrets management
 
 **Intermediate** **Security note**
 
-Use IAM least privilege, KMS for encryption keys, Secrets Manager for secrets and rotation, Parameter Store for configuration and simple secure strings, resource policies for resource-side authorization, and public-access controls.
+Use IAM least privilege, KMS for encryption keys, Secrets Manager for secrets and rotation, Parameter Store for
+configuration and simple secure strings, resource policies for resource-side authorization, and public-access controls.
 
 Security baseline:
 
@@ -1674,11 +1696,13 @@ def get_parameter(name: str) -> str:
     return response["Parameter"]["Value"]
 ```
 
-Secrets Manager vs Parameter Store: Secrets Manager is better for rotation and database credentials; Parameter Store is simpler for configuration and lower-change secure values.
+Secrets Manager vs Parameter Store: Secrets Manager is better for rotation and database credentials; Parameter Store is
+simpler for configuration and lower-change secure values.
 
 ### Tagging, dry-run, and destructive-action safeguards
 
-Tags support ownership, cost allocation, automation, compliance, and cleanup. A practical baseline is `Name`, `Environment`, `Application`, `Owner`, `CostCenter`, `ManagedBy`, and `DataClassification`.
+Tags support ownership, cost allocation, automation, compliance, and cleanup. A practical baseline is `Name`,
+`Environment`, `Application`, `Owner`, `CostCenter`, `ManagedBy`, and `DataClassification`.
 
 ```python
 import boto3
@@ -1694,24 +1718,25 @@ ec2.create_tags(
 )
 ```
 
-Destructive automation should include dry-run mode, server-side filters, environment restrictions, confirmation prompts, production safeguards, structured logging, idempotency, backup validation, and tag-based targeting.
+Destructive automation should include dry-run mode, server-side filters, environment restrictions, confirmation prompts,
+production safeguards, structured logging, idempotency, backup validation, and tag-based targeting.
 
-| Control | Why it matters |
-| --- | --- |
-| Dry-run mode | Shows intended changes before modifying resources. |
-| Account and Region validation | Prevents running against the wrong environment. |
-| Required ownership tags | Avoids deleting or changing unknown resources. |
-| Server-side filters | Reduces accidental broad scans and client-side mistakes. |
-| Approval for production | Adds human review before risky changes. |
-| Backup validation | Confirms rollback data exists before replacement or deletion. |
-| Structured audit logs | Records who changed what, where, and why. |
-
+| Control                       | Why it matters                                                |
+|-------------------------------|---------------------------------------------------------------|
+| Dry-run mode                  | Shows intended changes before modifying resources.            |
+| Account and Region validation | Prevents running against the wrong environment.               |
+| Required ownership tags       | Avoids deleting or changing unknown resources.                |
+| Server-side filters           | Reduces accidental broad scans and client-side mistakes.      |
+| Approval for production       | Adds human review before risky changes.                       |
+| Backup validation             | Confirms rollback data exists before replacement or deletion. |
+| Structured audit logs         | Records who changed what, where, and why.                     |
 
 ## 23. Infrastructure as code
 
 **Intermediate**
 
-Infrastructure as code makes environments repeatable. CloudFormation is AWS-native declarative IaC. CDK uses programming languages to synthesize CloudFormation. Terraform is multi-provider and uses state.
+Infrastructure as code makes environments repeatable. CloudFormation is AWS-native declarative IaC. CDK uses programming
+languages to synthesize CloudFormation. Terraform is multi-provider and uses state.
 
 ```yaml
 AWSTemplateFormatVersion: "2010-09-09"
@@ -1732,42 +1757,42 @@ Outputs:
     Value: !Ref Bucket
 ```
 
-Use change sets before risky CloudFormation updates. Detect drift when manual changes are suspected. Keep Terraform state encrypted and locked.
-
+Use change sets before risky CloudFormation updates. Detect drift when manual changes are suspected. Keep Terraform
+state encrypted and locked.
 
 ## 24. Most commonly used AWS architecture patterns
 
 **Intermediate** **Advanced** **Interview answer**
 
-| Pattern | Problem solved | AWS services | Operations focus |
-| --- | --- | --- | --- |
-| Three-tier web application | Separates web, app, and data layers. | Route 53, CloudFront, ALB, ECS/EC2, RDS, S3 | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Serverless REST API | Runs APIs without server management. | API Gateway, Lambda, DynamoDB, CloudWatch | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Event-driven architecture | Decouples producers and consumers. | EventBridge, SNS, SQS, Lambda | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Queue-based load leveling | Smooths traffic spikes. | SQS, Lambda/ECS workers, DLQ | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Fan-out | Sends one event to many subscribers. | SNS or EventBridge, SQS, Lambda | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Dead-letter queue | Captures failed messages. | SQS DLQ, Lambda event source mapping | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Idempotent consumer | Safely handles duplicate messages. | SQS, DynamoDB conditional writes | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Scheduled automation | Runs maintenance on a schedule. | EventBridge Scheduler, Lambda/ECS | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| File-processing pipeline | Processes uploaded files. | S3, Lambda, SQS, Step Functions | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Data lake | Stores raw and curated data in S3. | S3, Glue, Athena, Lake Formation | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Cross-account automation | Centralizes inventory/governance. | Organizations, STS, S3, Athena | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Multi-Region DR | Recovers from regional failure. | Route 53, S3 replication, DynamoDB global tables, RDS replicas | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Blue-green deployment | Switches traffic between two versions. | ALB/Route 53/CodeDeploy | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Canary deployment | Shifts small traffic percentage first. | Lambda aliases, CodeDeploy, ALB weights | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Circuit breaker | Stops repeated calls to unhealthy dependencies. | App logic, CloudWatch alarms | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
-| Saga pattern | Coordinates distributed transactions. | Step Functions, SQS, compensating actions | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Pattern                    | Problem solved                                  | AWS services                                                   | Operations focus                                                   |
+|----------------------------|-------------------------------------------------|----------------------------------------------------------------|--------------------------------------------------------------------|
+| Three-tier web application | Separates web, app, and data layers.            | Route 53, CloudFront, ALB, ECS/EC2, RDS, S3                    | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Serverless REST API        | Runs APIs without server management.            | API Gateway, Lambda, DynamoDB, CloudWatch                      | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Event-driven architecture  | Decouples producers and consumers.              | EventBridge, SNS, SQS, Lambda                                  | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Queue-based load leveling  | Smooths traffic spikes.                         | SQS, Lambda/ECS workers, DLQ                                   | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Fan-out                    | Sends one event to many subscribers.            | SNS or EventBridge, SQS, Lambda                                | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Dead-letter queue          | Captures failed messages.                       | SQS DLQ, Lambda event source mapping                           | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Idempotent consumer        | Safely handles duplicate messages.              | SQS, DynamoDB conditional writes                               | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Scheduled automation       | Runs maintenance on a schedule.                 | EventBridge Scheduler, Lambda/ECS                              | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| File-processing pipeline   | Processes uploaded files.                       | S3, Lambda, SQS, Step Functions                                | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Data lake                  | Stores raw and curated data in S3.              | S3, Glue, Athena, Lake Formation                               | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Cross-account automation   | Centralizes inventory/governance.               | Organizations, STS, S3, Athena                                 | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Multi-Region DR            | Recovers from regional failure.                 | Route 53, S3 replication, DynamoDB global tables, RDS replicas | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Blue-green deployment      | Switches traffic between two versions.          | ALB/Route 53/CodeDeploy                                        | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Canary deployment          | Shifts small traffic percentage first.          | Lambda aliases, CodeDeploy, ALB weights                        | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Circuit breaker            | Stops repeated calls to unhealthy dependencies. | App logic, CloudWatch alarms                                   | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
+| Saga pattern               | Coordinates distributed transactions.           | Step Functions, SQS, compensating actions                      | Monitor errors, latency, retries, DLQ depth, cost, and saturation. |
 
 **Example: event-driven order processing**
 
 ```mermaid
 flowchart LR
-  Producer[Order producer] --> EventBridge[EventBridge bus]
-  EventBridge --> Rule[OrderCreated rule]
-  Rule --> Queue[SQS queue]
-  Queue --> Worker[Lambda or ECS worker]
-  Worker --> Table[(DynamoDB orders)]
-  Queue --> DLQ[SQS dead-letter queue]
+    Producer[Order producer] --> EventBridge[EventBridge bus]
+    EventBridge --> Rule[OrderCreated rule]
+    Rule --> Queue[SQS queue]
+    Queue --> Worker[Lambda or ECS worker]
+    Worker --> Table[(DynamoDB orders)]
+    Queue --> DLQ[SQS dead-letter queue]
 ```
 
 For every pattern, discuss:
@@ -1785,37 +1810,44 @@ For every pattern, discuss:
 
 ### Well-Architected interview lens
 
-AWS Well-Architected reviews systems through six pillars: operational excellence, security, reliability, performance efficiency, cost optimization, and sustainability. In interviews, use those pillars to explain trade-offs instead of only naming services.
+AWS Well-Architected reviews systems through six pillars: operational excellence, security, reliability, performance
+efficiency, cost optimization, and sustainability. In interviews, use those pillars to explain trade-offs instead of
+only naming services.
 
-| Pillar | Strong interview angle |
-| --- | --- |
-| Operational excellence | Deployment safety, observability, runbooks, incident response, and automation. |
-| Security | Least privilege, encryption, secrets handling, network boundaries, and audit trails. |
-| Reliability | Multi-AZ design, retries, idempotency, backups, DLQs, and failure testing. |
-| Performance efficiency | Right service choice, caching, partitioning, concurrency, and measured tuning. |
-| Cost optimization | Right-sizing, lifecycle policies, reserved capacity, tagging, and waste cleanup. |
-| Sustainability | Efficient resource use, autoscaling, storage lifecycle, and avoiding idle capacity. |
+| Pillar                 | Strong interview angle                                                               |
+|------------------------|--------------------------------------------------------------------------------------|
+| Operational excellence | Deployment safety, observability, runbooks, incident response, and automation.       |
+| Security               | Least privilege, encryption, secrets handling, network boundaries, and audit trails. |
+| Reliability            | Multi-AZ design, retries, idempotency, backups, DLQs, and failure testing.           |
+| Performance efficiency | Right service choice, caching, partitioning, concurrency, and measured tuning.       |
+| Cost optimization      | Right-sizing, lifecycle policies, reserved capacity, tagging, and waste cleanup.     |
+| Sustainability         | Efficient resource use, autoscaling, storage lifecycle, and avoiding idle capacity.  |
 
-Example trade-off: Multi-Region active-active improves availability and latency, but increases cost, operational complexity, data consistency challenges, deployment risk, and testing burden.
+Example trade-off: Multi-Region active-active improves availability and latency, but increases cost, operational
+complexity, data consistency challenges, deployment risk, and testing burden.
 
 ### Orchestration and data-platform notes
 
-Use Step Functions when a workflow needs explicit state, retries, waits, branching, human approval, compensation, or clear execution history. Use SQS when the main need is buffering independent work items. Use EventBridge when the main need is event routing between producers and consumers.
+Use Step Functions when a workflow needs explicit state, retries, waits, branching, human approval, compensation, or
+clear execution history. Use SQS when the main need is buffering independent work items. Use EventBridge when the main
+need is event routing between producers and consumers.
 
-For data platforms, a common pattern is S3 as the durable data lake, Glue Data Catalog for metadata, Glue or EMR for ETL, Athena for serverless SQL on S3, and Redshift for high-performance warehouse analytics. In interviews, explain where raw, staged, curated, and audit data live, then describe partitioning, schema evolution, access control, and reconciliation.
+For data platforms, a common pattern is S3 as the durable data lake, Glue Data Catalog for metadata, Glue or EMR for
+ETL, Athena for serverless SQL on S3, and Redshift for high-performance warehouse analytics. In interviews, explain
+where raw, staged, curated, and audit data live, then describe partitioning, schema evolution, access control, and
+reconciliation.
 
 ### Certification alignment
 
 This handbook supports common AWS interview and certification themes:
 
-| Certification area | Handbook focus |
-| --- | --- |
-| Cloud Practitioner | Core AWS services, shared responsibility, Regions, AZs, IAM, billing, and support concepts. |
-| Solutions Architect Associate | Architecture patterns, VPC, HA, DR, security, storage, databases, and cost trade-offs. |
-| Developer Associate | Boto3, Lambda, API/event patterns, DynamoDB, SQS/SNS/EventBridge, retries, and deployment behavior. |
-| SysOps Administrator Associate | Monitoring, troubleshooting, automation, backups, patching, logging, and operational controls. |
-| Data-focused interviews | S3 data lakes, Glue, Athena, EMR, Redshift, partitioning, metadata, and reconciliation. |
-
+| Certification area             | Handbook focus                                                                                      |
+|--------------------------------|-----------------------------------------------------------------------------------------------------|
+| Cloud Practitioner             | Core AWS services, shared responsibility, Regions, AZs, IAM, billing, and support concepts.         |
+| Solutions Architect Associate  | Architecture patterns, VPC, HA, DR, security, storage, databases, and cost trade-offs.              |
+| Developer Associate            | Boto3, Lambda, API/event patterns, DynamoDB, SQS/SNS/EventBridge, retries, and deployment behavior. |
+| SysOps Administrator Associate | Monitoring, troubleshooting, automation, backups, patching, logging, and operational controls.      |
+| Data-focused interviews        | S3 data lakes, Glue, Athena, EMR, Redshift, partitioning, metadata, and reconciliation.             |
 
 ## 25. Testing Boto3 applications
 
@@ -1823,12 +1855,12 @@ This handbook supports common AWS interview and certification themes:
 
 Testing strategy:
 
-| Test type | Best for |
-| --- | --- |
-| Unit test | Pure logic and exact Boto3 calls with Stubber. |
-| Moto | Fast service mocks in process. |
-| LocalStack | Local integration through AWS-compatible endpoints. |
-| Real AWS sandbox | IAM, networking, quotas, managed-service behavior. |
+| Test type        | Best for                                            |
+|------------------|-----------------------------------------------------|
+| Unit test        | Pure logic and exact Boto3 calls with Stubber.      |
+| Moto             | Fast service mocks in process.                      |
+| LocalStack       | Local integration through AWS-compatible endpoints. |
+| Real AWS sandbox | IAM, networking, quotas, managed-service behavior.  |
 
 **Stubber example**
 
@@ -1857,12 +1889,13 @@ def test_list_bucket_names():
 
 Use dependency injection so tests pass a stubbed or local client.
 
-
 ## 26. Production-ready Boto3 patterns
 
 **Advanced** **Production note**
 
-Production-ready Boto3 code should reuse clients, centralize configuration, inject dependencies, filter server-side, paginate, batch, stream large objects, bound concurrency, configure retries/timeouts, use idempotency, handle partial failures, log structurally, validate account and Region, and protect destructive actions with dry-run.
+Production-ready Boto3 code should reuse clients, centralize configuration, inject dependencies, filter server-side,
+paginate, batch, stream large objects, bound concurrency, configure retries/timeouts, use idempotency, handle partial
+failures, log structurally, validate account and Region, and protect destructive actions with dry-run.
 
 ```python
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1885,14 +1918,15 @@ def head_objects_bounded(s3_client, bucket: str, keys: list[str]) -> dict[str, i
     return results
 ```
 
-Thread safety: clients are generally safe for typical concurrent use. Sessions and resources should not be freely shared across threads; create clients up front with an adequate connection pool.
-
+Thread safety: clients are generally safe for typical concurrent use. Sessions and resources should not be freely shared
+across threads; create clients up front with an adequate connection pool.
 
 ## 27. Performance, reliability, and cost optimization
 
 **Advanced** **Cost note**
 
-Performance, reliability, and cost are connected. Repeated API calls increase latency and cost. Missing pagination gives wrong reports. Unbounded concurrency causes throttling. Long log retention and NAT Gateway traffic can surprise teams.
+Performance, reliability, and cost are connected. Repeated API calls increase latency and cost. Missing pagination gives
+wrong reports. Unbounded concurrency causes throttling. Long log retention and NAT Gateway traffic can surprise teams.
 
 Safe inventory examples:
 
@@ -1918,35 +1952,37 @@ def unused_elastic_ips(ec2_client) -> list[dict]:
     return unused_addresses
 ```
 
-Do not automatically delete resources from inventory reports. Add ownership tags, dry-run, approval, backup validation, and audit logging.
+Do not automatically delete resources from inventory reports. Add ownership tags, dry-run, approval, backup validation,
+and audit logging.
 
-Cost and ownership cleanup should be tag-first. Start by reporting resources grouped by `Owner`, `Application`, `Environment`, and `CostCenter`; only then consider cleanup automation. Untagged resources should normally go to an exception report instead of immediate deletion.
-
+Cost and ownership cleanup should be tag-first. Start by reporting resources grouped by `Owner`, `Application`,
+`Environment`, and `CostCenter`; only then consider cleanup automation. Untagged resources should normally go to an
+exception report instead of immediate deletion.
 
 ## 28. Troubleshooting guide
 
 **Beginner** **Intermediate**
 
-| Issue | Likely cause | Investigation | Corrective action |
-| --- | --- | --- | --- |
-| Unable to locate credentials | No profile, env vars, or role | aws sts get-caller-identity | Configure SSO/profile or attach role |
-| Access denied | IAM/resource/SCP/KMS deny | CloudTrail lookup-events | Fix least-privilege permissions |
-| Expired credentials | STS/SSO session expired | aws sts get-caller-identity | Refresh session |
-| Incorrect Region | Client points to wrong Region | aws configure list | Set Region explicitly |
-| Endpoint failures | DNS/proxy/VPC endpoint/network | curl endpoint or check VPC routes | Fix endpoint URL/routing/proxy |
-| Timeouts | Slow service/network/read timeout | SDK debug logs | Tune timeout/retry and reduce payload |
-| Throttling | Too many calls or concurrency | CloudWatch metrics | Backoff, jitter, batching |
-| Resource not found | Wrong name/account/Region | List resources and STS identity | Validate identifiers |
-| Resource already exists | Non-idempotent create | Describe existing resource | Use deterministic names/state checks |
-| S3 access denied | Bucket policy/KMS/IAM | CloudTrail data events | Align policies and KMS key |
-| Lambda timeout | Slow dependencies/VPC/memory | CloudWatch REPORT line | Tune memory, timeout, network |
-| SQS duplicates | At-least-once delivery | Consumer logs and queue metrics | Make consumer idempotent |
-| DynamoDB throttling | Hot partition/capacity | Consumed capacity metrics | Redesign key or capacity |
-| CloudFormation rollback | Failed resource/dependency/IAM | Stack events | Fix failed resource and retry |
-| LocalStack connection | Container not running/port | curl health endpoint | Start Docker/LocalStack |
+| Issue                        | Likely cause                      | Investigation                     | Corrective action                     |
+|------------------------------|-----------------------------------|-----------------------------------|---------------------------------------|
+| Unable to locate credentials | No profile, env vars, or role     | aws sts get-caller-identity       | Configure SSO/profile or attach role  |
+| Access denied                | IAM/resource/SCP/KMS deny         | CloudTrail lookup-events          | Fix least-privilege permissions       |
+| Expired credentials          | STS/SSO session expired           | aws sts get-caller-identity       | Refresh session                       |
+| Incorrect Region             | Client points to wrong Region     | aws configure list                | Set Region explicitly                 |
+| Endpoint failures            | DNS/proxy/VPC endpoint/network    | curl endpoint or check VPC routes | Fix endpoint URL/routing/proxy        |
+| Timeouts                     | Slow service/network/read timeout | SDK debug logs                    | Tune timeout/retry and reduce payload |
+| Throttling                   | Too many calls or concurrency     | CloudWatch metrics                | Backoff, jitter, batching             |
+| Resource not found           | Wrong name/account/Region         | List resources and STS identity   | Validate identifiers                  |
+| Resource already exists      | Non-idempotent create             | Describe existing resource        | Use deterministic names/state checks  |
+| S3 access denied             | Bucket policy/KMS/IAM             | CloudTrail data events            | Align policies and KMS key            |
+| Lambda timeout               | Slow dependencies/VPC/memory      | CloudWatch REPORT line            | Tune memory, timeout, network         |
+| SQS duplicates               | At-least-once delivery            | Consumer logs and queue metrics   | Make consumer idempotent              |
+| DynamoDB throttling          | Hot partition/capacity            | Consumed capacity metrics         | Redesign key or capacity              |
+| CloudFormation rollback      | Failed resource/dependency/IAM    | Stack events                      | Fix failed resource and retry         |
+| LocalStack connection        | Container not running/port        | curl health endpoint              | Start Docker/LocalStack               |
 
-For each incident, capture symptoms, caller identity, account, Region, endpoint, request ID, AWS error code, resource ID, recent deploys, and whether the issue reproduces in LocalStack, sandbox AWS, or production.
-
+For each incident, capture symptoms, caller identity, account, Region, endpoint, request ID, AWS error code, resource
+ID, recent deploys, and whether the issue reproduces in LocalStack, sandbox AWS, or production.
 
 ## 29. Frequently used Boto3 snippets
 
@@ -2046,13 +2082,12 @@ def parse_args():
     return parser.parse_args()
 ```
 
-Runs locally: `local_client`, S3/SQS/SNS/EventBridge snippets with LocalStack-supported services. Requires real AWS: role assumption, EC2, CloudFormation, Glue, Athena, and production IAM behavior.
-
+Runs locally: `local_client`, S3/SQS/SNS/EventBridge snippets with LocalStack-supported services. Requires real AWS:role
+assumption, EC2, CloudFormation, Glue, Athena, and production IAM behavior.
 
 ## 30. Runnable LocalStack projects
 
 **Runs with LocalStack**
-
 
 **Project 1: S3 file manager - Runs with LocalStack**
 
@@ -2200,7 +2235,8 @@ pytest
 docker compose down
 ```
 
-Expected output: `['example.txt']`. Common errors: LocalStack not running, missing dummy credentials, bucket not empty during cleanup.
+Expected output: `['example.txt']`. Common errors: LocalStack not running, missing dummy credentials, bucket not empty
+during cleanup.
 
 **Project 2: Reliable SQS worker - Runs with LocalStack**
 
@@ -2292,7 +2328,8 @@ pytest
 docker compose down
 ```
 
-Expected behavior: successful messages are deleted; failed messages remain until retry and eventually DLQ depending on receive count.
+Expected behavior: successful messages are deleted; failed messages remain until retry and eventually DLQ depending on
+receive count.
 
 **Project 3: Event-driven order pipeline - Runs with LocalStack**
 
@@ -2416,62 +2453,61 @@ python -c "from src.processor import process; print(process('<QUEUE_URL>'))"
 docker compose down
 ```
 
-Expected output: processor prints `1`; DynamoDB contains the order. Common errors: SNS envelope parsing, table already exists, queue URL mismatch.
-
+Expected output: processor prints `1`; DynamoDB contains the order. Common errors: SNS envelope parsing, table already
+exists, queue URL mismatch.
 
 ## 31. AWS interview questions and answers
 
 **Interview answer**
 
-| Question | Concise answer | Deeper explanation |
-| --- | --- | --- |
-| What is a Region? | A geographic AWS area containing multiple AZs. | Choose based on latency, compliance, cost, and services. |
-| IAM role vs user? | A role is assumed for temporary credentials; a user has long-term identity. | Prefer roles for workloads. |
-| S3 security? | Block public access, least privilege, encryption, ownership controls. | Add KMS and logging for sensitive data. |
+| Question                                              | Concise answer                                                                         | Deeper explanation                                                                                                                                                                                                  |
+|-------------------------------------------------------|----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| What is a Region?                                     | A geographic AWS area containing multiple AZs.                                         | Choose based on latency, compliance, cost, and services.                                                                                                                                                            |
+| IAM role vs user?                                     | A role is assumed for temporary credentials; a user has long-term identity.            | Prefer roles for workloads.                                                                                                                                                                                         |
+| S3 security?                                          | Block public access, least privilege, encryption, ownership controls.                  | Add KMS and logging for sensitive data.                                                                                                                                                                             |
 | Can S3 versioning time travel after a failed EMR job? | It can restore object versions before a cutoff, but it is not table-level time travel. | Stop writers, restore each affected key to the latest version before the job start time, delete keys that did not exist at the cutoff, then validate counts. Use Iceberg/Delta/Hudi for consistent table snapshots. |
-| SQS vs SNS? | SQS queues work; SNS fans out messages. | Use them together for durable fan-out. |
-| DynamoDB query vs scan? | Query uses keys; scan reads broadly. | Design access patterns for query. |
-| Multi-account architecture? | Separate accounts by environment and function. | Use Organizations, SCPs, centralized logs/security. |
+| SQS vs SNS?                                           | SQS queues work; SNS fans out messages.                                                | Use them together for durable fan-out.                                                                                                                                                                              |
+| DynamoDB query vs scan?                               | Query uses keys; scan reads broadly.                                                   | Design access patterns for query.                                                                                                                                                                                   |
+| Multi-account architecture?                           | Separate accounts by environment and function.                                         | Use Organizations, SCPs, centralized logs/security.                                                                                                                                                                 |
 
-For each answer, add a practical example, trade-offs, follow-up questions, and common incorrect answers. Example: for high availability, mention Multi-AZ, health checks, Auto Scaling, backups, and failure testing. Common incorrect answer: "AWS is automatically highly available" without architecture choices.
-
+For each answer, add a practical example, trade-offs, follow-up questions, and common incorrect answers. Example: for
+high availability, mention Multi-AZ, health checks, Auto Scaling, backups, and failure testing. Common incorrect
+answer: "AWS is automatically highly available" without architecture choices.
 
 ## 32. Boto3 interview questions
 
 **Interview answer**
 
-| Topic | Strong answer |
-| --- | --- |
-| Sessions | Hold credentials and config; create clients from them. |
-| Clients | Low-level complete service API access. |
-| Resources | Higher-level object abstraction; not available for every service. |
-| Credential chain | Boto3 checks explicit args, env, files, profiles, SSO/roles, container/instance metadata. |
-| Pagination | Required because list APIs return partial results. |
-| Waiters | Bounded polling for state transitions. |
-| Retries | Use standard/adaptive modes and protect non-idempotent writes. |
-| `ClientError` | Inspect `error.response['Error']['Code']`. |
-| Thread safety | Reuse clients carefully; bound concurrency and pool connections. |
-| Stubber/Moto/LocalStack | Unit exact calls, mock services, and local integration respectively. |
-| Memory-efficient S3 | Stream bodies or use transfers; avoid reading huge objects into memory. |
-
+| Topic                   | Strong answer                                                                             |
+|-------------------------|-------------------------------------------------------------------------------------------|
+| Sessions                | Hold credentials and config; create clients from them.                                    |
+| Clients                 | Low-level complete service API access.                                                    |
+| Resources               | Higher-level object abstraction; not available for every service.                         |
+| Credential chain        | Boto3 checks explicit args, env, files, profiles, SSO/roles, container/instance metadata. |
+| Pagination              | Required because list APIs return partial results.                                        |
+| Waiters                 | Bounded polling for state transitions.                                                    |
+| Retries                 | Use standard/adaptive modes and protect non-idempotent writes.                            |
+| `ClientError`           | Inspect `error.response['Error']['Code']`.                                                |
+| Thread safety           | Reuse clients carefully; bound concurrency and pool connections.                          |
+| Stubber/Moto/LocalStack | Unit exact calls, mock services, and local integration respectively.                      |
+| Memory-efficient S3     | Stream bodies or use transfers; avoid reading huge objects into memory.                   |
 
 ## 33. Scenario-based interview questions
 
 **Interview answer**
 
-| Scenario | Strong response |
-| --- | --- |
-| Script returns first 1,000 resources | Missing pagination; use paginator and test multi-page responses. |
-| S3 upload is slow | Use multipart transfer, connection pooling, and avoid unnecessary data movement. |
-| Lambda times out | Inspect logs, tune memory/timeout, reuse clients, fix VPC/network calls. |
-| SQS duplicates | Expected at-least-once delivery; make processing idempotent. |
-| DynamoDB hot partition | Redesign partition key or shard writes. |
-| Cross-account access fails | Check caller identity, trust policy, identity policy, SCP, and external ID. |
-| Temporary credentials expire | Refresh SSO/STS or use roles with automatic refresh. |
-| New client per request | Reuse clients to reduce overhead and socket churn. |
-| Production modified accidentally | Validate account/Region/env, require tags, dry-run, and approvals. |
-| LocalStack differs from AWS | Treat LocalStack as fast feedback; validate critical behavior in real AWS sandbox. |
-
+| Scenario                             | Strong response                                                                    |
+|--------------------------------------|------------------------------------------------------------------------------------|
+| Script returns first 1,000 resources | Missing pagination; use paginator and test multi-page responses.                   |
+| S3 upload is slow                    | Use multipart transfer, connection pooling, and avoid unnecessary data movement.   |
+| Lambda times out                     | Inspect logs, tune memory/timeout, reuse clients, fix VPC/network calls.           |
+| SQS duplicates                       | Expected at-least-once delivery; make processing idempotent.                       |
+| DynamoDB hot partition               | Redesign partition key or shard writes.                                            |
+| Cross-account access fails           | Check caller identity, trust policy, identity policy, SCP, and external ID.        |
+| Temporary credentials expire         | Refresh SSO/STS or use roles with automatic refresh.                               |
+| New client per request               | Reuse clients to reduce overhead and socket churn.                                 |
+| Production modified accidentally     | Validate account/Region/env, require tags, dry-run, and approvals.                 |
+| LocalStack differs from AWS          | Treat LocalStack as fast feedback; validate critical behavior in real AWS sandbox. |
 
 ## 34. Architecture interview exercises
 
@@ -2485,18 +2521,21 @@ Services: Route 53, CloudFront, ALB, ECS or EC2 Auto Scaling, RDS Multi-AZ, S3, 
 
 ```mermaid
 flowchart LR
-  User --> Route53[Route 53]
-  Route53 --> CloudFront[CloudFront]
-  CloudFront --> ALB[ALB]
-  ALB --> App[ECS service across AZs]
-  App --> RDS[(RDS Multi-AZ)]
-  App --> S3[(S3)]
+    User --> Route53[Route 53]
+    Route53 --> CloudFront[CloudFront]
+    CloudFront --> ALB[ALB]
+    ALB --> App[ECS service across AZs]
+    App --> RDS[(RDS Multi-AZ)]
+    App --> S3[(S3)]
 ```
 
-Security: TLS, WAF, private subnets, least-privilege roles, KMS. Scaling: ALB and service Auto Scaling. Failure: health checks, RDS failover, backups. Cost: right-size compute, cache static content.
+Security: TLS, WAF, private subnets, least-privilege roles, KMS. Scaling: ALB and service Auto Scaling. Failure: health
+checks, RDS failover, backups. Cost: right-size compute, cache static content.
 
-**Other exercises:** serverless REST API, file-processing pipeline, event-driven order processing, data lake, cross-account inventory, cleanup platform, centralized logging, cost reporting, and multi-Region DR. For each, state requirements, services, data flow, security, scaling, failure handling, monitoring, cost, trade-offs, and follow-up questions.
-
+**Other exercises:** serverless REST API, file-processing pipeline, event-driven order processing, data lake,
+cross-account inventory, cleanup platform, centralized logging, cost reporting, and multi-Region DR. For each, state
+requirements, services, data flow, security, scaling, failure handling, monitoring, cost, trade-offs, and follow-up
+questions.
 
 ## 35. Quick-revision sheets
 
@@ -2504,13 +2543,16 @@ Security: TLS, WAF, private subnets, least-privilege roles, KMS. Scaling: ALB an
 
 **AWS fundamentals:** Regions, AZs, IAM, VPC, compute, storage, databases, observability, cost, and DR.
 
-**IAM:** prefer roles, use least privilege, explicit deny wins, evaluate SCPs/boundaries/resource policies, audit with CloudTrail.
+**IAM:** prefer roles, use least privilege, explicit deny wins, evaluate SCPs/boundaries/resource policies, audit with
+CloudTrail.
 
 **VPC:** CIDR, subnets, route tables, IGW, NAT, endpoints, SGs, NACLs, DNS, ALB/NLB.
 
-**S3:** buckets, objects, keys, prefixes, versioning, lifecycle, encryption, policies, replication, multipart, presigned URLs.
+**S3:** buckets, objects, keys, prefixes, versioning, lifecycle, encryption, policies, replication, multipart, presigned
+URLs.
 
-**EC2:** AMIs, instance types, EBS, SGs, key pairs, user data, tags, instance profiles, Auto Scaling, Spot, Savings Plans.
+**EC2:** AMIs, instance types, EBS, SGs, key pairs, user data, tags, instance profiles, Auto Scaling, Spot, Savings
+Plans.
 
 **Lambda:** handler, event, context, role, timeout, memory, concurrency, event sources, DLQs, idempotency.
 
@@ -2522,13 +2564,17 @@ Security: TLS, WAF, private subnets, least-privilege roles, KMS. Scaling: ALB an
 
 **Security:** IAM, KMS, Secrets Manager, Parameter Store, GuardDuty, Security Hub, Inspector, Macie, WAF, Shield.
 
-**Safe automation:** dry-run first, validate account and Region, filter server-side, require ownership tags, approve production changes, validate backups, and log every action.
+**Safe automation:** dry-run first, validate account and Region, filter server-side, require ownership tags, approve
+production changes, validate backups, and log every action.
 
-**Well-Architected lens:** explain operational excellence, security, reliability, performance efficiency, cost optimization, and sustainability for every architecture answer.
+**Well-Architected lens:** explain operational excellence, security, reliability, performance efficiency, cost
+optimization, and sustainability for every architecture answer.
 
-**Data platform lens:** S3 stores data, Glue catalogs metadata, Glue/EMR transforms data, Athena queries S3, Redshift serves warehouse workloads, and Lake Formation manages data-lake permissions.
+**Data platform lens:** S3 stores data, Glue catalogs metadata, Glue/EMR transforms data, Athena queries S3, Redshift
+serves warehouse workloads, and Lake Formation manages data-lake permissions.
 
-**Boto3:** sessions, clients, resources, credential chain, response dictionaries, `ClientError`, paginators, waiters, retries.
+**Boto3:** sessions, clients, resources, credential chain, response dictionaries, `ClientError`, paginators, waiters,
+retries.
 
 **LocalStack commands**
 
