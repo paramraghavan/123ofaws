@@ -78,28 +78,8 @@ Examples are labeled:
 - **Cost note:** billing and waste-prevention guidance.
 - **Common mistake:** frequent pitfalls and corrected patterns.
 
-**Beginner learning path**
 
-1. Cloud fundamentals, global infrastructure, accounts, and IAM.
-2. macOS setup, AWS CLI, LocalStack, and Boto3 client creation.
-3. S3, SQS, SNS/EventBridge, DynamoDB, and Lambda.
-4. Error handling, pagination, retries, waiters, and testing.
-5. Complete the S3 file manager project.
-
-**Intermediate learning path**
-
-1. Build reusable client factories and project structure.
-2. Study event-driven patterns, idempotency, partial failures, and DLQs.
-3. Study EC2 safety controls, monitoring, secrets, IaC, and networking.
-4. Complete the reliable SQS worker and order pipeline projects.
-
-**Advanced learning path**
-
-1. Multi-account, multi-Region, platform engineering, security architecture, cost governance.
-2. Cross-account automation, centralized logging, disaster recovery, data platforms.
-3. Practice architecture and scenario interview exercises.
-
-**Official references used for validation**
+**References**
 
 - AWS Boto3 documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
 - Botocore configuration documentation: https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
