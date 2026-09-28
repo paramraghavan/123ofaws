@@ -1,384 +1,560 @@
-# AWS IAM Notes
+# IAM (Identity and Access Management): Comprehensive Tutoring Guide
 
-This folder is a practical reference for AWS IAM, STS `AssumeRole`, AWS CLI profiles, and the local
-`credential_process` helper in this directory.
+> **Master AWS IAM**: Learn how to securely manage identities, permissions, and access control to AWS resources. This guide covers everything from basic concepts to advanced cross-account access patterns.
 
-## Files
+AWS Identity and Access Management (IAM) enables you to manage access to AWS services and resources securely. Using IAM, you can create and manage AWS users and groups, and use permissions to allow and deny their access to AWS resources. IAM is offered at no additional charge.
 
-| File | Purpose |
-|------|---------|
-| [credential_helper.py](/Users/paramraghavan/dev/123ofaws/iam/credential_helper.py) | Canonical AWS `credential_process` helper. |
-| [aws_creds_helper.py](/Users/paramraghavan/dev/123ofaws/iam/aws_creds_helper.py) | Backward-compatible wrapper for `credential_helper.py`. |
-| [aws_credentials_helper.md](/Users/paramraghavan/dev/123ofaws/iam/aws_credentials_helper.md) | AWS CLI credential patterns and helper setup. |
-| [use-role-with-aws-cli.md](/Users/paramraghavan/dev/123ofaws/iam/use-role-with-aws-cli.md) | Native AWS CLI role profile examples. |
-| [role-vs-assume_role.md](/Users/paramraghavan/dev/123ofaws/iam/role-vs-assume_role.md) | Difference between IAM roles and `sts:AssumeRole`. |
-| [adding_permission_for_assume_role.md](/Users/paramraghavan/dev/123ofaws/iam/adding_permission_for_assume_role.md) | How to change what an assumed role can do. |
-| [cross_account_access_sts.py](/Users/paramraghavan/dev/123ofaws/iam/cross_account_access_sts.py) | Minimal boto3 AssumeRole example. |
-| [iam_role_analyzer.py](/Users/paramraghavan/dev/123ofaws/iam/iam_role_analyzer.py) | Role-policy inventory/debugging script. |
-| [iam-analyzer.md](/Users/paramraghavan/dev/123ofaws/iam/iam-analyzer.md) | Notes for the analyzer script. |
-| [brownfield-vs-edge-node-assume-role.md](/Users/paramraghavan/dev/123ofaws/iam/brownfield-vs-edge-node-assume-role.md) | Brownfield and edge-node credential patterns. |
-| [aws-cli_install.md](/Users/paramraghavan/dev/123ofaws/iam/aws-cli_install.md) | AWS CLI v2 install notes. |
+---
 
-## Core Model
+## Table of Contents
 
-IAM answers two questions:
+1. [What is IAM?](#what-is-iam)
+2. [Core Concepts](#core-concepts)
+3. [IAM Components: Users, Groups, Roles](#iam-components)
+4. [Policies: The Rules](#policies-the-rules)
+5. [IAM Roles in Detail](#iam-roles-in-detail)
+6. [Service Roles vs Delegated Roles](#service-roles-vs-delegated-roles)
+7. [Cross-Account Access](#cross-account-access)
+8. [Policy Evaluation Logic](#policy-evaluation-logic)
+9. [Common Mistakes & Best Practices](#common-mistakes--best-practices)
+10. [Troubleshooting IAM](#troubleshooting-iam)
+11. [Real-World Scenarios](#real-world-scenarios)
 
-- **Authentication**: who is making the request?
-- **Authorization**: what is that identity allowed to do?
+---
 
-The main IAM building blocks:
+## What is IAM?
 
-| Concept | What it is | Credential model | Common use |
-|---------|------------|------------------|------------|
-| User | Long-lived IAM identity | Password/access keys | Human or legacy app identity |
-| Group | Collection of users | None | Attach shared policies to users |
-| Role | Assumable permission set | Temporary STS credentials | Services, cross-account access, short-lived access |
-| Policy | JSON permission document | None | Allows or denies actions on resources |
+**IAM (Identity and Access Management)** is AWS's service for managing **who can do what** in your AWS account.
 
-Prefer roles over long-lived user permissions whenever practical. The user or workload proves identity; the role defines
-the temporary permission set.
+Think of it like a **security checkpoint**:
+- **Identity**: Who are you? (Users, Roles, Applications)
+- **Authentication**: Prove you are who you claim to be (credentials, tokens)
+- **Authorization**: What are you allowed to do? (Policies, permissions)
 
-## Local Setup: `credential_process`
+### Visual Overview: IAM Architecture
 
-The local helper lets an AWS CLI profile call a script to produce temporary AWS credentials.
+![IAM Architecture Overview](https://user-images.githubusercontent.com/52529498/124613465-4104b480-de41-11eb-9df6-8033cdfb3fa6.png)
 
-`~/.aws/config`:
+### Key Facts:
 
-```ini
-[profile profile-oper]
-region = us-east-1
-credential_process = /Users/paramraghavan/dev/123ofaws/iam/credential_helper.py profile-oper
+✅ **Global service** - Works across all AWS regions
+✅ **Free** - No charges for using IAM itself
+✅ **Always enabled** - Every AWS account has IAM
+✅ **Integrated** - Used by all AWS services
+✅ **Flexible** - Fine-grained control down to individual API actions
+
+**IAM has 3 parts:**
+- **IDP (Identity Provider)**: Create, modify, or delete identities such as users and roles
+- **Authentication**: Proves you are who you claim to be (using credentials or tokens)
+- **Authorization**: Allow or deny access to resources based on policies
+
+### Simple Analogy:
+
+```
+Without IAM:
+  AWS Account = Unlocked door
+  Anyone with account password = Full access (dangerous!)
+
+With IAM:
+  AWS Account = Secure building
+  Users = Employees with badge access
+  Roles = Position-specific permissions
+  Policies = Rules defining what each badge can do
 ```
 
-`credential_process` runs the command, reads JSON from stdout, and uses that JSON as credentials. The helper must print
-only credential JSON to stdout. Prompts, warnings, and errors must go to stderr.
+---
 
-The helper flow:
+## Core Concepts
 
-```text
-credential_helper.py profile-oper
-  -> read profile-oper from ~/.aws/credential-helper.json
-  -> load source_profile from ~/.aws/credentials or ~/.aws/config
-  -> call sts:AssumeRole for role_arn
-  -> print temporary credentials JSON for AWS CLI/SDKs
+### The IAM Trust Model
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ AWS Account                                             │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  AWS Root User (Most Privileged - DON'T USE!)          │
+│        ↓                                                │
+│  AWS Account fully trusts:                             │
+│  ├─ Root User                                          │
+│  └─ IAM Service (Identity Provider)                    │
+│        ↓                                                │
+│  IAM Service manages:                                   │
+│  ├─ Users (human/app identities)                       │
+│  ├─ Roles (temporary access credentials)               │
+│  ├─ Groups (collections of users)                      │
+│  └─ Policies (permission rules)                        │
+│        ↓                                                │
+│  Everything else needs permission via IAM              │
+│  (EC2, S3, Lambda, DynamoDB, etc.)                     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-`~/.aws/credential-helper.json`:
+**IAM Identities Architecture:**
 
-```json
-{
-  "profile-oper": {
-    "role_arn": "arn:aws:iam::111111111111:role/OperatorRole",
-    "source_profile": "base",
-    "mfa_serial": "arn:aws:iam::222222222222:mfa/your-user",
-    "duration_seconds": 3600
-  }
-}
+![IAM Identities](https://user-images.githubusercontent.com/52529498/124683534-3a0a9000-de9b-11eb-868d-933a1babadf1.png)
+
+**Key Insight**: Users and Applications cannot directly access AWS—they have to access via IAM Service.
+
+---
+
+## IAM Components
+
+### Users vs Groups vs Roles: Quick Reference
+
+| Feature | User | Group | Role |
+|---------|------|-------|------|
+| **Long-term credentials?** | ✅ Yes (permanent) | N/A | ❌ No (temporary) |
+| **Who uses it?** | Humans, Applications | Management only | Services, Cross-account access |
+| **Direct access to AWS?** | ✅ Yes | ❌ No (contains users) | ❌ No (must be assumed) |
+| **Credential type** | Access keys, password | N/A | Temporary tokens (STS) |
+| **Session duration** | Indefinite | N/A | 15 min - 12 hours |
+| **Use case** | Individual identity | Manage multiple users | Delegation, Services |
+| **Example** | Developer Alice | Engineering team | EC2 instance access |
+
+### When to Use Each
+
+```
+USERS - For direct, permanent access:
+  ✅ Individual developers
+  ✅ Operations team members
+  ✅ Applications needing long-term credentials
+  ❌ NOT for services (use Roles instead)
+  ❌ NOT for temporary access (use Roles instead)
+
+GROUPS - For managing multiple users:
+  ✅ Organize users by department (Engineering, Finance)
+  ✅ Apply same permissions to multiple users
+  ✅ Simplify access management
+  ❌ NOT a security boundary (just a management tool)
+
+ROLES - For temporary, delegated access:
+  ✅ EC2 instances accessing S3
+  ✅ Lambda functions accessing databases
+  ✅ Cross-account access
+  ✅ Federated external users
+  ✅ Any temporary access scenario
 ```
 
-Test:
+---
 
-```bash
-/Users/paramraghavan/dev/123ofaws/iam/credential_helper.py profile-oper
-aws sts get-caller-identity --profile profile-oper
+## Policies: The Rules
+
+### What is a Policy?
+
+A **policy is a JSON document** that defines permissions. By itself, it does nothing. **A policy only becomes effective when attached to an identity** (User, Group, or Role).
+
+```
+Policy = Rulebook (dormant until attached)
+User/Role = Person following the rules
 ```
 
-## What `source_profile = base` Means
-
-`source_profile` is the starting AWS profile used to call STS before assuming the target role. In this example,
-`source_profile = base` means the helper loads a profile named `base`.
-
-Static-key `base` profile in `~/.aws/credentials`:
-
-```ini
-[base]
-aws_access_key_id = <access-key-id>
-aws_secret_access_key = <secret-access-key>
-```
-
-Region and output settings can live in `~/.aws/config`:
-
-```ini
-[profile base]
-region = us-east-1
-output = json
-```
-
-SSO-backed `base` profiles usually live mostly in `~/.aws/config`:
-
-```ini
-[profile base]
-sso_start_url = https://example.awsapps.com/start
-sso_region = us-east-1
-sso_account_id = 222222222222
-sso_role_name = DeveloperAccess
-region = us-east-1
-```
-
-Useful checks:
-
-```bash
-aws configure list --profile base
-aws sts get-caller-identity --profile base
-aws sts get-caller-identity --profile profile-oper
-```
-
-## How `base` Is Initialized and Refreshed
-
-| Base profile type | Initialized | Refreshed or rotated |
-|-------------------|-------------|----------------------|
-| Static IAM access key | `aws configure --profile base` | Manually when keys expire or security rotates them |
-| AWS SSO / IAM Identity Center | SSO profile configuration | `aws sso login --profile base` when the SSO token expires |
-| Office credential tool | Usually first login | Automatically or semi-automatically by the office login/refresh command |
-
-`credential_helper.py` refreshes only the assumed-role STS credentials for `profile-oper`. It does not rotate or recreate
-the underlying `base` profile. If `base` expires, refresh `base` first, then retry the role profile.
-
-## AssumeRole Requirements
-
-For an IAM user or source profile to assume a role, two sides must allow it.
-
-The source identity needs permission to call `sts:AssumeRole`:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": "sts:AssumeRole",
-      "Resource": "arn:aws:iam::111111111111:role/OperatorRole"
-    }
-  ]
-}
-```
-
-The target role needs a trust policy allowing the source identity:
+### Policy Structure
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::222222222222:user/your-user"
-      },
-      "Action": "sts:AssumeRole"
+      "Sid": "DescriptiveStatementName",
+      "Effect": "Allow",              // or "Deny"
+      "Action": [
+        "s3:GetObject",               // service:action format
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-bucket/*"    // What resources
+      ],
+      "Condition": {                  // Optional: when does it apply?
+        "StringEquals": {
+          "aws:username": "alice"
+        }
+      }
     }
   ]
 }
 ```
 
-Mental model:
+### Understanding Each Field
 
-```text
-Source identity permission policy:
-  I am allowed to call sts:AssumeRole on that role.
+```yaml
+Version: "2012-10-17"
+  └─ Policy language version (always this one)
 
-Target role trust policy:
-  I trust that source identity/account to assume me.
+Statement: [...]
+  └─ Array of rules (can have multiple statements)
+
+Sid: "DescriptiveName"
+  └─ Statement ID (for clarity, optional)
+
+Effect: "Allow" or "Deny"
+  └─ Allow: Grant permission
+  └─ Deny: Explicitly block (takes precedence)
+
+Action: ["service:action"]
+  └─ Which API calls are allowed
+  └─ Format: service:action (s3:GetObject, ec2:DescribeInstances)
+  └─ Wildcards: s3:* (all S3), *:* (all actions, dangerous!)
+
+Resource: ["arn:..."]
+  └─ Which AWS resources the action applies to
+  └─ ARN format: arn:partition:service:region:account-id:resource
+  └─ Example: arn:aws:s3:::my-bucket/uploads/*
+
+Condition: {...}
+  └─ When does the permission apply? (optional)
+  └─ StringEquals, IpAddress, DateGreaterThan, etc.
 ```
 
-## Temporary Credential Lifetime
+---
 
-`AssumeRole` returns temporary credentials with:
+## IAM Roles in Detail
 
-- `AccessKeyId`
-- `SecretAccessKey`
-- `SessionToken`
-- `Expiration`
+### What is a Role?
 
-The requested session duration is set by `duration_seconds` in `~/.aws/credential-helper.json`.
+A **Role is an identity with no long-term credentials**. Instead, it has:
+- **Trust policy**: Who can assume (use) this role
+- **Permission policy**: What they can do when they assume it
+- **Temporary credentials**: Valid for 15 minutes to 12 hours
+
+Think of a Role like a **temporary security badge** that can be handed out. When someone or something assumes a Role, they get the permissions associated with that Role for a limited time.
+
+---
+
+## Service Roles vs Delegated Roles
+
+### Service Role (Same Account)
+
+**Use case**: AWS service needs access to other AWS resources in the same account
+
+**Example**: EC2 instance accessing S3 bucket, all applications running on EC2 will be able to access this S3 bucket
+
+**Setup Process**:
+1. Login into AWS Console
+2. Select IAM service
+3. **Create** a policy permission file for S3 access
+4. Select S3 service, choose appropriate settings
+5. **Next** create a Role
+6. Select type of trusted entity **"AWS Service"**
+7. Select EC2
+8. Attach the above S3 permission policy file you just created
+9. Now on EC2 startup this service role will make sure it gets the token and key and stores it in the EC2 instance.
+
+So any applications running in the Ec2 instance can use these tokens to access S3
+
+
+### Delegated Role (Cross-Account)
+
+**Use case**: User in one AWS account needs access to resources in another account
+
+**Example**: Company A's user accessing Company B's S3 bucket
+
+**Visual Reference:**
+
+![Delegated Role Architecture](https://user-images.githubusercontent.com/52529498/126061958-d728115f-b453-423c-92c7-50531db038de.png)
+
+We have 2 AWS accounts:
+- **Account A** (Trusted account): Contains users
+- **Account B** (Trusting account): Contains resources
+
+**Setup Steps**:
+
+1. **On Account B (Trusting Account)**:
+   - Assuming that you  are logged into the AWS console, IAM Service and you already have a S3 permission policy created.
+   - Create a role for S3 access
+   - Add a trust policy allowing Account A users
+   - Attach S3 permission policy
+   - Note the Role ARN
+
+2. **On Account A (Trusted Account)**:
+   - Create policy for `sts:AssumeRole`
+   - ![Cross-Account Assume Role Policy](https://user-images.githubusercontent.com/52529498/149468833-b62a7a64-9a2d-48f8-8645-ac32d65c41b9.png)
+   - Add the Account B role ARN to the policy
+   - Attach this policy to the user
+
+---
+
+### Other Role Types
+
+**Federated Role**: Trust relationship between AWS account and external identity provider (Active Directory, Google, Facebook, AWS Cognito, etc.)
+
+![Federated Role Architecture](https://user-images.githubusercontent.com/52529498/124744426-bd080680-deec-11eb-87d0-b6b15dfad2aa.png)
+
+**Service-Linked Role**: Short-lived role that provides permissions a service needs while performing its job. Example: CloudFormation needs temporary access to S3, EC2, databases to deploy resources.
+
+---
+
+## Cross-Account Access
+
+### How It Works
+
+```
+┌──────────────────────────────────────────┐     ┌──────────────────────────────────────┐
+│ AWS Account A (Trusted)                  │     │ AWS Account B (Trusting)             │
+│                                          │     │                                      │
+│ User: alice                              │     │ Role: CrossAccountS3Access           │
+│   ↓                                      │     │   ↓                                  │
+│ Has permission to assume                 │────→│ Trust Policy: Allow Account A         │
+│ CrossAccountS3Access role                │     │   ↓                                  │
+│                                          │     │ Permission: S3 Read-Only             │
+│                                          │     │                                      │
+└──────────────────────────────────────────┘     └──────────────────────────────────────┘
+```
+
+---
+
+## Policy Evaluation Logic
+
+### The Access Decision Process
+
+When you try to access an AWS resource:
+
+```
+User tries to do something:
+  "s3:GetObject on arn:aws:s3:::my-bucket/file.txt"
+           ↓
+AWS checks: Is there an explicit DENY?
+  ├─ YES → Access DENIED ❌
+  └─ NO → Continue
+           ↓
+AWS checks: Is there an explicit ALLOW?
+  ├─ YES → Access ALLOWED ✅
+  └─ NO → Access DENIED ❌
+
+Remember: Explicit DENY always wins!
+```
+
+### Policy Evaluation Order
+
+AWS evaluates policies in this order. **First match wins**:
+
+1. **Explicit DENY** (immediate block)
+2. Organization SCPs (Service Control Policies)
+3. Resource-based policies (like S3 bucket policies)
+4. IAM permission boundaries
+5. Session policies
+6. Identity-based policies (User/Role policies)
+
+---
+
+## Common Mistakes & Best Practices
+
+### ❌ Mistake 1: Using Root User for Daily Work
+
+```
+❌ DON'T:
+aws s3 ls --region us-east-1
+# Using root user credentials
+
+✅ DO:
+# Create IAM user with only needed permissions
+aws iam create-user --user-name alice
+# Use alice's credentials instead
+```
+
+**Why?** Root user = full account control. If compromised, entire AWS account is at risk.
+
+### ❌ Mistake 2: Hardcoding Access Keys
+
+```python
+# ❌ DON'T: Hardcoded in code
+s3 = boto3.client('s3',
+    aws_access_key_id='AKIAIOSFODNN7EXAMPLE',
+    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/...'
+)
+
+# ✅ DO: Use IAM role (auto-rotates)
+s3 = boto3.client('s3')
+# EC2/Lambda automatically provides credentials via role
+```
+
+### ❌ Mistake 3: Too Broad Permissions
 
 ```json
+// ❌ DON'T: Allows everything on everything
 {
-  "profile-oper": {
-    "role_arn": "arn:aws:iam::111111111111:role/OperatorRole",
-    "source_profile": "base",
-    "duration_seconds": 3600
-  }
+  "Effect": "Allow",
+  "Action": "*",
+  "Resource": "*"
 }
-```
 
-Rules:
-
-- `3600` means 1 hour.
-- AWS STS requires at least `900` seconds.
-- The upper bound is the target role's **Maximum session duration** setting, commonly 1 hour by default and configurable
-  up to 12 hours for many roles.
-- Role chaining has a stricter 1-hour maximum for the chained session.
-- `credential_helper.py` refreshes cached credentials 5 minutes before `Expiration`.
-
-## Why Use Roles Instead of Direct User Permissions?
-
-Roles keep identity and authorization separate:
-
-- The base user or source profile can have very small permissions.
-- Operational permissions live on roles.
-- Assumed-role credentials expire automatically.
-- Cross-account access becomes explicit and auditable.
-- Revocation is clean: remove `sts:AssumeRole` from the source identity or remove trust from the target role.
-- CloudTrail shows both the source identity and the assumed-role session.
-
-Common pattern:
-
-```text
-base profile:
-  authenticate and assume approved roles
-
-profile-oper role:
-  actual permissions to operate AWS resources
-```
-
-## Role Chaining
-
-A role can assume another role:
-
-```text
-base user/profile -> RoleA -> RoleB
-```
-
-For `RoleA` to assume `RoleB`:
-
-`RoleA` permission policy:
-
-```json
+// ✅ DO: Least privilege - only what's needed
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": "sts:AssumeRole",
-      "Resource": "arn:aws:iam::111111111111:role/RoleB"
-    }
+  "Effect": "Allow",
+  "Action": [
+    "s3:GetObject",
+    "s3:ListBucket"
+  ],
+  "Resource": [
+    "arn:aws:s3:::my-bucket",
+    "arn:aws:s3:::my-bucket/*"
   ]
 }
 ```
 
-`RoleB` trust policy:
+### ✅ Best Practices Checklist
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::111111111111:role/RoleA"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
+```
+IDENTITY MANAGEMENT:
+☐ Never use Root user for daily work
+☐ Enable MFA on all user accounts
+☐ Rotate access keys every 90 days
+☐ Use IAM roles for services (not users)
+☐ Use groups to manage multiple users
+
+PERMISSIONS:
+☐ Apply least privilege principle
+☐ Be specific with resources (not *)
+☐ Be specific with actions (not *)
+☐ Use resource tags for fine-grained control
+☐ Regularly audit who has what access
+
+CROSS-ACCOUNT:
+☐ Use roles for cross-account access
+☐ Specify exact accounts in trust policies
+☐ Add conditions (IP restrictions, MFA)
+☐ Log all cross-account access
+
+CREDENTIALS:
+☐ Store access keys securely (AWS Secrets Manager)
+☐ Rotate credentials regularly
+☐ Never commit credentials to Git
+☐ Use temporary credentials when possible
+☐ Monitor unused credentials
+
+AUDIT & MONITORING:
+☐ Enable CloudTrail logging
+☐ Review IAM changes regularly
+☐ Set up alerts for suspicious activity
+☐ Use AWS Access Analyzer
+☐ Monitor failed login attempts
 ```
 
-Important: a role-chained session is limited to 1 hour maximum, even if the second role allows a longer maximum session
-duration.
+---
 
-## Native AWS CLI Role Profiles
+## Troubleshooting IAM
 
-If the built-in AWS CLI behavior is enough, you may not need `credential_process`.
+### Common Error: "Access Denied"
 
-`~/.aws/credentials`:
+**What it means**: You tried to do something but don't have permission
 
-```ini
-[base]
-aws_access_key_id = <access-key-id>
-aws_secret_access_key = <secret-access-key>
-```
-
-`~/.aws/config`:
-
-```ini
-[profile profile-oper]
-region = us-east-1
-role_arn = arn:aws:iam::111111111111:role/OperatorRole
-source_profile = base
-mfa_serial = arn:aws:iam::222222222222:mfa/your-user
-duration_seconds = 3600
-```
-
-Use it:
+**How to troubleshoot:**
 
 ```bash
-aws sts get-caller-identity --profile profile-oper
-```
+# 1. Verify your identity
+aws sts get-caller-identity
+# Output tells you: User ARN, Account ID
 
-Use the custom helper when the source credentials come from a non-standard office login flow, custom MFA, Vault,
-1Password, or another tool that the native AWS CLI profile cannot model cleanly.
+# 2. Check what policies are attached
+aws iam list-user-policies --user-name alice
 
-## Policy Evaluation Short Version
+# 3. Simulate the action (see if it's allowed)
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:user/alice \
+  --action-names s3:GetObject \
+  --resource-arns arn:aws:s3:::my-bucket/file.txt
 
-AWS evaluates access roughly in this order:
-
-1. Start with default deny.
-2. Any explicit deny wins.
-3. An allow in an applicable identity policy, resource policy, session policy, permission boundary, or SCP may allow the
-   request only if no boundary/SCP blocks it.
-4. If nothing allows the request, access is denied.
-
-For `AssumeRole`, check both:
-
-- source identity permission: `sts:AssumeRole` on the role ARN
-- target role trust policy: principal allowed to assume the role
-
-## Common Mistakes
-
-Avoid:
-
-- using the root user for daily work
-- hardcoding access keys in code
-- granting `Action: "*"` and `Resource: "*"` unless there is a narrow, deliberate reason
-- assuming a role trust policy alone is enough
-- forgetting the source identity also needs `sts:AssumeRole`
-- expecting `credential_helper.py base` to print the raw `[base]` profile
-- requesting a `duration_seconds` longer than the target role allows
-
-Prefer:
-
-- least privilege
-- short STS sessions
-- MFA for human access
-- CloudTrail for audit
-- SSO or office credential tooling over long-lived access keys
-- roles for workloads and cross-account access
-
-## Troubleshooting
-
-Check active identity:
-
-```bash
-aws sts get-caller-identity --profile base
-aws sts get-caller-identity --profile profile-oper
-```
-
-Check where a profile is resolved from:
-
-```bash
-aws configure list --profile base
-aws configure list --profile profile-oper
-```
-
-Common `AssumeRole` failure causes:
-
-- `source_profile` does not exist or is expired
-- source identity lacks `sts:AssumeRole`
-- target role trust policy does not trust the source identity/account
-- MFA is required but not provided
-- `duration_seconds` exceeds the role maximum session duration
-- role chaining requested more than 1 hour
-
-CloudTrail lookup:
-
-```bash
+# 4. Check CloudTrail logs
 aws cloudtrail lookup-events \
-  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRole
+  --event-name AssumeRole \
+  --max-results 10
 ```
+
+### Common Error: "User is not authorized to perform: iam:CreateUser"
+
+**Fix**: Attach proper IAM policy with CreateUser and related permissions
+
+### Common Error: "Role Cannot Be Assumed"
+
+**Possible causes:**
+- Trust policy doesn't allow your account
+- Trust policy doesn't allow your user
+- You don't have sts:AssumeRole permission
+- IP restrictions block you
+- Session policies are too restrictive
+
+---
+
+## Real-World Scenarios
+
+### Scenario 1: Startup with Multiple Teams
+
+```
+Organization:
+├─ Engineering team (developers, devops)
+├─ Finance team (accountants, analysts)
+└─ Operations team (SREs, on-call)
+
+IAM Structure:
+
+1. Create groups:
+   - engineering-group
+   - finance-group
+   - operations-group
+
+2. Create users and add to groups:
+   - alice, bob → engineering-group
+   - charlie → finance-group
+   - diana → operations-group
+
+3. Attach policies to groups:
+   - engineering-group: EC2, Lambda, S3, CloudWatch
+   - finance-group: Cost Explorer, Billing (read-only)
+   - operations-group: All production resources (with MFA)
+```
+
+### Scenario 2: Microservices in ECS
+
+Each microservice needs different AWS permissions - create separate roles for each service with least privilege.
+
+### Scenario 3: Third-Party Integration
+
+Third-party vendor needs read-only access to your S3 logs:
+1. Create role with S3 read-only permissions
+2. Add trust policy with vendor's AWS account
+3. Share role ARN with vendor
+4. Vendor assumes role to access logs
+
+---
+
+## Quick Reference: ARN Format
+
+```
+arn:partition:service:region:account-id:resource
+
+Examples:
+- User:     arn:aws:iam::123456789012:user/alice
+- Role:     arn:aws:iam::123456789012:role/S3Access
+- Group:    arn:aws:iam::123456789012:group/engineers
+- S3:       arn:aws:s3:::my-bucket/path/*
+- EC2:      arn:aws:ec2:us-east-1:123456789012:instance/*
+- Lambda:   arn:aws:lambda:us-east-1:123456789012:function:myFunc
+
+Note: IAM resources don't include region (use ::)
+```
+
+---
+
+## Key Takeaways
+
+✅ **Root user**: Never use for daily work - too powerful
+✅ **Users**: For human/application identities with long-term credentials
+✅ **Roles**: For temporary access - services and cross-account
+✅ **Policies**: Attach to identities to grant permissions
+✅ **Least Privilege**: Only grant needed permissions
+✅ **MFA**: Always enable on important accounts
+✅ **Audit**: Enable CloudTrail for all access logging
+
+---
 
 ## References
 
-- AWS IAM User Guide: <https://docs.aws.amazon.com/IAM/latest/UserGuide/>
-- AWS STS `AssumeRole`: <https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html>
-- AWS SDK `credential_process`: <https://docs.aws.amazon.com/sdkref/latest/guide/feature-process-credentials.html>
-- AWS CLI configuration: <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html>
+- [AWS IAM Documentation](https://docs.aws.amazon.com/iam/)
+- [IAM Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [Policy Evaluation Logic](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html)
+- [ARN Format and Examples](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html)
+
+---
+
+**Key Takeaway**: IAM is the foundation of AWS security. Master it, and you'll write secure infrastructure. Ignore it, and you're one mistake away from a breach.
