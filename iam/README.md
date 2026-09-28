@@ -176,6 +176,57 @@ User/Role = Person following the rules
 }
 ```
 
+### Policy Types: Managed vs Inline
+
+**AWS Managed Policies**:
+- Created and maintained by AWS
+- Read-only, can't modify
+- Examples: `AdministratorAccess`, `ReadOnlyAccess`, `AmazonEC2FullAccess`
+- **Use when**: Built-in policies match your needs
+
+**Customer Managed Policies**:
+- You create and maintain
+- Can be versioned and rolled back
+- Reusable - attach to multiple identities
+- **Use when**: You need custom permissions for multiple users/roles
+
+**Inline Policies**:
+- Directly embedded in a single user/role/group
+- One-to-one relationship (policy deleted if identity deleted)
+- **Use when**: Policy is specific to one identity and won't be reused
+
+**Best Practice**: Use customer managed policies over inline policies for maintainability.
+
+### Identity-Based vs Resource-Based Policies
+
+**Identity-Based Policies** (Attached to identities):
+```json
+// Policy on User/Role/Group
+// Says: "This user CAN do this"
+{
+  "Effect": "Allow",
+  "Action": "s3:GetObject",
+  "Resource": "*"
+}
+```
+
+**Resource-Based Policies** (Attached to resources):
+```json
+// Policy on S3 bucket/IAM role/SQS queue
+// Says: "This principal CAN access this resource"
+{
+  "Principal": {
+    "AWS": "arn:aws:iam::123456789012:user/alice"
+  },
+  "Effect": "Allow",
+  "Action": "s3:GetObject",
+  "Resource": "arn:aws:s3:::my-bucket/*"
+}
+```
+
+**When used together**: Both must allow the action. If one denies, access is denied.
+- **Example**: User has S3 policy (allows), but bucket policy denies them = Access DENIED
+
 ### Understanding Each Field
 
 ```yaml
@@ -214,11 +265,45 @@ Condition: {...}
 ### What is a Role?
 
 A **Role is an identity with no long-term credentials**. Instead, it has:
-- **Trust policy**: Who can assume (use) this role
-- **Permission policy**: What they can do when they assume it
-- **Temporary credentials**: Valid for 15 minutes to 12 hours
+- **Trust policy**: WHO can assume (use) this role
+- **Permission policy**: WHAT they can do when they assume it
+- **Temporary credentials**: Valid for 15 minutes to 12 hours (auto-rotating)
 
 Think of a Role like a **temporary security badge** that can be handed out. When someone or something assumes a Role, they get the permissions associated with that Role for a limited time.
+
+**Trust Policy Example** (WHO can use this role):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+This allows EC2 service to assume the role.
+
+**Permission Policy Example** (WHAT they can do):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-bucket/*"
+    }
+  ]
+}
+```
+This allows reading objects from S3.
+
+**Key Insight**: Trust policy is like a lock (who can open it), permission policy is like instructions (what to do once inside).
 
 ---
 
@@ -228,20 +313,19 @@ Think of a Role like a **temporary security badge** that can be handed out. When
 
 **Use case**: AWS service needs access to other AWS resources in the same account
 
-**Example**: EC2 instance accessing S3 bucket, all applications running on EC2 will be able to access this S3 bucket
+**Example**: EC2 instance accessing S3 bucket. All applications on EC2 will share the same role credentials.
 
 **Setup Process**:
-1. Login into AWS Console
-2. Select IAM service
-3. **Create** a policy permission file for S3 access
-4. Select S3 service, choose appropriate settings
-5. **Next** create a Role
-6. Select type of trusted entity **"AWS Service"**
-7. Select EC2
-8. Attach the above S3 permission policy file you just created
-9. Now on EC2 startup this service role will make sure it gets the token and key and stores it in the EC2 instance.
+1. Go to AWS Console → IAM service
+2. Create a **policy** for S3 access (e.g., S3ReadOnly)
+3. Create a **role** with trusted entity type **"AWS Service"**
+4. Select EC2 service
+5. Attach the S3 policy to the role
+6. Attach this role to your EC2 instance
+7. EC2 automatically gets temporary credentials from the role (auto-rotating)
+8. Any application on EC2 can use these credentials to access S3
 
-So any applications running in the Ec2 instance can use these tokens to access S3
+**Important**: All applications share the same role - this is the benefit (no key management) but also a limitation (can't have per-app permissions). For fine-grained control, use separate roles with different policies.
 
 
 ### Delegated Role (Cross-Account)
@@ -261,7 +345,7 @@ We have 2 AWS accounts:
 **Setup Steps**:
 
 1. **On Account B (Trusting Account)**:
-   - Assuming that you  are logged into the AWS console, IAM Service and you already have a S3 permission policy created.
+   - Ensure you are logged into the AWS console and IAM service with an S3 permission policy already created.
    - Create a role for S3 access
    - Add a trust policy allowing Account A users
    - Attach S3 permission policy
@@ -327,14 +411,22 @@ Remember: Explicit DENY always wins!
 
 ### Policy Evaluation Order
 
-AWS evaluates policies in this order. **First match wins**:
+AWS evaluates policies in this order. **Explicit DENY always wins**:
 
-1. **Explicit DENY** (immediate block)
-2. Organization SCPs (Service Control Policies)
-3. Resource-based policies (like S3 bucket policies)
-4. IAM permission boundaries
-5. Session policies
-6. Identity-based policies (User/Role policies)
+1. **Explicit DENY** (immediate block - takes precedence over everything)
+2. **Organization SCPs** (Service Control Policies - account-level permission ceiling for Organizations)
+3. **Resource-based policies** (like S3 bucket policies or trust policies)
+4. **IAM Permission Boundaries** (maximum permissions limit for a user/role)
+5. **Session policies** (temporary restrictions during role assumption)
+6. **Identity-based policies** (policies attached directly to User/Role/Group)
+
+**Key Rule**: If ANY policy explicitly denies an action, it's denied. If no explicit deny exists, at least one allow policy must exist for access to be granted.
+
+**What are Permission Boundaries?**
+- Maximum permissions limit for a user or role
+- Acts as a "ceiling" - user can't exceed these permissions even if attached policies allow it
+- Useful for delegating user/role creation without risking over-privileged access
+- Example: User has EC2FullAccess policy, but boundary restricts to EC2ReadOnly → User gets read-only access
 
 ---
 
