@@ -295,6 +295,70 @@ Private subnet:
   Route: 0.0.0.0/0 -> NAT Gateway
 ```
 
+### Gateway Endpoint vs Interface Endpoint
+
+VPC endpoints let private resources reach supported AWS services without using a public IP, Internet Gateway, or NAT
+Gateway.
+
+Use this simple rule:
+
+```text
+S3 or DynamoDB                         -> Gateway endpoint
+Most other AWS service APIs            -> Interface endpoint
+Third-party SaaS through PrivateLink   -> Interface endpoint
+```
+
+| Feature | Gateway Endpoint | Interface Endpoint |
+|---------|------------------|--------------------|
+| Best for | Amazon S3, DynamoDB | STS, SSM, ECR, CloudWatch, KMS, Secrets Manager, Glue, Lambda API, third-party PrivateLink services |
+| How it connects | Adds a route-table entry using an AWS-managed service prefix list | Creates private Elastic Network Interfaces in your subnets |
+| PrivateLink | No | Yes |
+| Security groups | No endpoint security group | Endpoint ENIs have security groups |
+| Cost model | No hourly endpoint charge | Hourly endpoint charge plus data processing |
+| Common goal | Avoid NAT Gateway for S3/DynamoDB traffic | Privately call AWS service APIs from private subnets |
+
+Gateway endpoint example:
+
+```text
+Private EC2 / Spark worker
+  -> private subnet route table
+  -> S3 Gateway endpoint route
+  -> Amazon S3
+```
+
+Use a **Gateway endpoint** when:
+
+- private EC2, Spark, Glue, or Lambda-in-VPC workloads need S3 or DynamoDB
+- you want S3/DynamoDB traffic to stay on the AWS network
+- you want to avoid NAT Gateway cost for heavy S3/DynamoDB traffic
+- you want to restrict reachable buckets/tables with an endpoint policy
+
+Interface endpoint example:
+
+```text
+Private EC2 / Lambda-in-VPC
+  -> endpoint ENI private IP
+  -> AWS PrivateLink
+  -> AWS service API
+```
+
+Use an **Interface endpoint** when:
+
+- private workloads need AWS APIs such as `sts`, `ssm`, `ecr`, `kms`, `secretsmanager`, `logs`, or `glue`
+- you need security-group control for the endpoint
+- you want private DNS so normal AWS service names resolve to private IPs
+- you need private access to a third-party service exposed through AWS PrivateLink
+
+Important: endpoints solve the network path. They do not replace IAM.
+
+```text
+Network path allowed by VPC endpoint
++ IAM role/user policy allows the API call
++ endpoint policy allows the API call, if configured
++ resource policy allows the API call, if the service uses resource policies
+= access succeeds
+```
+
 ### How an EC2 Web Server Becomes Public
 
 Putting EC2 in a subnet is not enough by itself. For a public web server, you need all of these:

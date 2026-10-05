@@ -3,6 +3,11 @@
 A standalone handbook for AWS services, cloud architecture, Python automation with Boto3, LocalStack development,
 production engineering practices, troubleshooting, and interview preparation.
 
+Companion study guides:
+
+- [AWS Interview Quick Prep](aws_interview_quick_prep.md): concise interview review for fast preparation.
+- [AWS Detailed Service Handbook](aws_detailed_service_handbook.md): structured service-by-service handbook for deeper lookup.
+
 ## Table of contents
 
 1. [How to use this handbook](#1-how-to-use-this-handbook)
@@ -114,10 +119,10 @@ domains.
 | CapEx vs OpEx         | Cloud shifts many large capital purchases to operating expenses.                                                                        |
 
 
-### AWS resource mental model
+### AWS Resource/Service
 
-An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. 
-An AWS **resource** is an object inside a service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
+- An AWS **service** is an API product such as S3, EC2, Lambda, IAM, or DynamoDB. 
+- An AWS **resource** is an object inside a service, such as an S3 bucket, Lambda function, DynamoDB table, IAM role, security group, or KMS key.
 
 Most AWS work follows this pattern:
 
@@ -1634,6 +1639,156 @@ print(response["queryId"])
 ```
 
 CloudWatch vs CloudTrail: CloudWatch monitors workload behavior; CloudTrail audits AWS API calls.
+
+### CloudWatch metrics vs CloudTrail
+
+**Interview answer:** CloudWatch metrics answer "is the system healthy?" CloudTrail answers "who did what, when, from
+where, and using which identity?" Use CloudWatch for alarms and dashboards. Use CloudTrail for audit, compliance, and
+change investigation.
+
+| Topic | CloudWatch Metrics | CloudTrail |
+|-------|--------------------|------------|
+| Primary purpose | Operational monitoring and alerting | API audit history |
+| Data shape | Numeric time-series data | Event records for API calls |
+| Example question | "Did Lambda errors exceed 1 in the last minute?" | "Who changed the Lambda configuration?" |
+| Example data | `AWS/Lambda Errors = 5` | `UpdateFunctionConfiguration` called by an IAM role |
+| Alerting path | CloudWatch alarm -> SNS/EventBridge/action | EventBridge rule or CloudWatch Logs metric filter if delivered to Logs |
+| Common use | alarms, dashboards, SLOs, queue depth, latency, throttles | security investigation, compliance, access audit, deletion/change tracking |
+
+Quick rule:
+
+```text
+CloudWatch = health and operations
+CloudTrail = audit and accountability
+```
+
+Example: if a Lambda starts failing, CloudWatch tells you `Errors = 5`. CloudTrail can show that someone updated the
+Lambda environment variables five minutes before the failures started.
+
+CloudWatch metrics come in two forms:
+
+| Metric type | Who creates it? | Example |
+|-------------|-----------------|---------|
+| AWS-native metric | AWS service publishes it | `AWS/Lambda Errors`, `AWS/SQS ApproximateAgeOfOldestMessage` |
+| Custom metric | You publish it or derive it from logs | `YourPipeline/IngestTriggerErrors`, `Custom/App RecordsProcessed` |
+
+Common custom metric patterns:
+
+```text
+application code -> PutMetricData -> custom CloudWatch metric -> CloudWatch alarm
+Lambda log line -> CloudWatch Logs metric filter -> custom CloudWatch metric -> CloudWatch alarm
+application structured log -> Embedded Metric Format -> custom CloudWatch metric -> CloudWatch alarm
+```
+
+Simple custom metric with Boto3:
+
+```python
+import boto3
+
+cloudwatch = boto3.client("cloudwatch")
+cloudwatch.put_metric_data(
+    Namespace="YourPipeline",
+    MetricData=[
+        {
+            "MetricName": "RecordsProcessed",
+            "Value": 12000,
+            "Unit": "Count",
+            "Dimensions": [{"Name": "PipelineStage", "Value": "ingest"}],
+        }
+    ],
+)
+```
+
+Simple log-based custom metric:
+
+```bash
+aws logs put-metric-filter \
+  --log-group-name /aws/lambda/ingest-trigger-lambda \
+  --filter-name ErrorFilter \
+  --filter-pattern '{ $.status = "error" }' \
+  --metric-transformations \
+    metricName=IngestTriggerErrors,metricNamespace=YourPipeline,metricValue=1,defaultValue=0
+```
+
+Then create an alarm against the custom metric. The alarm references the metric name and namespace; it does not include
+the log filter pattern.
+
+```bash
+aws cloudwatch put-metric-alarm \
+  --alarm-name IngestLambda-LogErrors \
+  --metric-name IngestTriggerErrors \
+  --namespace YourPipeline \
+  --statistic Sum \
+  --period 60 \
+  --threshold 1 \
+  --comparison-operator GreaterThanOrEqualToThreshold \
+  --evaluation-periods 1
+```
+
+What must be enabled:
+
+| Service/capability | Default behavior | What you may need to enable |
+|--------------------|------------------|------------------------------|
+| Lambda metrics | Basic metrics such as `Invocations`, `Errors`, `Duration`, and `Throttles` are automatic | Custom metrics or log metric filters for application-specific events |
+| SQS/SNS/DynamoDB metrics | Core service metrics are automatic | Custom alarms for thresholds that matter to the workload |
+| EC2 metrics | Basic metrics are automatic | Detailed monitoring per instance for 1-minute metrics |
+| S3 storage metrics | Automatic | S3 request metrics such as `PutRequests`, `4xxErrors`, and `5xxErrors` per bucket or prefix |
+| CloudTrail management events | Recent events visible in Event History; trails are used for durable S3/CloudWatch Logs delivery | Create an account or organization trail for long-term audit retention |
+| CloudTrail data events | Not enabled by default because they can be high volume | Enable per resource type/resource, such as S3 object events or Lambda invoke events |
+| CloudTrail Insights | Optional | Enable when you want unusual API activity detection |
+
+Enablement guidance:
+
+- CloudWatch native metrics are automatic for many services, but enhanced/request-level metrics can be per resource.
+  Example: Lambda `Errors` is automatic; S3 request metrics such as `PutRequests`, `4xxErrors`, and `5xxErrors` must be
+  enabled per bucket or prefix.
+- CloudWatch custom metrics are created by you. You can publish them from application code with `PutMetricData`, derive
+  them from logs with metric filters, or use Embedded Metric Format.
+- CloudTrail management events can be captured broadly with an account or organization trail. Use this for durable audit
+  retention beyond recent Event History.
+- CloudTrail data events are enabled selectively per resource type/resource because they can be high volume. Example:
+  enable S3 object-level events for a sensitive bucket when you need to know who read, wrote, or deleted objects.
+
+Simple CloudWatch metrics enablement example:
+
+```bash
+# Enable CloudWatch S3 request metrics for one bucket.
+# Here "put" means create/update the bucket metrics configuration.
+# After this, CloudWatch can publish request metrics such as PutRequests,
+# GetRequests, DeleteRequests, 4xxErrors, 5xxErrors, and latency metrics.
+aws s3api put-bucket-metrics-configuration \
+  --bucket my-bucket \
+  --id EntireBucket \
+  --metrics-configuration '{"Id":"EntireBucket"}'
+```
+
+Simple CloudTrail enablement example:
+
+```bash
+# Create and start a CloudTrail trail for durable management-event audit logs.
+aws cloudtrail create-trail \
+  --name org-audit-trail \
+  --s3-bucket-name my-cloudtrail-logs-bucket
+
+aws cloudtrail start-logging \
+  --name org-audit-trail
+```
+
+Pipeline example:
+
+```text
+CloudWatch metric:
+  Lambda Errors = 5
+  Meaning: the function is failing.
+
+CloudTrail event:
+  UpdateFunctionConfiguration called by arn:aws:sts::<account>:assumed-role/Admin/Alice
+  Meaning: someone changed the function configuration.
+
+Operational use:
+  CloudWatch pages you that the Lambda is failing.
+  CloudTrail helps you investigate whether a recent API change caused it.
+```
 
 ## 22. Security and secrets management
 
