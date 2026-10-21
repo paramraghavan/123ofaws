@@ -36,37 +36,6 @@ START HERE
 
 ---
 
-## Why This Structure?
-
-**Before (confusing):**
-```
-10 files
-├─ START-HERE.md
-├─ README.md (duplicate!)
-├─ 00-QUICK-START-LOCAL.md
-├─ 01-LOCAL-SETUP-MAC-WINDOWS.md
-├─ 02-LOCALSTACK-FUNDAMENTALS.md
-├─ 03-AZURE-TO-AWS-BRIDGE.md
-├─ 04-S3-FUNDAMENTALS-LOCAL.md
-├─ 05-CORE-SERVICES-OVERVIEW.md
-├─ 07-HANDS-ON-LOCAL-PIPELINE.md
-└─ 00-PROGRESS.md
-
-Problem: Too many files, duplication, hard to navigate
-```
-
-**After (simple):**
-```
-3 files
-├─ start.md        (entry point)
-├─ setup.md        (setup instructions)
-└─ learn.md        (all learning + practice)
-
-Benefit: Clear path, no duplication, easy to follow
-```
-
----
-
 ## What You'll Learn
 
 ```
