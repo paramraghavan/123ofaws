@@ -442,11 +442,11 @@ source ~/.zprofile
 brew install python
 brew install git
 brew install awscli
-brew install localstack/tap/localstack-cli
+brew install localstack/tap/lstk
 python3 --version
 git --version
 aws --version
-localstack --version
+lstk --version
 ```
 
 For real AWS, prefer AWS CLI v2 plus SSO/IAM Identity Center or an approved office credential tool. Use `aws configure`
@@ -467,7 +467,7 @@ Apple Silicon, keep Docker Desktop updated; older images and Lambda runtimes may
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install boto3 botocore pytest moto localstack awscli-local python-dotenv
+python -m pip install boto3 botocore pytest moto python-dotenv
 python -m pip freeze > requirements.txt
 ```
 
@@ -475,7 +475,7 @@ python -m pip freeze > requirements.txt
 
 ```bash
 python -c "import boto3, botocore; print(boto3.__version__, botocore.__version__)"
-awslocal --version
+lstk --version
 docker version
 docker compose version
 ```
@@ -494,12 +494,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "moto", "localstack", "awscli-local"]
+dev = ["pytest", "moto"]
 ```
 
 **Common fixes**
 
-- PATH issue: run `which python3`, `which aws`, and `which awslocal`; add Homebrew to `.zprofile`.
+- PATH issue: run `which python3`, `which aws`, and `which lstk`; add Homebrew to `.zprofile`.
 - Docker not running: open Docker Desktop and wait until the engine is ready.
 - Apple Silicon image issue: update Docker Desktop; use current images; avoid old Lambda runtimes.
 - Permission denied on Docker socket: Docker Desktop should manage this on macOS; restart Docker if stale.
@@ -526,27 +526,59 @@ databases, advanced analytics, multi-account access, regional feature difference
 | LocalStack       | Local integration tests through AWS-compatible HTTP endpoints.                |
 | Real AWS account | Final validation of IAM, networking, service limits, and production behavior. |
 
-**Docker Compose**
+**Default startup: lstk**
+
+```bash
+lstk login
+lstk start --type aws
+lstk setup aws
+lstk status
+lstk aws s3api list-buckets
+```
+
+Current emulator releases require a LocalStack account and suitable license. Service availability depends on that
+license. For Docker, Python endpoint configuration, and persistence details, see the
+[shared LocalStack setup](../aws_and_data_engineer/localstack-docker-setup.md).
+
+**Docker Compose (alternative to lstk-managed startup)**
+
+Stop the lstk-managed instance with `lstk stop` first. Supply `LOCALSTACK_AUTH_TOKEN` through an untracked `.env` file
+or your shell; `lstk login` does not automatically populate Compose's environment. Pin a tested image tag for repeatable
+team labs. Compose manages the container; target it explicitly with `lstk --endpoint-url http://localhost:4566 aws ...`.
 
 ```yaml
 services:
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack-pro:${LOCALSTACK_IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:4566:4566"
       - "127.0.0.1:4510-4559:4510-4559"
     environment:
-      - SERVICES=s3,sqs,sns,dynamodb,lambda,events,stepfunctions,secretsmanager,ssm,cloudwatch,logs,iam,sts
-      - DEBUG=0
-      - AWS_DEFAULT_REGION=us-east-1
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:?Set LOCALSTACK_AUTH_TOKEN before starting}
+      DEBUG: "0"
+      PERSISTENCE: ${LOCALSTACK_PERSISTENCE:-0}
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  localstack-data:
 ```
+
+Persistence defaults to off; set `LOCALSTACK_PERSISTENCE=1` only with a supporting license. A volume alone does not
+persist all service state. `docker compose down` retains the named volume; `down -v` deletes it. The socket mount is
+needed for Lambda/container-backed services, grants access to the Docker engine, and can be omitted for S3-only labs.
 
 **Start and inspect**
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 docker compose ps
 docker compose logs -f localstack
 curl http://localhost:4566/_localstack/health
@@ -560,17 +592,25 @@ export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 export AWS_ENDPOINT_URL=http://localhost:4566
+unset AWS_SESSION_TOKEN AWS_PROFILE
 ```
 
 These values are local placeholders. They are not real AWS credentials and must not be used for real AWS access. Keep
 `AWS_ENDPOINT_URL=http://localhost:4566` set when using them so requests go to LocalStack, not AWS.
 
-**Two equivalent CLI styles**
+**Local CLI commands**
 
 ```bash
-awslocal s3api list-buckets
-aws --endpoint-url=http://localhost:4566 s3api list-buckets
+# lstk-managed instance:
+lstk aws s3api list-buckets
+# Compose-managed instance:
+lstk --endpoint-url http://localhost:4566 aws s3api list-buckets
 ```
+
+Compose's `.env` file is used for interpolation, not automatically exported to host Python. For Projects 1–3 below,
+set the dummy Python environment above in the terminal running scripts/tests. Add `.env` to `.gitignore` and never
+commit `LOCALSTACK_AUTH_TOKEN`. For Projects 2 and 3, reuse the general Compose configuration in this section rather
+than the S3-only Project 1 configuration.
 
 **Common LocalStack errors**
 
@@ -1021,11 +1061,11 @@ if __name__ == "__main__":
     main()
 ```
 
-Setup: `docker compose up -d`; run: `python s3_demo.py`; expected output includes object keys and `True`; cleanup is
+Setup: `docker compose up -d --wait`; run: `python s3_demo.py`; expected output includes object keys and `True`; cleanup is
 included.
 
 Unit test idea: test `object_exists` with Botocore Stubber. Integration test: run the script against LocalStack in CI
-after `docker compose up -d`.
+after `docker compose up -d --wait`.
 
 Security: block public access in real AWS, use SSE-S3 or SSE-KMS, short presigned URL expirations, and least-privilege
 bucket policies.
@@ -2234,14 +2274,26 @@ s3-file-manager/
 ```yaml
 services:
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack-pro:${LOCALSTACK_IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:4566:4566"
+      - "127.0.0.1:4510-4559:4510-4559"
     environment:
-      - SERVICES=s3
-      - DEBUG=0
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:?Set LOCALSTACK_AUTH_TOKEN before starting}
+      SERVICES: s3
+      DEBUG: "0"
+      PERSISTENCE: ${LOCALSTACK_PERSISTENCE:-0}
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  localstack-data:
 ```
 
 `requirements.txt`
@@ -2355,7 +2407,7 @@ def test_list_objects_empty():
 Commands:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 python -m pip install -r requirements.txt
 python src/s3_file_manager.py
 pytest
@@ -2448,7 +2500,7 @@ def run_once(sqs, queue_url: str, processed_ids: set[str]) -> int:
 Setup and run:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 python -m pip install boto3 pytest
 python -c "from src.worker import sqs_client, create_queues; s=sqs_client(); print(create_queues(s))"
 pytest
@@ -2573,7 +2625,7 @@ def process(queue_url: str) -> int:
 Run:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 python src/setup.py
 python -c "from src.producer import publish; publish('<TOPIC_ARN>', 'order-1')"
 python -c "from src.processor import process; print(process('<QUEUE_URL>'))"
@@ -2706,11 +2758,11 @@ retries.
 **LocalStack commands**
 
 ```bash
-docker compose up -d
-curl http://localhost:4566/_localstack/health
-awslocal s3api list-buckets
-aws --endpoint-url=http://localhost:4566 sqs list-queues
-docker compose down
+lstk start --type aws
+lstk status
+lstk aws s3api list-buckets
+lstk aws sqs list-queues
+lstk stop
 ```
 
 **Essential AWS CLI**

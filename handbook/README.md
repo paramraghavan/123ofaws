@@ -10,7 +10,7 @@ account.
 |------|------|
 | Need a fast service or syntax reminder | [aws-quick-reference.md](/Users/paramraghavan/dev/123ofaws/handbook/aws-quick-reference.md) |
 | Learn Boto3 patterns in depth | [boto3-complete-guide.md](/Users/paramraghavan/dev/123ofaws/handbook/boto3-complete-guide.md) |
-| Learn AWS data engineering services | [complete-aws-data-engineering-handbook.md](/Users/paramraghavan/dev/123ofaws/handbook/complete-aws-data-engineering-handbook.md) |
+| Learn AWS data engineering services | [AWS data engineering learning path](aws_and_data_engineer/README.md) |
 | Implement production-style patterns | [production-patterns-cookbook.md](/Users/paramraghavan/dev/123ofaws/handbook/production-patterns-cookbook.md) |
 | Debug an AWS/Boto3 error | [troubleshooting-guide.md](/Users/paramraghavan/dev/123ofaws/handbook/troubleshooting-guide.md) |
 | Prepare for AWS + Python interviews | [notes/aws_python_boto3_interview_handbook.md](/Users/paramraghavan/dev/123ofaws/handbook/notes/aws_python_boto3_interview_handbook.md) |
@@ -21,7 +21,7 @@ account.
 |------|---------|
 | [aws-quick-reference.md](/Users/paramraghavan/dev/123ofaws/handbook/aws-quick-reference.md) | Fast interview and service-selection reference. |
 | [boto3-complete-guide.md](/Users/paramraghavan/dev/123ofaws/handbook/boto3-complete-guide.md) | Boto3 clients/resources, sessions, errors, pagination, waiters, and service examples. |
-| [complete-aws-data-engineering-handbook.md](/Users/paramraghavan/dev/123ofaws/handbook/complete-aws-data-engineering-handbook.md) | Broader AWS data engineering handbook. |
+| [complete-aws-data-engineering-handbook.md](/Users/paramraghavan/dev/123ofaws/handbook/aws_and_data_engineer/complete-aws-data-engineering-handbook.md) | Canonical full reference within the consolidated data engineering folder. |
 | [production-patterns-cookbook.md](/Users/paramraghavan/dev/123ofaws/handbook/production-patterns-cookbook.md) | Reusable production patterns for monitoring, cost, cross-account access, CloudFormation, and SSM. |
 | [troubleshooting-guide.md](/Users/paramraghavan/dev/123ofaws/handbook/troubleshooting-guide.md) | Common errors and debugging commands. |
 | [notes/aws_python_boto3_interview_handbook.md](/Users/paramraghavan/dev/123ofaws/handbook/notes/aws_python_boto3_interview_handbook.md) | Interview-oriented AWS/Python/Boto3 notes. |
@@ -81,6 +81,10 @@ Temporary credentials expire. Session length is requested with `DurationSeconds`
 duration. Role chaining is limited to 1 hour for the chained session.
 
 ## Local Testing
+
+Start with [LocalStack and Docker setup](aws_and_data_engineer/localstack-docker-setup.md) for installation, `lstk aws` commands, Boto3
+credentials, Docker Compose configuration, networking, persistence, and cleanup. This is the common setup for all
+local labs; real AWS CLI examples continue to use `aws` with an approved profile or role.
 
 Use LocalStack or a sandbox AWS account for destructive or billing-impacting examples. Before running snippets that
 create, modify, or delete resources, check:

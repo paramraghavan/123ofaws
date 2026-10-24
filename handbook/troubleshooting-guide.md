@@ -1036,23 +1036,19 @@ aws ec2 describe-instances --debug 2>&1 | head -20
 
 ### Use LocalStack for Local Testing
 
-Test without hitting real AWS:
+Test without hitting real AWS. For Windows installation, Python environment settings, Compose, and service-license
+requirements, see [LocalStack and Docker setup](aws_and_data_engineer/localstack-docker-setup.md). `lstk aws` configures only its child CLI
+process; the Boto3 example below supplies its own local credentials and endpoint.
 
 ```bash
-# Install LocalStack
-pip install localstack
-
-# Start LocalStack
-docker run -d -p 4566:4566 localstack/localstack
-
-# Use LocalStack endpoint
-export AWS_ENDPOINT_URL=http://localhost:4566
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=us-east-1
-
-# Now test locally
-aws s3 mb s3://my-bucket
+# Install Docker Desktop and start its engine first (macOS).
+brew install localstack/tap/lstk awscli
+lstk login
+lstk start --type aws
+lstk setup aws
+lstk status
+lstk aws s3 mb s3://my-bucket
+lstk aws s3 ls
 ```
 
 ```python

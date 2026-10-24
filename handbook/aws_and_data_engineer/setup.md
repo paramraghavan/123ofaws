@@ -1,414 +1,98 @@
-# Setup: Local AWS Development Environment
+# One-Time Mac Setup
 
-**Time**: 30 minutes
-**Goal**: Get LocalStack, Python, and boto3 working on your Mac/Windows
+Install and verify the Mac that will host Docker, LocalStack, and Jupyter. Your other computer needs only a browser.
+After these steps, continue to [remote Jupyter setup](jupyter-lan-setup.md).
 
----
+## Step 1: Install Docker Desktop
 
-## What You're Installing
-
-```
-Your Development Environment:
-
-┌─────────────────────────────────────────────────────────┐
-│                  YOUR LAPTOP                            │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │
-│  │  Python 3.9+ │  │   Docker     │  │   Code      │  │
-│  │              │  │              │  │   Editor    │  │
-│  │ ├─ boto3     │  │ ┌──────────┐ │  │ (VS Code)   │  │
-│  │ ├─ pandas    │  │ │LocalStack│ │  │             │  │
-│  │ ├─ requests  │  │ │┌───────┐ │ │  └─────────────┘  │
-│  │ └─ json      │  │ ││ S3    │ │ │                   │
-│  │              │  │ ││ Lambda│ │ │                   │
-│  │              │  │ ││ SQS   │ │ │                   │
-│  │              │  │ │└───────┘ │ │                   │
-│  │              │  │ └──────────┘ │                   │
-│  └──────────────┘  └──────────────┘                   │
-│                                                         │
-│  Terminal (bash/zsh)                                   │
-│  ├─ Run docker commands                               │
-│  ├─ Run Python scripts                                │
-│  └─ Use AWS CLI                                        │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Step 1: Install Docker
-
-### macOS
+Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) for your chip type, open it,
+and wait for the engine to be ready. Installing only `brew install docker` provides a client, not the Docker engine.
 
 ```bash
-# Install Docker via Homebrew
-brew install docker
-
-# Start Docker daemon
-# Either:
-# Option A: Open "Docker" app from Applications
-# Option B: Use Colima (lightweight alternative)
-brew install colima
-colima start
-
-# Verify Docker works
-docker --version
-# Output: Docker version 24.0.0
+docker info
+docker compose version
 ```
 
-### Windows
+## Step 2: Install Python, lstk, And AWS CLI
 
-1. Download Docker Desktop: https://www.docker.com/products/docker-desktop
-2. Install and restart computer
-3. Open PowerShell and verify:
-
-```powershell
-docker --version
-# Output: Docker version 24.0.0
-```
-
----
-
-## Step 2: Install Python & boto3
-
-### macOS
+With Homebrew available, run in Mac Terminal:
 
 ```bash
-# Check Python version
-python3 --version
-# Need: 3.9 or higher
-
-# Create project folder
+brew install python@3.11 localstack/tap/lstk awscli
 mkdir -p ~/my-aws-project
 cd ~/my-aws-project
-
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
+python3.11 -m venv venv
 source venv/bin/activate
-
-# Install AWS SDK
-pip install boto3
-
-# Install useful tools
-pip install pandas requests
-
-# Verify installation
-python3 << 'EOF'
-import boto3
-print(f"✓ boto3 version: {boto3.__version__}")
-EOF
+python -m pip install --upgrade pip
+python -m pip install boto3 pandas requests
+lstk --version
+aws --version
 ```
 
-### Windows (PowerShell)
-
-```powershell
-# Check Python version
-python --version
-# Need: 3.9 or higher
-
-# Create project folder
-mkdir $env:USERPROFILE\my-aws-project
-cd $env:USERPROFILE\my-aws-project
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1
-
-# Install AWS SDK
-pip install boto3 pandas requests
-
-# Verify installation
-python << 'EOF'
-import boto3
-print(f"✓ boto3 version: {boto3.__version__}")
-EOF
-```
-
----
+Use this project directory and virtual environment throughout the labs. Jupyter installation and kernel registration
+are covered once in [the notebook guide](jupyter-lan-setup.md#2-install-jupyter-in-the-macs-lab-environment).
 
 ## Step 3: Start LocalStack
 
-### Terminal 1: Start LocalStack Container
-
 ```bash
-# This downloads and starts LocalStack
-docker run -it -p 4566:4566 localstack/localstack
-
-# Wait for output:
-# ✓ LocalStack is running
-# ✓ Ready to handle requests on http://localhost:4566
+lstk login
+lstk start --type aws
+lstk setup aws
+lstk status
+lstk aws s3api list-buckets
 ```
 
-**Keep this terminal running!** (Don't close it)
+Current AWS emulator releases need a LocalStack account and suitable license; a real AWS account is unnecessary for
+these local exercises. `lstk` manages the background Docker container. `lstk aws` needs the installed AWS CLI;
+`lstk setup aws` creates its local profile. See [container configuration](localstack-docker-setup.md) if you prefer
+Compose, need persistence, or encounter service/license errors.
 
----
+## Step 4: Test S3 With Boto3
 
-## Step 4: Test Everything Works
+Run this in your activated environment, or save it as `test_setup.py` and run `python test_setup.py`:
 
-### Terminal 2: Create Test Script
-
-```bash
-# Open new terminal (keep Terminal 1 running)
-
-# Navigate to project folder
-cd ~/my-aws-project
-source venv/bin/activate  # Activate Python environment
-
-# Create test script
-cat > test_setup.py << 'EOF'
+```python
 import boto3
 
-print("Testing LocalStack Connection...")
-print("=" * 60)
-
-# Connect to LocalStack
 s3 = boto3.client(
     "s3",
     endpoint_url="http://localhost:4566",
     region_name="us-east-1",
     aws_access_key_id="test",
-    aws_secret_access_key="test"
+    aws_secret_access_key="test",
 )
+bucket = "test-bucket"
+if bucket not in {b["Name"] for b in s3.list_buckets()["Buckets"]}:
+    s3.create_bucket(Bucket=bucket)
+s3.put_object(Bucket=bucket, Key="test-file.txt", Body=b"Hello from LocalStack!")
+print(s3.get_object(Bucket=bucket, Key="test-file.txt")["Body"].read().decode())
+```
 
-print("✓ Connected to LocalStack")
+Expected output: `Hello from LocalStack!`. This checks S3 connectivity only, not every service.
 
-# Create a test bucket
-bucket_name = "test-bucket"
-s3.create_bucket(Bucket=bucket_name)
-print(f"✓ Created S3 bucket: {bucket_name}")
+## Step 5: Save The Local Python Environment
 
-# List buckets
-response = s3.list_buckets()
-buckets = [b['Name'] for b in response['Buckets']]
-print(f"✓ Buckets in LocalStack: {buckets}")
+Create this file in `~/my-aws-project` once. Its values are dummy credentials, not a LocalStack license token:
 
-# Upload a test file
-s3.put_object(
-    Bucket=bucket_name,
-    Key="test-file.txt",
-    Body=b"Hello from LocalStack!"
-)
-print(f"✓ Uploaded test file")
-
-# Download the file
-obj = s3.get_object(Bucket=bucket_name, Key="test-file.txt")
-content = obj['Body'].read().decode()
-print(f"✓ Downloaded file content: {content}")
-
-print("=" * 60)
-print("SUCCESS! LocalStack is fully working! 🎉")
+```bash
+cat > localstack.env <<'EOF'
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_ENDPOINT_URL=http://localhost:4566
+unset AWS_SESSION_TOKEN AWS_PROFILE
 EOF
-
-# Run test
-python3 test_setup.py
+source localstack.env
+mkdir -p notebooks data/input data/output scripts
 ```
 
-**Expected output:**
-```
-Testing LocalStack Connection...
-============================================================
-✓ Connected to LocalStack
-✓ Created S3 bucket: test-bucket
-✓ Buckets in LocalStack: ['test-bucket']
-✓ Uploaded test file
-✓ Downloaded file content: Hello from LocalStack!
-============================================================
-SUCCESS! LocalStack is fully working! 🎉
-```
+Source `localstack.env` in the Mac terminal before launching Jupyter so kernels inherit the settings. A separate
+`lstk aws` command does not configure an existing Python process. Keep this local-lab environment separate from real
+AWS sessions. Compose's token `.env` file serves a different purpose; do not put a license token in this file.
 
----
+## Step 6: Start The Remote Notebook Workflow
 
-## Step 5: Install AWS CLI (Optional but Recommended)
-
-```bash
-# Install AWS CLI
-pip install awscli-local
-
-# Configure AWS CLI for LocalStack
-aws configure --profile localstack
-
-# When prompted:
-# AWS Access Key ID: test
-# AWS Secret Access Key: test
-# Default region: us-east-1
-# Default output format: json
-
-# Test AWS CLI with LocalStack
-awslocal --profile localstack s3 ls
-
-# Should show: 2024-10-21 10:30:00 test-bucket
-```
-
----
-
-## Project Structure
-
-```
-~/my-aws-project/
-├─ venv/                          ← Python virtual environment
-│  └─ (auto-generated)
-│
-├─ test_setup.py                  ← Your test script
-│
-├─ data/                          ← Data files (create folder)
-│  ├─ sample.csv
-│  └─ input/
-│
-├─ scripts/                       ← Your Python scripts (create folder)
-│  ├─ lambda_validator.py
-│  ├─ lambda_processor.py
-│  └─ setup_resources.py
-│
-└─ README.md                      ← Project notes
-```
-
-**Create these folders:**
-
-```bash
-mkdir -p data/input data/output
-mkdir -p scripts
-```
-
----
-
-## Verify Everything
-
-```
-Your setup is complete when:
-
-┌────────────────────────────────────────┐
-│ ✓ Docker running (Terminal 1)          │
-│   docker run... localstack/localstack  │
-│                                        │
-│ ✓ Python virtual environment active    │
-│   source venv/bin/activate             │
-│                                        │
-│ ✓ boto3 installed and working          │
-│   import boto3 works                   │
-│                                        │
-│ ✓ LocalStack test passes               │
-│   S3 bucket created successfully       │
-│                                        │
-│ ✓ AWS CLI works (optional)             │
-│   awslocal s3 ls works                 │
-│                                        │
-│ ═════════════════════════════════════ │
-│         YOU'RE READY! 🚀               │
-└────────────────────────────────────────┘
-```
-
----
-
-## Common Issues & Fixes
-
-### Docker Won't Start
-
-```
-Error: Cannot connect to Docker daemon
-
-Solution:
-1. Make sure Docker Desktop is running
-2. On Mac: Open Applications > Docker.app
-3. On Windows: Open Docker Desktop from Start menu
-4. Wait 30 seconds for Docker to start
-```
-
-### Port 4566 Already in Use
-
-```
-Error: bind: address already in use
-
-Solution:
-# Find what's using port 4566
-lsof -i :4566
-
-# Kill that process
-kill -9 <PID>
-
-# Or use a different port
-docker run -it -p 4567:4566 localstack/localstack
-# Then use endpoint_url="http://localhost:4567"
-```
-
-### boto3 Import Error
-
-```
-Error: ModuleNotFoundError: No module named 'boto3'
-
-Solution:
-# Make sure venv is activated
-source venv/bin/activate
-
-# Reinstall boto3
-pip install boto3 --force-reinstall
-```
-
-### LocalStack Container Exits
-
-```
-Error: Container exited
-
-Solution:
-docker run -it -p 4566:4566 localstack/localstack
-
-# Add -d to run in background
-docker run -d -p 4566:4566 localstack/localstack
-
-# View logs
-docker logs <container_id>
-```
-
----
-
-## Daily Workflow
-
-```
-Every time you work on AWS projects:
-
-┌──────────────────────────────────────────┐
-│ Terminal 1: Start LocalStack             │
-│ $ docker run -it -p 4566:4566 \          │
-│   localstack/localstack                  │
-│                                          │
-│ [Keep this running]                      │
-└──────────────────────────────────────────┘
-                    ↓
-┌──────────────────────────────────────────┐
-│ Terminal 2: Work on your code            │
-│ $ cd ~/my-aws-project                    │
-│ $ source venv/bin/activate               │
-│ $ python3 my_script.py                   │
-│                                          │
-│ [Your scripts run here]                  │
-└──────────────────────────────────────────┘
-                    ↓
-                 Done?
-                    ↓
-         Terminal 2: Ctrl+C (quit script)
-         Terminal 1: Ctrl+C (stop LocalStack)
-```
-
----
-
-## You're Ready!
-
-```
-┌─────────────────────────────────────────┐
-│  ✓ Docker installed and running         │
-│  ✓ Python 3.9+ with boto3              │
-│  ✓ LocalStack working locally            │
-│  ✓ Test script passes                   │
-│                                         │
-│  Next: Read learn.md                    │
-│  ✓ S3 fundamentals                      │
-│  ✓ Lambda, SNS, SQS                     │
-│  ✓ Build your first pipeline            │
-└─────────────────────────────────────────┘
-```
-
-→ **Next: Open learn.md**
+Follow [Jupyter on the Mac, browser on another computer](jupyter-lan-setup.md) for password setup, LAN access, notebook
+cells, and daily start/stop commands. Keep `http://localhost:4566` inside notebooks because their Python runs on the Mac.
+For Docker issues use [container troubleshooting](localstack-docker-setup.md#daily-workflow-and-troubleshooting);
+for connection/kernel issues use [Jupyter troubleshooting](jupyter-lan-setup.md#10-troubleshooting).
